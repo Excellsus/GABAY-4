@@ -1,0 +1,472 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+/* Basic body reset and bottom padding for nav */
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif; /* Use Poppins */
+  background-color: #f9f9f9;
+  /* Remove body padding, handle spacing within .content */
+  /* padding-bottom: 70px; */
+}
+
+/* Fixed Header Styles */
+.header {
+  position: fixed; /* Make header fixed */
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #ffffff; /* White background */
+  color: #333;
+  padding: 10px 15px; /* Padding consistent with rooms.css/about.css */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  z-index: 1000; /* Ensure header stays on top */
+  display: flex; /* Use flexbox for layout */
+  justify-content: space-between; /* Space out title/subtitle and actions */
+  align-items: center; /* Vertically center items */
+  box-sizing: border-box; /* Include padding in width calculation */
+  height: 60px; /* Explicit height consistent with feedback.css/office_details.css */
+}
+
+.header-content {
+  flex-grow: 1; /* Allow title/subtitle area to take available space */
+}
+
+/* Adjust existing title/subtitle styles if needed within the fixed header context */
+.header .section-title {
+  margin: 0; /* Remove default margins */
+  font-size: 1.2em; /* Example size adjustment */
+  font-weight: bold;
+  color: #333; /* Reset color if needed */
+}
+
+.header .section-subtitle {
+  margin: 0; /* Remove default margins */
+  font-size: 0.9em; /* Example size adjustment */
+  color: #666;
+}
+
+/* Main container styles */
+.content {
+  position: fixed;
+  top: 60px; /* Header height */
+  left: 0;
+  right: 0;
+  bottom: 60px; /* Bottom nav height */
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* SVG outer container */
+.flex-grow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Floor plan container */
+.floor-plan-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  overflow: hidden;
+}
+
+/* SVG container */
+.svg-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  touch-action: none;
+}
+
+/* SVG element */
+#svg1,
+svg {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  display: block;
+  touch-action: none;
+}
+
+/* Room styles with improved touch targets */
+#svg1 path[id^="room"],
+svg path[id^="room"] {
+  transition: fill 0.2s ease, opacity 0.2s ease, stroke 0.2s ease;
+  stroke: none;
+  stroke-width: 1.07225;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(
+    0,
+    0,
+    0,
+    0
+  ); /* Remove tap highlight on iOS */
+  touch-action: none;
+}
+
+#svg1 path[id^="room"]:hover,
+svg path[id^="room"]:hover {
+  opacity: 0.85;
+}
+
+/* Active state for touch */
+#svg1 path[id^="room"]:active,
+svg path[id^="room"]:active {
+  opacity: 0.7;
+  stroke: #04aa6d;
+  stroke-width: 2;
+}
+
+/* Make room labels unselectable */
+.room-label {
+  fill: white;
+  stroke: black;
+  stroke-width: 0.5px;
+  font-weight: bold;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* SVG Pan Zoom Controls - Fixed size and consistent styling */
+.svg-pan-zoom-control {
+  background-color: rgba(26, 86, 50, 0.9) !important;
+  padding: 4px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  transition: opacity 0.2s !important;
+  touch-action: none;
+  position: absolute !important;
+  right: 10px !important;
+  z-index: 999 !important; /* Below drawer but above map */
+}
+
+/* Control background */
+.svg-pan-zoom-control-background {
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Control buttons container - consistent sizing */
+.svg-pan-zoom-control-zoom,
+.svg-pan-zoom-control-zoom-in,
+.svg-pan-zoom-control-zoom-out,
+.svg-pan-zoom-control-home {
+  width: 30px !important;
+  height: 30px !important;
+  position: relative !important;
+  display: block !important;
+  margin: 4px !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  background: rgba(26, 86, 50, 0.9) !important;
+  border-radius: 4px !important;
+  touch-action: none !important;
+}
+
+/* Control icons - consistent scaling */
+.svg-pan-zoom-control path {
+  fill: white !important;
+  transform: scale(0.025) !important;
+  transform-origin: center !important;
+}
+
+/* Fixed positioning for controls */
+.svg-pan-zoom-control-zoom-in {
+  top: 10px !important;
+}
+
+.svg-pan-zoom-control-zoom-out {
+  top: 45px !important;
+}
+
+.svg-pan-zoom-control-home {
+  top: 80px !important;
+}
+
+/* Hover effects */
+.svg-pan-zoom-control button:hover {
+  background-color: rgba(26, 86, 50, 1) !important;
+}
+
+/* Ensure SVG content is visible */
+svg g,
+svg path {
+  transform-origin: 0 0;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .svg-pan-zoom-control {
+    right: 5px !important;
+  }
+
+  .svg-pan-zoom-control-zoom,
+  .svg-pan-zoom-control-zoom-in,
+  .svg-pan-zoom-control-zoom-out,
+  .svg-pan-zoom-control-home {
+    width: 28px !important;
+    height: 28px !important;
+    margin: 3px !important;
+  }
+
+  .svg-pan-zoom-control path {
+    transform: scale(0.025) !important;
+  }
+}
+
+/* Bottom Navigation - Always on top */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #ffffff;
+  border-top: 1px solid #ccc;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px 0;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 1001; /* Above drawer */
+  height: 60px;
+  box-sizing: border-box;
+}
+
+/* Link Styles within Bottom Navigation */
+/* Link Styles within Bottom Navigation */
+.bottom-nav a {
+  text-decoration: none;
+  color: #333;
+  font-size: 12px;
+  text-align: center;
+  flex: 1;
+}
+
+/* Icon Styles within Bottom Navigation */
+/* Icon Styles within Bottom Navigation */
+.bottom-nav a i {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Active Link Styles */
+/* Active Link Styles */
+.bottom-nav a.active {
+  color: #04aa6d; /* Green color for active link */
+}
+
+/* Details Drawer - Overlay Style */
+.details-drawer {
+  position: fixed;
+  bottom: 60px; /* Space for bottom nav */
+  left: 0;
+  width: 100%;
+  background-color: #ffffff;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  height: 50vh;
+  max-height: calc(100vh - 120px); /* Account for header and nav */
+  transform: translateY(calc(100% - 40px));
+  transition: transform 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.details-drawer.dragging {
+  transition: none;
+}
+
+.drawer-handle {
+  height: 40px;
+  width: 100%;
+  cursor: grab;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background-color: #ffffff;
+  z-index: 2;
+  padding: 10px 0;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.drawer-handle::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 5px;
+  background-color: #cccccc;
+  border-radius: 3px;
+}
+
+.details-drawer:not(.dragging) .drawer-handle:active {
+  cursor: grabbing;
+}
+
+/* Scrollable content container */
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 20px;
+}
+
+/* Content inside the drawer */
+.location-info {
+  padding: 0px 20px;
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.location-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: #f0fdf4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid #04aa6d;
+  box-shadow: 0 2px 8px rgba(4, 170, 109, 0.15);
+}
+
+.location-title {
+  flex: 1;
+}
+
+.location-title h2 {
+  font-size: 1.2em;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+}
+
+#drawer-office-location-detail {
+  font-size: 0.95em;
+  color: #64748b;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#drawer-office-location-detail i {
+  color: #04aa6d;
+}
+
+#drawer-office-status {
+  margin-top: 4px;
+}
+
+/* Separator line */
+.location-info hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 8px 0 10px 0;
+}
+
+/* Details section */
+.details-section {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.detail-row i {
+  color: #04aa6d;
+  margin-top: 2px;
+  width: 16px;
+  text-align: center;
+}
+
+.detail-row > div {
+  flex: 1;
+}
+
+#drawer-office-details {
+  font-size: 0.95em;
+  color: #334155;
+}
+
+#drawer-office-contact {
+  font-size: 0.95em;
+  color: #475569;
+}
+
+#drawer-office-last-updated {
+  font-size: 0.95em;
+  color: #64748b;
+}
+
+/* Explore button container */
+.explore-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+#explore-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #04aa6d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 0.95em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(4, 170, 109, 0.15);
+  transition: all 0.2s;
+}
+
+#explore-btn:hover {
+  background: #038857;
+  box-shadow: 0 4px 12px rgba(4, 170, 109, 0.25);
+}
+
+/* Ensure SVG controls are visible */
+.svg-pan-zoom-control {
+  z-index: 999 !important;
+}

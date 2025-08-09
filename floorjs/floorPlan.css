@@ -1,0 +1,38 @@
+
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+      body {
+        font-family: "Poppins", sans-serif;
+      }
+      .sidebar-shadow {
+        box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.05),
+          2px 0 4px -1px rgba(0, 0, 0, 0.03);
+      }
+      .card-shadow {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+          0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      }
+
+      /* --- SVG Container Styles (Essential for Pan/Zoom) --- */
+      .floor-plan-container {
+        width: 100%;
+        height: 75vh; /* Adjust height as needed */
+        border: 1px solid #ccc; /* For debugging layout */
+        overflow: hidden; /* Important for svg-pan-zoom */
+        background-color: #f8f9fa; /* Light background for contrast */
+      }
+      #svg1 {
+        display: block; /* Helps with layout consistency */
+        width: 100%;
+        height: 100%;
+      }
+
+      /* --- Optional: Styles for rooms if you add interactions later --- */
+      #svg1 path[id^="room"] {
+          /* cursor: grab; */ /* Remove if not dragging */
+          transition: fill 0.2s ease, opacity 0.2s ease, stroke 0.2s ease;
+          stroke: none;
+          stroke-width: 1.07225;
+      }
+      #svg1 path[id^="room"]:hover {
+          opacity: 0.85; /* Basic hover feedback */
+      }

@@ -1,0 +1,133 @@
+/* c:/xampp/htdocs/FinalDev/filter-styles.css */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start; /* Align items to the top initially */
+  margin-bottom: 20px;
+  flex-wrap: wrap; /* Allow wrapping if filters take too much space */
+}
+
+.header > div:first-child {
+  /* The div containing h2 and p */
+  margin-right: 20px; /* Space between title/desc and filters */
+  flex-grow: 1; /* Allow it to take available space */
+  margin-bottom: 10px; /* Add some bottom margin in case it wraps before filters */
+}
+
+/* Filter Controls Styling */
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap; /* Allow filters to wrap on smaller screens */
+  gap: 15px; /* Space between filter items and action buttons */
+  align-items: flex-end; /* Align items to the bottom, especially useful for buttons and selects */
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column; /* Stack label on top of select */
+}
+
+.filter-label {
+  font-size: 0.875rem; /* 14px */
+  color: #4a5568; /* Tailwind gray-600 equivalent */
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e0; /* Tailwind gray-300 equivalent */
+  border-radius: 6px;
+  background-color: white;
+  font-size: 0.875rem;
+  min-width: 150px; /* Adjust as needed, or set specific widths */
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #4299e1; /* Tailwind blue-500 equivalent */
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.5);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center; /* Align buttons vertically if they have different heights */
+  /* If filter-items have varying heights and you want buttons at the very bottom of the flex line: */
+  /* align-self: flex-end; */
+}
+
+.filter-button,
+.reset-button {
+  padding: 8px 15px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  border: 1px solid transparent;
+  height: 38px; /* Match select height for better alignment */
+  box-sizing: border-box;
+}
+
+.filter-button {
+  background-color: #38a169; /* Tailwind green-600 equivalent */
+  color: white;
+  border-color: #38a169;
+}
+
+.filter-button:hover {
+  background-color: #2f855a; /* Tailwind green-700 equivalent */
+  border-color: #2f855a;
+}
+
+.reset-button {
+  background-color: #e2e8f0; /* Tailwind gray-200 equivalent */
+  color: #4a5568; /* Tailwind gray-700 equivalent */
+  border-color: #cbd5e0; /* Tailwind gray-300 equivalent */
+}
+
+.reset-button:hover {
+  background-color: #cbd5e0; /* Tailwind gray-300 equivalent */
+  color: #2d3748; /* Tailwind gray-800 equivalent */
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+  /* Adjust breakpoint as needed, e.g., 992px for more complex filter rows */
+  .header {
+    flex-direction: column;
+    align-items: stretch; /* Make both title block and filters full width */
+  }
+
+  .header > div:first-child {
+    margin-right: 0;
+    margin-bottom: 15px; /* Space below title/desc when stacked */
+  }
+
+  .filter-controls {
+    width: 100%; /* Make filter form take full width */
+    flex-direction: column; /* Stack filter items vertically */
+    align-items: stretch; /* Make filter items take full width */
+  }
+
+  .filter-item {
+    width: 100%; /* Each filter item takes full width */
+  }
+
+  .filter-select {
+    width: 100%; /* Selects take full width */
+    min-width: 0; /* Reset min-width */
+  }
+
+  .filter-actions {
+    width: 100%;
+    justify-content: flex-start; /* Align buttons to the start */
+    margin-top: 10px; /* Add some space above buttons when stacked */
+  }
+}

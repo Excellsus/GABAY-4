@@ -1,0 +1,96 @@
+{
+  "rooms": {
+    "room-1-1": {
+      "doorPoint": {"x": 130, "y": 90},
+      "nearestPathId": "path1"
+    },
+    "room-2-1": {
+      "doorPoint": {"x": 140, "y": 255},
+      "nearestPathId": "path1"
+    },
+    "room-3-1": {
+      "doorPoint": {"x": 185, "y": 370},
+      "nearestPathId": "path1"
+    },
+    "room-4-1": {
+      "doorPoint": {"x": 217, "y": 360},
+      "nearestPathId": "path1"
+    },
+    "room-5-1": {
+      "doorPoint": {"x": 235, "y": 345},
+      "nearestPathId": "path1"
+    }
+
+  },
+  "walkablePaths": [
+    {
+      "id": "path1",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 130, "y": 110},
+        {"x": 130, "y": 175},       
+        {"x": 165, "y": 175},
+        {"x": 165, "y": 255},
+        {"x": 165, "y": 340},
+        {"x": 185, "y": 340},
+        {"x": 220, "y": 340}
+ 
+      ]
+    },
+    {
+      "id": "path2",
+      "style": {
+        "color": "#2196F3",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#2196F3",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 467, "y": 220},
+        {"x": 615, "y": 220},
+        {"x": 767, "y": 220},
+        {"x": 850, "y": 220},
+        {"x": 851, "y": 130},
+
+        {"x": 880, "y": 130},
+        {"x": 950, "y": 130},
+        {"x": 1020, "y": 130},
+        {"x": 1045, "y": 130},
+        {"x": 1045, "y": 215},
+
+        {"x": 1084, "y": 215},
+        {"x": 1184, "y": 215},
+        {"x": 1313, "y": 215},
+        {"x": 1419, "y": 215},
+        {"x": 1449, "y": 215},
+
+        {"x": 1557, "y": 215},
+        {"x": 1685, "y": 215},
+        {"x": 1778, "y": 215},
+        {"x": 1778, "y": 170},
+        {"x": 1778, "y": 110}
+      ]
+    }
+  ]
+}

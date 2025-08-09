@@ -1,0 +1,1246 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+body {
+  font-family: "Poppins", sans-serif;
+}
+.sidebar-shadow {
+  box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.05),
+    2px 0 4px -1px rgba(0, 0, 0, 0.03);
+}
+.card-shadow {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* --- SVG Container Styles (Essential for Pan/Zoom) --- */
+.floor-plan-container {
+  width: 100%;
+  height: 75vh; /* Increased height for better visibility */
+  border: 1px solid #ccc;
+  overflow: hidden; /* Important for svg-pan-zoom */
+  background-color: #f8f9fa;
+  position: relative; /* Ensure relative positioning */
+  display: flex; /* Use flexbox */
+  align-items: center; /* Center vertically */
+  justify-content: center; /* Center horizontally */
+}
+
+#svg1 {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Style for svg-pan-zoom controls */
+.svg-pan-zoom-control {
+  background-color: #1a5632;
+  padding: 3px;
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.2s;
+}
+
+.svg-pan-zoom-control:hover {
+  opacity: 0.9;
+}
+
+.svg-pan-zoom-control-zoom-in,
+.svg-pan-zoom-control-zoom-out,
+.svg-pan-zoom-control-home {
+  fill: white;
+  cursor: pointer;
+}
+
+/* --- SVG Room Styles --- */
+/* General styles for all paths in g elements */
+g[id^="g"] path {
+  transition: fill 0.3s ease, opacity 0.3s ease, stroke 0.3s ease,
+    outline 0.3s ease;
+}
+
+/* Hover styles for room paths */
+g[id^="g"]:hover path {
+  opacity: 0.9;
+  stroke: #333;
+  stroke-width: 0.8px;
+}
+
+/* Active room interaction styles */
+.interactive-room {
+  cursor: pointer;
+  pointer-events: auto !important;
+}
+
+/* Specific targeting for room paths */
+path[id^="room-"] {
+  cursor: pointer;
+  /* Add the class programmatically */
+}
+
+/* Target specific room groups by their ID patterns */
+g[id^="g"] path[id^="room-"] {
+  cursor: pointer;
+}
+
+/* Ensure all paths within groups that are rooms have the pointer cursor */
+g[data-room="true"] path {
+  cursor: pointer !important;
+}
+
+/* Drag and drop related styles */
+/* When in edit mode, add a strong visual indicator */
+.edit-mode-active .floor-plan-container {
+  border: 2px solid #c62828;
+  box-shadow: 0 0 10px rgba(198, 40, 40, 0.3);
+}
+
+.edit-mode-active #edit-floorplan-btn {
+  background-color: #c62828 !important;
+  box-shadow: 0 0 5px rgba(198, 40, 40, 0.5);
+}
+
+/* Draggable indicator */
+.draggable {
+  cursor: move !important;
+}
+
+/* Style for active dragging */
+g[id^="g"].dragging {
+  opacity: 0.6 !important;
+}
+
+g[id^="g"].dragging path {
+  filter: brightness(1.2);
+}
+
+/* Style for potential drop targets */
+g[id^="g"].drag-target {
+  outline: 2px dashed #1a5632;
+  outline-offset: 2px;
+}
+
+g[id^="g"].drag-target path {
+  stroke: #1a5632 !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 4;
+  animation: pulse 1s infinite alternate;
+}
+
+/* Pulse animation for drop targets */
+@keyframes pulse {
+  from {
+    stroke-opacity: 0.5;
+  }
+  to {
+    stroke-opacity: 1;
+  }
+}
+
+/* Inactive rooms styling */
+.room-inactive {
+  fill: #cccccc !important;
+  stroke: #999999 !important;
+  opacity: 0.7 !important;
+}
+
+.text-label-inactive {
+  fill: #888888 !important;
+  opacity: 0.7 !important;
+}
+
+/* Tooltip styling */
+#floorplan-tooltip {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+  color: white !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  z-index: 9999 !important;
+  pointer-events: none !important;
+  transition: opacity 0.2s ease-in-out !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  max-width: 200px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Edit button styling */
+#edit-floorplan-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 100;
+  padding: 8px 15px;
+  background-color: #1a5632;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#edit-floorplan-btn:hover {
+  background-color: #0d3018;
+  transform: translateY(-2px);
+}
+
+#edit-floorplan-btn:active {
+  transform: translateY(0);
+}
+
+/* General Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  background-color: #e8f5e9;
+  color: #333;
+}
+
+.container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  background-color: #1a5632;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.05),
+    2px 0 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #0d3018;
+}
+
+.logo {
+  background-color: #ffd700;
+  padding: 0; /* remove padding so image fits exactly */
+  border-radius: 50%;
+  margin-right: 10px;
+  width: 50px; /* fixed size to keep it circular */
+  height: 50px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  stroke: #0d3018;
+}
+
+.sidebar-header h1 {
+  margin: 0;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.sidebar-header p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.sidebar-nav {
+  padding: 16px;
+}
+
+.sidebar-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 12px 16px;
+  color: rgba(232, 245, 233, 0.9);
+  text-decoration: none;
+  transition: background 0.2s ease;
+  border-radius: 8px;
+}
+
+.sidebar-nav a:hover {
+  background-color: rgba(13, 48, 24, 0.5);
+}
+
+.sidebar-nav a.active {
+  background-color: #0d3018;
+  color: white;
+}
+
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  border-top: 1px solid #0d3018;
+  padding: 15px 20px;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  background-color: #ffd700;
+  color: #0d3018;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  margin-right: 10px;
+}
+
+.profile p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.profile span {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 32px;
+  background-color: #e8f5e9;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.header h2 {
+  margin: 0 0 5px;
+  font-size: 24px;
+  color: #333;
+}
+
+.header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.search-container {
+  position: relative;
+}
+
+.search-container input {
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 250px;
+  font-family: "Poppins", sans-serif;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.search-container input:focus {
+  border-color: #1a5632;
+  box-shadow: 0 0 0 2px rgba(26, 86, 50, 0.2);
+}
+
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  stroke: #888;
+}
+
+.notification {
+  background: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.notification .icon {
+  width: 20px;
+  height: 20px;
+  stroke: #666;
+}
+
+.avatar.small {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  background-color: #1a5632;
+  color: white;
+}
+
+/* Cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.card {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.card.green {
+  border-left: 4px solid #1a5632;
+}
+
+.card.yellow {
+  border-left: 4px solid #ffd700;
+}
+
+.card.purple {
+  border-left: 4px solid #9c27b0;
+}
+
+.card-left p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.card-left h3 {
+  margin: 8px 0 10px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.growth,
+.rating {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.growth {
+  color: #22c55e;
+}
+
+.rating {
+  color: #666;
+}
+
+.growth-icon {
+  width: 14px;
+  height: 14px;
+  stroke: #22c55e;
+}
+
+.star-icon {
+  width: 14px;
+  height: 14px;
+  fill: #ffd700;
+}
+
+.card-right {
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card.green .card-right {
+  background-color: rgba(26, 86, 50, 0.1);
+}
+
+.card.yellow .card-right {
+  background-color: rgba(255, 215, 0, 0.1);
+}
+
+.card.purple .card-right {
+  background-color: rgba(156, 39, 176, 0.1);
+}
+
+.card.green .card-right .icon {
+  stroke: #1a5632;
+}
+
+.card.yellow .card-right .icon {
+  stroke: #c19700;
+}
+
+.card.purple .card-right .icon {
+  stroke: #9c27b0;
+}
+
+.icon.large {
+  width: 28px;
+  height: 28px;
+}
+
+/* Content Area */
+.content-area {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.activity-panel,
+.actions-panel {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.panel-header h3,
+.actions-panel h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.view-all {
+  background: none;
+  border: none;
+  color: #1a5632;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.view-all:hover {
+  text-decoration: underline;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 0;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  stroke: #ccc;
+  margin: 0 auto;
+}
+
+.empty-state h4 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+  color: #555;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+  color: #888;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.action-button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background-color: #e8f5e9;
+  border: none;
+  border-radius: 8px;
+  font-family: "Poppins", sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: #1a5632;
+  color: white;
+}
+
+.action-button:hover .action-icon {
+  stroke: white;
+}
+
+.action-icon {
+  width: 18px;
+  height: 18px;
+  stroke: #1a5632;
+}
+/* Adjust chart container size */
+.activity-panel,
+.actions-panel {
+  margin-bottom: 2rem;
+}
+
+/* Set max width and make the charts responsive */
+#topOfficesChart,
+#visitorLogChart {
+  width: 100%;
+  max-width: 800px; /* Optional: You can limit the width */
+  height: auto; /* Let height adjust proportionally */
+  margin: 0 auto; /* Center the charts */
+}
+
+/* For custom height adjustment */
+#topOfficesChart {
+  height: 300px; /* Customize height as needed */
+}
+
+#visitorLogChart {
+  height: 250px; /* Customize height as needed */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .content-area {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    position: static;
+  }
+
+  .sidebar-footer {
+    position: static;
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .search-container {
+    flex-grow: 1;
+  }
+
+  .search-container input {
+    width: 100%;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .main-footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    border-top: 1px solid #0d3018;
+    padding: 15px 20px;
+  }
+
+  .main-text {
+    display: flex;
+    align-items: center;
+  }
+
+  .mainContent {
+    width: 40px;
+    height: 40px;
+    background-color: #ffd700;
+    color: #0d3018;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 600;
+    margin-right: 10px;
+  }
+}
+/* Dark Mode Styles */
+body.dark-mode {
+  background-color: #121212; /* Dark background for the body */
+  color: #ffffff; /* Light text color */
+}
+
+body.dark-mode .sidebar {
+  background-color: #1e1e1e; /* Dark sidebar */
+}
+
+body.dark-mode .gabay-card {
+  background-color: #333; /* Dark card background */
+  color: #fff; /* Light text in cards */
+}
+
+/* Other UI changes for dark mode */
+body.dark-mode .gabay-btn {
+  background-color: #444; /* Button dark color */
+}
+
+body.dark-mode .gabay-btn:hover {
+  background-color: #666; /* Button hover effect */
+}
+/*pannel*/
+/* In c:\xampp\htdocs\FinalDev\css\floorPlan.css (or similar) */
+
+/* Basic styling for the right-side panel */
+.office-details-panel {
+  position: fixed;
+  top: 0;
+  right: -320px; /* Start off-screen, adjust width + padding */
+  width: 280px; /* Panel width */
+  height: 100%;
+  background-color: #f9f9f9;
+  border-left: 1px solid #ddd;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  transition: right 0.3s ease-in-out;
+  z-index: 1000; /* Ensure it's above other content */
+  font-family: Arial, sans-serif;
+  overflow-y: auto; /* Allow scrolling if content is too long */
+}
+
+.office-details-panel.open {
+  right: 0; /* Slide in */
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 1000 !important;
+}
+
+.office-details-panel h3 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.close-panel-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #aaa;
+}
+.close-panel-btn:hover {
+  color: #333;
+}
+
+.panel-section {
+  margin-bottom: 20px;
+}
+
+.panel-section h4 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #555;
+  font-size: 0.95em;
+  font-weight: bold;
+}
+.panel-section p {
+  font-size: 0.9em;
+  color: #444;
+  margin-top: 0;
+}
+
+/* Toggle Switch CSS */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: #4caf50; /* Green for active */
+}
+input:not(:checked) + .slider {
+  background-color: #f44336; /* Red for inactive */
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196f3; /* Blue focus, or match active/inactive */
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(22px);
+  -ms-transform: translateX(22px);
+  transform: translateX(22px);
+}
+
+.slider.round {
+  border-radius: 28px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+#office-status-text {
+  vertical-align: middle;
+  font-weight: bold;
+}
+/* Ensure this is in your c:\xampp\htdocs\FinalDev\css\floorPlan.css */
+
+/* Style for inactive rooms on the SVG */
+.room-inactive {
+  /* This class is applied to the <path> element */
+  fill: #cccccc !important; /* Light grey for inactive rooms */
+  stroke: #999999 !important; /* Darker grey stroke */
+  /* Add other styles if needed, e.g., opacity */
+}
+
+/* Style for the text label of an inactive room */
+/* We'll apply a class directly to the tspan/text for more control */
+.text-label-inactive {
+  fill: #888888 !important; /* Dim the text of inactive rooms */
+  /* text-decoration: line-through; */ /* Optional: strike-through */
+}
+
+/* Add CSS styles for the edit mode and hover effects */
+
+/* Edit mode indicator */
+.edit-mode-active {
+  cursor: default;
+}
+
+.floor-plan-container.edit-mode-active {
+  border: 2px dashed #1a5632;
+  background-color: rgba(232, 245, 233, 0.2);
+}
+
+/* Edit mode message */
+.edit-mode-message {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1a5632;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Room hover and dragging styles */
+.draggable {
+  cursor: move;
+}
+
+.room-hover {
+  filter: brightness(1.2);
+  outline: 2px dashed #1a5632;
+  outline-offset: 2px;
+}
+
+.dragging {
+  cursor: grabbing;
+  filter: brightness(0.8);
+  outline: 2px solid #1a5632;
+}
+
+.drag-target {
+  outline: 3px dashed #ffd700;
+  filter: brightness(1.3);
+  cursor: crosshair;
+}
+
+/* Existing styles for the floor plan */
+
+/* Tooltip styles */
+#floorplan-tooltip {
+  position: absolute;
+  background-color: rgba(26, 86, 50, 0.9);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Office details panel */
+.office-details-panel {
+  position: absolute;
+  top: 20px;
+  right: -300px;
+  width: 280px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  z-index: 50;
+  transition: right 0.3s ease;
+}
+
+.office-details-panel.open {
+  right: 20px;
+}
+
+.close-panel-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+}
+
+.panel-section {
+  margin-bottom: 15px;
+}
+
+.panel-section h4 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #1a5632;
+}
+
+/* Toggle switch for office status */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: #1a5632;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #1a5632;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Card shadow for the floor plan container */
+.card-shadow {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure room elements are above other elements */
+g[data-room="true"] path,
+g[data-room="true"] rect {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  display: flex;
+}
+
+.modal-dialog {
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  transform: translateY(-20px);
+  transition: transform 0.3s;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-overlay.active .modal-dialog {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: #1a5632;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #333;
+}
+
+.modal-body {
+  color: #555;
+  line-height: 1.5;
+}
+
+/* Update panel section styles for modal */
+.panel-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.panel-section h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #1a5632;
+  font-size: 1.1em;
+}
+
+/* Preserve existing switch styles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: #1a5632;
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+#office-status-text {
+  vertical-align: middle;
+  font-weight: 500;
+}
+
+/* --- Pathfinding Highlight Styles --- */
+.path-highlight {
+  stroke: #FF0000 !important; /* Bright red instead of gold */
+  stroke-width: 8 !important; /* Thicker stroke */
+  opacity: 1 !important; /* Full opacity */
+  fill: rgba(255, 0, 0, 0.3) !important; /* Add red fill with transparency */
+}
+
+.path-line {
+  stroke: #FF0000 !important;
+  stroke-width: 4 !important;
+  stroke-dasharray: 10, 5 !important;
+  opacity: 0.8 !important;
+  animation: dash 2s linear infinite !important;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -15;
+  }
+}
+
+.selected-room {
+  stroke: #1976d2 !important;
+  stroke-width: 6 !important;
+}
