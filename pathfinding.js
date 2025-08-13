@@ -51,12 +51,18 @@ function getDistance(point1, point2) {
 }
 
 // Function to reload graph data
-function reloadGraphData() {
-    return fetch('floor_graph.json?' + new Date().getTime())
-        .then(res => res.json())
+function reloadGraphData(floor) {
+    const graphFile = `floor_graph_${floor}.json`;
+    return fetch(graphFile + '?' + new Date().getTime())
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`Could not fetch ${graphFile}`);
+            }
+            return res.json();
+        })
         .then(data => {
             floorGraph = data;
-            console.log("Reloaded floor graph:", floorGraph);
+            console.log(`Reloaded floor graph for floor ${floor}:`, floorGraph);
             
             // Clear existing paths first
             const svg = document.querySelector('svg');
@@ -81,6 +87,14 @@ function reloadGraphData() {
                         drawWalkablePath(path);
                     }
                 });
+                
+                // Draw door points for easy adjustment
+                if (floorGraph.rooms) {
+                    drawDoorPoints(floorGraph.rooms);
+                }
+                
+                // Initialize room selection after paths are drawn
+                initRoomSelection();
             }
             return floorGraph;
         })
@@ -192,74 +206,178 @@ function drawWalkablePath(walkablePath) {
 
         // Add markers for each point
         points.forEach((point, index) => {
-            const marker = document.createElementNS(svgNS, 'circle');
-            marker.setAttribute('cx', point.x);
-            marker.setAttribute('cy', point.y);
-            marker.setAttribute('r', walkablePath.style.pointMarker.radius);
-            marker.setAttribute('fill', walkablePath.style.pointMarker.color);
-            marker.setAttribute('stroke', walkablePath.style.pointMarker.strokeColor);
-            marker.setAttribute('stroke-width', walkablePath.style.pointMarker.strokeWidth);
-            marker.setAttribute('vector-effect', 'non-scaling-stroke');
-            marker.setAttribute('class', `path-marker point-marker point-${index}`);
-            marker.setAttribute('data-path-id', walkablePath.id);
-            marker.setAttribute('data-point-index', index);
-            
-            // Make markers interactive
-            marker.style.cursor = 'pointer';
-            marker.style.pointerEvents = 'all';
-            
-            // Add hover effect
-            marker.addEventListener('mouseenter', () => {
-                marker.setAttribute('fill', walkablePath.style.pointMarker.hoverColor);
-                marker.setAttribute('r', walkablePath.style.pointMarker.radius * 1.5);
-            });
-            
-            marker.addEventListener('mouseleave', () => {
-                marker.setAttribute('fill', walkablePath.style.pointMarker.color);
+            // Only create a clickable marker if the point is a panorama point
+            if (point.isPano) {
+                const marker = document.createElementNS(svgNS, 'circle');
+                marker.setAttribute('cx', point.x);
+                marker.setAttribute('cy', point.y);
                 marker.setAttribute('r', walkablePath.style.pointMarker.radius);
-            });
-            
-            markerGroup.appendChild(marker);
+                marker.setAttribute('fill', walkablePath.style.pointMarker.color);
+                marker.setAttribute('stroke', walkablePath.style.pointMarker.strokeColor);
+                marker.setAttribute('stroke-width', walkablePath.style.pointMarker.strokeWidth);
+                marker.setAttribute('vector-effect', 'non-scaling-stroke');
+                marker.setAttribute('class', `path-marker point-marker point-${index}`);
+                marker.setAttribute('data-path-id', walkablePath.id);
+                marker.setAttribute('data-point-index', index);
+                
+                // Make markers interactive
+                marker.style.cursor = 'pointer';
+                marker.style.pointerEvents = 'all';
+                
+                // Add hover effect
+                marker.addEventListener('mouseenter', () => {
+                    marker.setAttribute('fill', walkablePath.style.pointMarker.hoverColor);
+                    marker.setAttribute('r', walkablePath.style.pointMarker.radius * 1.5);
+                });
+                
+                marker.addEventListener('mouseleave', () => {
+                    marker.setAttribute('fill', walkablePath.style.pointMarker.color);
+                    marker.setAttribute('r', walkablePath.style.pointMarker.radius);
+                });
+
+                // Add a click listener for the admin to edit the panorama
+                marker.addEventListener('click', () => {
+                    console.log('Clicked panorama point:', point);
+                    // You can add your logic here to open a modal to upload/change the equirectangular image
+                    alert(`Panorama Point Clicked!\nCoordinates: (${point.x}, ${point.y})\nImage: ${point.panoImage || 'Not set'}`);
+                });
+                
+                markerGroup.appendChild(marker);
+            }
         });
     }
+}
+
+// Function to draw door points for easy adjustment
+function drawDoorPoints(rooms) {
+    console.log('Drawing door points for adjustment...', rooms);
+    const svg = document.querySelector('svg');
+    if (!svg) {
+        console.error('SVG element not found');
+        return;
+    }
+    const svgNS = "http://www.w3.org/2000/svg";
+    let mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g');
+    if (!mainGroup) {
+        mainGroup = document.createElementNS(svgNS, 'g');
+        svg.appendChild(mainGroup);
+    }
+
+    let doorPointGroup = mainGroup.querySelector('#door-point-group');
+    if (!doorPointGroup) {
+        doorPointGroup = document.createElementNS(svgNS, 'g');
+        doorPointGroup.setAttribute('id', 'door-point-group');
+        mainGroup.appendChild(doorPointGroup);
+    }
+    // Clear existing door points to avoid duplicates on reload
+    doorPointGroup.innerHTML = '';
+
+    for (const roomId in rooms) {
+        const room = rooms[roomId];
+        console.log(`Checking room ${roomId}:`, room);
+        
+        const doorPoints = room.doorPoints || (room.doorPoint ? [room.doorPoint] : []);
+
+        if (doorPoints.length > 0 && room.style && room.style.pointMarker) {
+            const style = room.style.pointMarker;
+
+            doorPoints.forEach((doorPoint, index) => {
+                console.log(`Drawing door point for ${roomId} at (${doorPoint.x}, ${doorPoint.y})`);
+
+                const marker = document.createElementNS(svgNS, 'circle');
+                marker.setAttribute('cx', doorPoint.x);
+                marker.setAttribute('cy', doorPoint.y);
+                marker.setAttribute('r', style.radius || 8);
+                marker.setAttribute('fill', style.color || 'red');
+                marker.setAttribute('stroke', style.strokeColor || '#000');
+                marker.setAttribute('stroke-width', style.strokeWidth || 2);
+                marker.setAttribute('vector-effect', 'non-scaling-stroke');
+                marker.setAttribute('class', 'door-point-marker-highlight');
+                marker.setAttribute('id', `door-point-${roomId}-${index}`);
+
+                // Add hover effect for better interaction
+                marker.addEventListener('mouseenter', () => {
+                    marker.setAttribute('fill', style.hoverColor || '#FF0000');
+                    marker.setAttribute('r', (style.radius || 8) * 1.2);
+                });
+                
+                marker.addEventListener('mouseleave', () => {
+                    marker.setAttribute('fill', style.color || 'red');
+                    marker.setAttribute('r', style.radius || 8);
+                });
+
+                doorPointGroup.appendChild(marker);
+                console.log(`Successfully added door point marker for ${roomId}`);
+            });
+        } else {
+            console.log(`Skipping room ${roomId} - no door points or style found`);
+        }
+    }
+    console.log('Finished drawing door points');
 }
 
 // Initialize everything when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing pathfinding and room selection...');
 
-    // Initialize pathfinding
-    const initPathfinding = () => {
-        fetch('floor_graph.json?' + new Date().getTime())
-            .then(res => res.json())
-            .then(data => {
-                floorGraph = data;
-                console.log("Loaded floor graph:", floorGraph);
-                if (floorGraph.walkablePaths && Array.isArray(floorGraph.walkablePaths)) {
-                    console.log(`Found ${floorGraph.walkablePaths.length} paths to draw`);
-                    floorGraph.walkablePaths.forEach((path, index) => {
-                        if (path.pathPoints && path.pathPoints.length > 0) {
-                            console.log(`Drawing path ${index + 1}:`, path.id);
-                            drawWalkablePath(path);
-                        }
-                    });
-                    
-                    // Initialize room selection after paths are drawn
-                    initRoomSelection();
-                }
-            })
-            .catch(error => {
-                console.error('Error loading floor graph:', error);
-            });
-    };
+    // Listen for floor changes
+    window.addEventListener('floorMapLoaded', (event) => {
+        const floor = event.detail.floor;
+        console.log(`Floor map loaded for floor ${floor}, initializing pathfinding...`);
+        initPathfinding(floor);
+    });
 
-    // Start initialization
-    if (window.panZoom) {
-        initPathfinding();
-    } else {
-        window.addEventListener('panZoomReady', initPathfinding);
-    }
+    // Initial load for the default floor (floor 1)
+    initPathfinding(1);
 });
+
+// Initialize pathfinding for a specific floor
+const initPathfinding = (floor) => {
+    let graphFile = `floor_graph.json`; // Default to 1st floor
+    if (floor === 2) {
+        graphFile = 'floor_graph_2.json';
+    } else if (floor === 3) {
+        graphFile = 'floor_graph_3.json'; // Example for 3rd floor
+    }
+
+    fetch(graphFile + '?' + new Date().getTime())
+        .then(res => {
+            if (!res.ok) throw new Error(`Failed to load ${graphFile}`);
+            return res.json();
+        })
+        .then(data => {
+            floorGraph = data;
+            console.log(`Loaded floor graph for floor ${floor}:`, floorGraph);
+            if (floorGraph.walkablePaths && Array.isArray(floorGraph.walkablePaths)) {
+                console.log(`Found ${floorGraph.walkablePaths.length} paths to draw`);
+                
+                // Clear previous paths before drawing new ones
+                const svg = document.querySelector('svg');
+                if (svg) {
+                    const pathGroup = svg.querySelector('#walkable-path-group');
+                    if (pathGroup) pathGroup.innerHTML = ''; // Clear old paths
+                }
+
+                floorGraph.walkablePaths.forEach((path, index) => {
+                    if (path.pathPoints && path.pathPoints.length > 0) {
+                        console.log(`Drawing path ${index + 1}:`, path.id);
+                        drawWalkablePath(path);
+                    }
+                });
+                
+                // Draw door points for easy adjustment
+                if (floorGraph.rooms) {
+                    drawDoorPoints(floorGraph.rooms);
+                }
+                
+                // Initialize room selection after paths are drawn
+                initRoomSelection();
+            }
+        })
+        .catch(error => {
+            console.error(`Error loading floor graph for floor ${floor}:`, error);
+        });
+};
 
 // Initialize room selection - moved outside DOMContentLoaded so it can be called after floor changes
 function initRoomSelection() {
@@ -272,7 +390,7 @@ function initRoomSelection() {
 }
 
 // Room click handler - separated for easier management
-function roomClickHandler() {
+function roomClickHandler(event) {
     const roomId = this.id;
     console.log('Room clicked:', roomId);
 
@@ -304,6 +422,33 @@ function roomClickHandler() {
         return;
     }
 
+    const doorPoints = clickedRoom.doorPoints || (clickedRoom.doorPoint ? [clickedRoom.doorPoint] : []);
+
+    if (doorPoints.length === 0) {
+        console.error('No door points found for this room');
+        return;
+    }
+
+    // Find the nearest door point on the clicked room to the click event
+    const rect = this.getBoundingClientRect();
+    const svg = this.closest('svg');
+    const pt = svg.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    
+    let nearestDoorPoint = doorPoints[0];
+    if (doorPoints.length > 1) {
+        let minDistance = Infinity;
+        doorPoints.forEach(doorPoint => {
+            const distance = getDistance({x: svgP.x, y: svgP.y}, doorPoint);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestDoorPoint = doorPoint;
+            }
+        });
+    }
+
     // Find nearest point on the path for clicked room
     const clickedPath = floorGraph.walkablePaths.find(p => p.id === clickedRoom.nearestPathId);
     if (!clickedPath) {
@@ -311,7 +456,7 @@ function roomClickHandler() {
         return;
     }
 
-    const clickedPathPoint = findNearestPointOnPath(clickedRoom.doorPoint, clickedPath.pathPoints);
+    const clickedPathPoint = findNearestPointOnPath(nearestDoorPoint, clickedPath.pathPoints);
 
     // Clear existing paths
     clearAllPaths();
@@ -319,7 +464,7 @@ function roomClickHandler() {
     if (selectedRooms.length === 1) {
         // Just show connection to nearest path for first room
         drawCompletePath([
-            clickedRoom.doorPoint,
+            nearestDoorPoint,
             clickedPathPoint
         ]);
     } else if (selectedRooms.length === 2) {
@@ -327,24 +472,70 @@ function roomClickHandler() {
         const startRoom = floorGraph.rooms[startRoomId];
         const endRoom = floorGraph.rooms[endRoomId];
         
-        const startPath = floorGraph.walkablePaths.find(p => p.id === startRoom.nearestPathId);
-        const endPath = floorGraph.walkablePaths.find(p => p.id === endRoom.nearestPathId);
+        const startDoors = startRoom.doorPoints || [startRoom.doorPoint];
+        const endDoors = endRoom.doorPoints || [endRoom.doorPoint];
+
+        // Find the optimal door pair based on shortest PATH distance, not direct distance
+        let bestStartDoor = startDoors[0];
+        let bestEndDoor = endDoors[0];
+        let shortestPathDistance = Infinity;
+
+        console.log('Evaluating door combinations based on path distance:');
+        for (const startDoor of startDoors) {
+            for (const endDoor of endDoors) {
+                // Get the paths for each door
+                const startPathId = startDoor.nearestPathId || startRoom.nearestPathId;
+                const endPathId = endDoor.nearestPathId || endRoom.nearestPathId;
+                
+                const startPath = floorGraph.walkablePaths.find(p => p.id === startPathId);
+                const endPath = floorGraph.walkablePaths.find(p => p.id === endPathId);
+                
+                if (startPath && endPath) {
+                    // Calculate path distance by finding nearest points on each path and calculating route
+                    const startPathPoint = findNearestPointOnPath(startDoor, startPath.pathPoints);
+                    const endPathPoint = findNearestPointOnPath(endDoor, endPath.pathPoints);
+                    
+                    // Calculate total distance: door->path + path traversal + path->door
+                    const doorToPathDist = getDistance(startDoor, startPathPoint);
+                    const pathToPathDist = getDistance(startPathPoint, endPathPoint);
+                    const pathToDoorDist = getDistance(endPathPoint, endDoor);
+                    const totalPathDistance = doorToPathDist + pathToPathDist + pathToDoorDist;
+                    
+                    console.log(`Start(${startDoor.x}, ${startDoor.y})[${startPathId}] to End(${endDoor.x}, ${endDoor.y})[${endPathId}] = ${totalPathDistance.toFixed(2)}`);
+                    
+                    if (totalPathDistance < shortestPathDistance) {
+                        shortestPathDistance = totalPathDistance;
+                        bestStartDoor = startDoor;
+                        bestEndDoor = endDoor;
+                    }
+                }
+            }
+        }
+
+        console.log(`Selected optimal doors: Start(${bestStartDoor.x}, ${bestStartDoor.y}) End(${bestEndDoor.x}, ${bestEndDoor.y}) Path Distance: ${shortestPathDistance.toFixed(2)}`);
+
+        // Get the nearest path for each selected door
+        const startPathId = bestStartDoor.nearestPathId || startRoom.nearestPathId;
+        const endPathId = bestEndDoor.nearestPathId || endRoom.nearestPathId;
+        
+        const startPath = floorGraph.walkablePaths.find(p => p.id === startPathId);
+        const endPath = floorGraph.walkablePaths.find(p => p.id === endPathId);
         
         if (!startPath || !endPath) {
-            console.error('Path not found');
+            console.error('One of the paths not found');
             return;
         }
-        
-        const startPathPoint = findNearestPointOnPath(startRoom.doorPoint, startPath.pathPoints);
-        const endPathPoint = findNearestPointOnPath(endRoom.doorPoint, endPath.pathPoints);
+
+        const startPathPoint = findNearestPointOnPath(bestStartDoor, startPath.pathPoints);
+        const endPathPoint = findNearestPointOnPath(bestEndDoor, endPath.pathPoints);
         
         // Draw complete path including door connections
         drawCompletePath([
-            startRoom.doorPoint,
+            bestStartDoor,
             startPathPoint,
             ...getPathBetweenPoints(startPathPoint, endPathPoint, floorGraph.walkablePaths),
             endPathPoint,
-            endRoom.doorPoint
+            bestEndDoor
         ]);
     }
 }
@@ -561,34 +752,76 @@ function getPathBetweenPoints(start, end, walkablePaths) {
                 Math.abs(previousPoint.y - point.y) < 1) {
                 return;
             }
-            
-            // Create point if it doesn't exist
+
+            // Initialize the point in the graph if it doesn't exist
             if (!graph[pointId]) {
                 graph[pointId] = {
-                    x: point.x,
-                    y: point.y,
+                    x: roundedX,
+                    y: roundedY,
                     neighbors: {}
                 };
             }
-            
-            // Connect to previous point if it exists
+
+            // Connect to the previous point in this path (bidirectional)
             if (previousPoint) {
-                const prevId = `${Math.round(previousPoint.x)},${Math.round(previousPoint.y)}`;
-                const distance = getDistance(point, previousPoint);
+                const prevPointId = `${Math.round(previousPoint.x * 100) / 100},${Math.round(previousPoint.y * 100) / 100}`;
+                const distance = Math.sqrt(Math.pow(point.x - previousPoint.x, 2) + Math.pow(point.y - previousPoint.y, 2));
                 
-                // Add bidirectional connections
-                graph[pointId].neighbors[prevId] = distance;
-                graph[prevId].neighbors[pointId] = distance;
+                graph[pointId].neighbors[prevPointId] = distance;
+                if (graph[prevPointId]) {
+                    graph[prevPointId].neighbors[pointId] = distance;
+                }
             }
-            
+
             previousPoint = point;
-            processedPoints.add(pointId);
         });
     });
-    
+
+    // Add connections from pathConnections if they exist in the floor graph
+    if (floorGraph.pathConnections) {
+        Object.keys(floorGraph.pathConnections).forEach(intersectionPoint => {
+            const connectedPaths = floorGraph.pathConnections[intersectionPoint];
+            
+            // For each intersection, connect all points that share this coordinate
+            // across different paths
+            connectedPaths.forEach(pathId1 => {
+                connectedPaths.forEach(pathId2 => {
+                    if (pathId1 !== pathId2) {
+                        // Find the actual point coordinate in both paths
+                        const path1 = walkablePaths.find(p => p.id === pathId1);
+                        const path2 = walkablePaths.find(p => p.id === pathId2);
+                        
+                        if (path1 && path2) {
+                            const [x, y] = intersectionPoint.split(',').map(Number);
+                            
+                            // Find matching points in both paths
+                            const point1 = path1.pathPoints.find(p => 
+                                Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < 1
+                            );
+                            const point2 = path2.pathPoints.find(p => 
+                                Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < 1
+                            );
+                            
+                            if (point1 && point2) {
+                                const point1Id = `${Math.round(point1.x * 100) / 100},${Math.round(point1.y * 100) / 100}`;
+                                const point2Id = `${Math.round(point2.x * 100) / 100},${Math.round(point2.y * 100) / 100}`;
+                                
+                                if (graph[point1Id] && graph[point2Id]) {
+                                    // Connect these intersection points with distance 0 (they're the same location)
+                                    graph[point1Id].neighbors[point2Id] = 0;
+                                    graph[point2Id].neighbors[point1Id] = 0;
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    }
+
     // Add start and end points to the graph
-    const startId = `${Math.round(start.x)},${Math.round(start.y)}`;
-    const endId = `${Math.round(end.x)},${Math.round(end.y)}`;
+    const startId = `${Math.round(start.x * 100) / 100},${Math.round(start.y * 100) / 100}`;
+    const endId = `${Math.round(end.x * 100) / 100},${Math.round(end.y * 100) / 100}`;
     
     console.log('Finding nearest points for start and end');
     
@@ -598,8 +831,8 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     let minStartDist = Infinity;
     let minEndDist = Infinity;
     
-    // Find nearest points from our processed (unique) points
-    processedPoints.forEach(pointId => {
+    // Find nearest points from the graph
+    Object.keys(graph).forEach(pointId => {
         const point = graph[pointId];
         const startDist = getDistance(start, point);
         const endDist = getDistance(end, point);
@@ -638,11 +871,15 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     }
     
     // Connect start and end to their nearest points
-    graph[startId].neighbors[startNearestId] = minStartDist;
-    graph[startNearestId].neighbors[startId] = minStartDist;
+    if (startNearestId) {
+        graph[startId].neighbors[startNearestId] = minStartDist;
+        graph[startNearestId].neighbors[startId] = minStartDist;
+    }
     
-    graph[endId].neighbors[endNearestId] = minEndDist;
-    graph[endNearestId].neighbors[endId] = minEndDist;
+    if (endNearestId) {
+        graph[endId].neighbors[endNearestId] = minEndDist;
+        graph[endNearestId].neighbors[endId] = minEndDist;
+    }
     
     // Use A* to find path through the graph
     const path = aStarSearch(graph, startId, endId);
@@ -840,7 +1077,7 @@ function drawPathLines(path) {
     }
   }
   
-    // Draw lines between consecutive rooms
+  // Draw lines between consecutive rooms
   for (let i = 0; i < path.length - 1; i++) {
     const currentRoomId = path[i];
     const nextRoomId = path[i + 1];
@@ -875,7 +1112,7 @@ function drawPathLines(path) {
         lastY = waypoint.y;
       });
       
-      // Draw final line to next room using entry point or center
+      // Draw final line to next room using entry point or center, then x,y
       const finalLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       finalLine.setAttribute('x1', lastX);
       finalLine.setAttribute('y1', lastY);
@@ -898,44 +1135,3 @@ function drawPathLines(path) {
   
   console.log('Path lines drawn');
 }
-
-// --- Added: Reinitialize pathfinding on floor change ---
-window.addEventListener('floorMapLoaded', (e) => {
-  const floor = e.detail && e.detail.floor;
-  // Only draw for floor 1 (adjust if multi-floor graphs later)
-  if (floor === 1 || typeof floor === 'undefined') {
-    console.log('[pathfinding] floorMapLoaded received for floor', floor, '- reloading graph data');
-    
-    // Wait a bit for SVG to be fully loaded
-    setTimeout(() => {
-      if (typeof reloadGraphData === 'function') {
-        reloadGraphData().then(() => {
-          // Re-initialize room selection after paths are redrawn
-          initRoomSelection();
-        });
-      }
-    }, 200);
-  } else {
-    // Clear any previous path visuals when leaving floor 1
-    const svg = document.querySelector('svg');
-    if (svg) {
-      const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g');
-      if (mainGroup) {
-        const pathGroup = mainGroup.querySelector('#walkable-path-group');
-        if (pathGroup) {
-          while (pathGroup.firstChild) pathGroup.removeChild(pathGroup.firstChild);
-        }
-        const linesGroup = mainGroup.querySelector('#path-lines-group');
-        if (linesGroup) {
-          while (linesGroup.firstChild) linesGroup.removeChild(linesGroup.firstChild);
-        }
-        const highlightGroup = mainGroup.querySelector('#path-highlight-group');
-        if (highlightGroup) {
-          while (highlightGroup.firstChild) highlightGroup.removeChild(highlightGroup.firstChild);
-        }
-      }
-    }
-    selectedRooms = [];
-  }
-});
-// --- End Added ---

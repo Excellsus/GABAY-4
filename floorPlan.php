@@ -243,7 +243,7 @@ if (isset($_GET['selectRoom'])) {
     <div class="mobile-menu" id="mobileMenu">
       <a href="home.php">Dashboard</a>
       <a href="officeManagement.php">Office Management</a>
-      <a href="floorPlan.php"  class="active">Floor Plans</a>
+      <a href="floorPlan.php"  class="active">Floor Plan</a>
       <a href="visitorFeedback.php">Visitor Feedback</a>
       <a href="systemSettings.php">System Settings</a>
     </div>
@@ -450,6 +450,12 @@ if (isset($_GET['selectRoom'])) {
                 1: 'SVG/Capitol_1st_floor_layout_20_modified.svg',
                 2: 'SVG/Capitol_2nd_floor_layout_6_modified.svg',
                 3: 'SVG/Capitol_3rd_floor_layout_6.svg'
+            };
+
+            const floorGraph = {
+                1: 'floor_graph.json',
+                2: 'floor_graph_2.json',
+                3: 'floor_graph_3.json' // Assuming you'll have a 3rd floor graph
             };
 
             function loadFloorMap(floor) {

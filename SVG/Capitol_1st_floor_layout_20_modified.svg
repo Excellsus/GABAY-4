@@ -8,9 +8,33 @@
    version="1.1"
    id="svg1"
    xml:space="preserve"
+   sodipodi:docname="Capitol_1st_floor_layout_20_modified.svg"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   inkscape:export-filename="C:\Users\Jayjay\Desktop\SVG\Capitol_1st_floor_layout_20_modified.svg"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg"><defs
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="2.8284271"
+     inkscape:cx="129.75409"
+     inkscape:cy="243.06796"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g19" /><defs
      id="defs1"><linearGradient
        id="swatch63"><stop
          style="stop-color:#000000;stop-opacity:1;"
@@ -464,7 +488,8 @@
        d="m 1377.8242,316.68359 h 31.25 v 33.73047 h -31.4726 z"
        id="path40-3" /></g></g><g
    id="g2-8"
-   style="display:inline"><rect
+   style="display:inline"
+   inkscape:label="walls"><rect
      style="fill:#000000;fill-opacity:1;stroke-width:0.933998"
      id="rect97-2"
      width="227.4082"
@@ -957,7 +982,8 @@
      transform="translate(19.145794,214.59494)" /></g><g
    id="g176-6"
    transform="translate(19.145794,214.59494)"
-   style="display:inline">
+   style="display:inline"
+   inkscape:label="rooms">
        
        
        <!-- ROOM 1 -->
@@ -1320,7 +1346,8 @@
        d="m 264.64417,250.82815 a 14.733998,14.733998 0 0 1 -10.41852,-4.31549 14.733998,14.733998 0 0 1 -4.31548,-10.41851 h 14.734 z" /></g></g></g><g
    id="g67"
    style="display:inline;opacity:1;fill:#000000;fill-opacity:1"
-   transform="translate(19.145794,214.59494)" /><g
+   transform="translate(19.145794,214.59494)"
+   inkscape:label="g67" /><g
    id="g34"
    style="display:inline;opacity:1;fill:#000000;fill-opacity:1"
    transform="translate(19.145794,214.59494)"><path
@@ -1330,7 +1357,8 @@
              
              
              <g
-   id="g19"><g
+   id="g19"
+   inkscape:label="doors"><g
      id="g21"
      style="display:inline;opacity:1;fill:#000000;fill-opacity:1"><rect
        style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.57473;paint-order:stroke fill markers"
@@ -1479,10 +1507,12 @@
          style="fill:#dfbdbe;fill-opacity:1;stroke:#000000;stroke-width:1.578;stroke-dasharray:none;paint-order:stroke fill markers"
          id="path39"
          d="m 264.64417,250.82815 a 14.733998,14.733998 0 0 1 -10.41852,-4.31549 14.733998,14.733998 0 0 1 -4.31548,-10.41851 h 14.734 z" /></g></g></g><g
+   inkscape:groupmode="layer"
    id="layer2"
+   inkscape:label="Labels"
    transform="translate(-24.783838,242.80656)"><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient78);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient78);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="69.084595"
      y="317.40634"
      id="text-1-1"
@@ -1492,7 +1522,7 @@
        y="317.40634"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient78);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room1</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient79);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient79);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="45.872929"
      y="265.7995"
      id="text-2-2"
@@ -1502,7 +1532,7 @@
        y="265.7995"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient79);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline">room2</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient80);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient80);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="86.885124"
      y="464.14294"
      id="text-3-1"
@@ -1512,7 +1542,7 @@
        y="464.14294"
        style="vector-effect:non-scaling-stroke;stroke:url(#linearGradient80);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline">room3</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient81);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient81);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="204.97197"
      y="458.83963"
      id="text-4-1"
@@ -1522,7 +1552,7 @@
        y="458.83963"
        style="vector-effect:non-scaling-stroke;stroke:url(#linearGradient81);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline">room4</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient82);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient82);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="202.32031"
      y="378.40622"
      id="text-5-1"
@@ -1532,7 +1562,7 @@
        y="378.40622"
        style="vector-effect:non-scaling-stroke;stroke:url(#linearGradient82);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline">room5</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient84);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient84);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="182.34454"
      y="223.37309"
      id="text-6-1"
@@ -1542,7 +1572,7 @@
        y="223.37309"
        style="vector-effect:non-scaling-stroke;stroke:url(#linearGradient84);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline">room6</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient85);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient85);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="528.3985"
      y="312.46552"
      id="text-7-1"
@@ -1552,7 +1582,7 @@
        y="312.46552"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient85);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room7</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient86);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient86);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="700.56549"
      y="199.30222"
      id="text-8-1"
@@ -1562,7 +1592,7 @@
        y="199.30222"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient86);stroke-width:1;stroke-dasharray:none;-inkscape-stroke:hairline">room8</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient87);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient87);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="751.05536"
      y="177.10156"
      id="text-9-1"
@@ -1572,7 +1602,7 @@
        y="177.10156"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient87);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room9</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient88);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient88);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="1110.4863"
      y="297.112"
      id="text-12-1"
@@ -1582,7 +1612,7 @@
        y="297.112"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient88);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room12</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient92);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient92);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="905.10272"
      y="516.13153"
      id="text-10-1"
@@ -1592,7 +1622,7 @@
        y="516.13153"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient92);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room10</tspan></text><text
      xml:space="preserve"
-     style="font-size:10.692px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient100);stroke-width:0.890996;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:10.692px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient100);stroke-width:0.890996;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="1153.1847"
      y="133.05792"
      id="text-11-1"
@@ -1602,7 +1632,7 @@
        y="133.05792"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient100);stroke-width:0.890996;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room11</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient102);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient102);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="1437.4863"
      y="213.11201"
      id="text-13-1"
@@ -1612,7 +1642,7 @@
        y="213.11201"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient102);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room13</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient103);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient103);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="1630.7363"
      y="402.612"
      id="text-14-1"
@@ -1622,7 +1652,7 @@
        y="402.612"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient103);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room14</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient105);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="1616.4863"
      y="144.61201"
      id="text-15-1"
@@ -1632,7 +1662,7 @@
        y="144.61201"
        style="vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline">room15</tspan></text><text
      xml:space="preserve"
-     style="text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient106);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient106);stroke-width:1;stroke-dasharray:none;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:fill markers stroke"
      x="1710.8615"
      y="99.840523"
      id="text-16-1"

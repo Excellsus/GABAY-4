@@ -1,0 +1,262 @@
+{
+  "rooms": {
+    "room-1-2": {
+      "doorPoints": [{"x": 170, "y": 160}],
+      "nearestPathId": "path1_floor2",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "red",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+    "room-2-2": {
+      "doorPoints": [
+        {"x": 164, "y": 205, "nearestPathId": "path1_floor2"},
+        {"x": 235, "y": 315, "nearestPathId": "path5_floor2"}
+      ],
+      "nearestPathId": "path1_floor2",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#4444FF",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+    "room-3-2": {
+      "doorPoints": [
+        {"x": 280, "y": 200}
+       
+
+      ],
+      "nearestPathId": "path3_floor2",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#4444FF",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    }
+  },
+  "walkablePaths": [
+    {
+      "id": "path1_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 170, "y": 185,"isPano": true, "panoImage": ""},
+        {"x": 205, "y": 185},
+        {"x": 205, "y": 210, "isIntersection": true}
+
+
+      ]
+    },
+    {
+      "id": "path2_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 205, "y": 210, "isIntersection": true},
+        {"x": 280, "y": 210, "isIntersection": true}
+        
+      ]
+    },
+    {
+      "id": "path3_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 280, "y": 210, "isIntersection": true},
+        {"x": 280, "y": 295, "isIntersection": true},
+        {"x": 314, "y": 295,"isPano": true, "panoImage": ""}
+      ]
+    },
+    {
+      "id": "path4_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 280, "y": 295,  "isIntersection": true},
+        {"x": 235, "y": 295,  "isIntersection": true}
+        
+      ]
+    },
+    {
+      "id": "path5_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 235, "y": 295, "isIntersection": true},
+        {"x": 235, "y": 255,"isPano": true, "panoImage": "", "isIntersection": true}
+        
+      ]
+    },
+    {
+      "id": "path6_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 235, "y": 295, "isIntersection": true},
+        {"x": 205, "y": 210, "isIntersection": true}
+        
+      ]
+    },
+    {
+      "id": "path7_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 205, "y": 210, "isIntersection": true},
+        {"x": 235, "y": 255, "isIntersection": true}
+        
+      ]
+    },
+    {
+      "id": "path8_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 280, "y": 210, "isIntersection": true},
+        {"x": 235, "y": 255, "isIntersection": true}
+        
+      ]
+    },
+    {
+      "id": "path9_floor2",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 280, "y": 295, "isIntersection": true},
+        {"x": 235, "y": 255, "isIntersection": true}
+        
+      ]
+    }
+  ],
+  "pathConnections": {
+    "205,210": ["path1_floor2", "path2_floor2", "path6_floor2", "path7_floor2"],
+    "280,210": ["path2_floor2", "path3_floor2", "path8_floor2"],
+    "280,295": ["path3_floor2", "path4_floor2", "path9_floor2"],
+    "235,295": ["path4_floor2", "path5_floor2", "path6_floor2"],
+    "235,255": ["path5_floor2", "path7_floor2", "path8_floor2", "path9_floor2"]
+  }
+}

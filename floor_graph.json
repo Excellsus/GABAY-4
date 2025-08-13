@@ -2,25 +2,64 @@
   "rooms": {
     "room-1-1": {
       "doorPoint": {"x": 130, "y": 90},
-      "nearestPathId": "path1"
+      "nearestPathId": "path1",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#FF4444"
+        }
+      }
     },
     "room-2-1": {
       "doorPoint": {"x": 140, "y": 255},
-      "nearestPathId": "path1"
+      "nearestPathId": "path1",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#FF4444"
+        }
+      }
     },
     "room-3-1": {
       "doorPoint": {"x": 185, "y": 370},
-      "nearestPathId": "path1"
+      "nearestPathId": "path1",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#FF4444"
+        }
+      }
     },
     "room-4-1": {
       "doorPoint": {"x": 217, "y": 360},
-      "nearestPathId": "path1"
+      "nearestPathId": "path1",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#FF4444"
+        }
+      }
     },
     "room-5-1": {
       "doorPoint": {"x": 235, "y": 345},
-      "nearestPathId": "path1"
+      "nearestPathId": "path1",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#FF4444"
+        }
+      }
     }
-
   },
   "walkablePaths": [
     {
@@ -40,14 +79,13 @@
         }
       },
       "pathPoints": [
-        {"x": 130, "y": 110},
-        {"x": 130, "y": 175},       
-        {"x": 165, "y": 175},
-        {"x": 165, "y": 255},
-        {"x": 165, "y": 340},
+        {"x": 130, "y": 110, "isPano": true, "panoImage": ""},
+        {"x": 130, "y": 175, "isPano": true, "panoImage": ""},   
+        {"x": 165, "y": 175, "isPano": true, "panoImage": ""},
+        {"x": 165, "y": 255, "isPano": true, "panoImage": ""},
+        {"x": 165, "y": 340, "isPano": true, "panoImage": ""},
         {"x": 185, "y": 340},
-        {"x": 220, "y": 340}
- 
+        {"x": 220, "y": 340, "isPano": true, "panoImage": ""}
       ]
     },
     {
@@ -67,29 +105,29 @@
         }
       },
       "pathPoints": [
-        {"x": 467, "y": 220},
-        {"x": 615, "y": 220},
-        {"x": 767, "y": 220},
-        {"x": 850, "y": 220},
-        {"x": 851, "y": 130},
+        {"x": 467, "y": 220, "isPano": true, "panoImage": ""},
+        {"x": 615, "y": 220, "isPano": true, "panoImage": ""},
+        {"x": 767, "y": 220, "isPano": true, "panoImage": ""},
+        {"x": 850, "y": 220, "isPano": true, "panoImage": ""},
+        {"x": 851, "y": 130, "isPano": true, "panoImage": ""},
 
-        {"x": 880, "y": 130},
-        {"x": 950, "y": 130},
-        {"x": 1020, "y": 130},
-        {"x": 1045, "y": 130},
-        {"x": 1045, "y": 215},
+        {"x": 880, "y": 130, "isPano": true, "panoImage": ""},
+        {"x": 950, "y": 130, "isPano": true, "panoImage": ""},
+        {"x": 1020, "y": 130, "isPano": true, "panoImage": ""},
+        {"x": 1045, "y": 130, "isPano": true, "panoImage": ""},
+        {"x": 1045, "y": 215, "isPano": true, "panoImage": ""},
 
-        {"x": 1084, "y": 215},
-        {"x": 1184, "y": 215},
-        {"x": 1313, "y": 215},
-        {"x": 1419, "y": 215},
-        {"x": 1449, "y": 215},
+        {"x": 1084, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1184, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1313, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1419, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1449, "y": 215, "isPano": true, "panoImage": ""},
 
-        {"x": 1557, "y": 215},
-        {"x": 1685, "y": 215},
-        {"x": 1778, "y": 215},
-        {"x": 1778, "y": 170},
-        {"x": 1778, "y": 110}
+        {"x": 1557, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1685, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1778, "y": 215, "isPano": true, "panoImage": ""},
+        {"x": 1778, "y": 170, "isPano": true, "panoImage": ""},
+        {"x": 1778, "y": 110, "isPano": true, "panoImage": ""}
       ]
     }
   ]
