@@ -454,33 +454,36 @@ function handleMouseUp(e) {
 
 // Helper function to update room labels
 function updateRoomLabel(textElement, officeName) {
+  if (!textElement) return;
+
+  // Store original x coordinate for centering
+  const originalX = parseFloat(textElement.getAttribute("x")) || 0;
+
+  // Set text-anchor to middle for automatic centering
+  textElement.setAttribute("text-anchor", "middle");
+
   // Clear existing content
   textElement.textContent = "";
+  while (textElement.firstChild) {
+    textElement.removeChild(textElement.firstChild);
+  }
 
-  // Get original x position
-  const x = textElement.getAttribute("x") || 0;
   const lineHeight = "1.2em";
+  const words = officeName.split(" ");
 
-  if (officeName.includes(" ")) {
-    const words = officeName.split(" ");
+  if (words.length > 0) {
     words.forEach((word, index) => {
-      const tspan = document.createElementNS(
+      const newTspan = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "tspan"
       );
-      tspan.textContent = word;
-      tspan.setAttribute("x", x);
-      if (index > 0) tspan.setAttribute("dy", lineHeight);
-      textElement.appendChild(tspan);
+      newTspan.textContent = word;
+      newTspan.setAttribute("x", originalX); // Set x for each tspan
+      if (index > 0) {
+        newTspan.setAttribute("dy", lineHeight);
+      }
+      textElement.appendChild(newTspan);
     });
-  } else {
-    const tspan = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "tspan"
-    );
-    tspan.textContent = officeName;
-    tspan.setAttribute("x", x);
-    textElement.appendChild(tspan);
   }
 }
 

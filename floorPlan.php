@@ -93,23 +93,47 @@ if (isset($_GET['selectRoom'])) {
     const officesData = <?php echo json_encode($offices); ?>;
     
     // Function to update room label
-    function updateRoomLabel(group, officeName) {
-      let textEl = group.querySelector("text");
+    function updateRoomLabelMain(group, officeName) {
+      // First try to find existing text element in the SVG by roomlabel ID
+      const roomElement = group.querySelector("path, rect");
+      if (!roomElement || !roomElement.id) return;
+      
+      const roomMatch = roomElement.id.match(/room-(\d+)/);
+      if (!roomMatch) return;
+      
+      const roomNumber = roomMatch[1];
+      
+      // Look for existing roomlabel text element in the entire SVG
+      let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
+      
       if (!textEl) {
-        // Create text element if it doesn't exist
+        // If no existing text element, look for any text element in the group
+        textEl = group.querySelector("text");
+      }
+      
+      if (!textEl) {
+        // Only create text element if absolutely no text element exists
         textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textEl.setAttribute("class", "room-label");
-        // Get the room path/rect to position the label
-        const roomEl = group.querySelector("path, rect");
-        if (roomEl) {
-          const bbox = roomEl.getBBox();
-          textEl.setAttribute("x", bbox.x + bbox.width/2);
-          textEl.setAttribute("y", bbox.y + bbox.height/2);
-          textEl.setAttribute("text-anchor", "middle");
-          textEl.setAttribute("alignment-baseline", "middle");
+        textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+        
+        const bbox = roomElement.getBBox();
+        textEl.setAttribute("x", bbox.x + bbox.width/2);
+        textEl.setAttribute("y", bbox.y + bbox.height/2);
+
+        const svg = document.querySelector('svg');
+        if (svg) {
+          svg.appendChild(textEl);
+        } else {
+          group.appendChild(textEl);
         }
-        group.appendChild(textEl);
       }
+
+      // Store original x coordinate for centering. This is our center line.
+      const originalX = parseFloat(textEl.getAttribute("x")) || 0;
+
+      // Set text-anchor to middle for automatic centering. This is key.
+      textEl.setAttribute("text-anchor", "middle");
 
       // Clear existing content
       textEl.textContent = "";
@@ -117,35 +141,24 @@ if (isset($_GET['selectRoom'])) {
         textEl.removeChild(textEl.firstChild);
       }
 
-      // Get the original x position
-      const originalX = textEl.getAttribute("x") || 0;  
       const lineHeight = "1.2em";
+      const words = officeName.split(" ");
 
-      if (officeName.includes(" ")) {
-        // Split into words and create tspans
-        const words = officeName.split(" ");
-        words.forEach((word, index) => {
+      // Create tspans for each word to handle multi-line text
+      words.forEach((word, index) => {
           const newTspan = document.createElementNS(
             "http://www.w3.org/2000/svg",
             "tspan"
           );
           newTspan.textContent = word;
-          newTspan.setAttribute("x", originalX);
+          // The x attribute must be set on each tspan to align them vertically under the same center line.
+          newTspan.setAttribute("x", originalX); 
+          // Move to the next line after the first word.
           if (index > 0) {
             newTspan.setAttribute("dy", lineHeight);
           }
           textEl.appendChild(newTspan);
-        });
-      } else {
-        // Single word, use a single tspan
-        const newTspan = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "tspan"
-        );
-        newTspan.textContent = officeName;
-        newTspan.setAttribute("x", originalX);
-        textEl.appendChild(newTspan);
-      }
+      });
     }
 
     fetch('SVG/Capitol_1st_floor_layout_20_modified.svg').then(r=>r.text()).then(svgText=>{
@@ -167,7 +180,7 @@ if (isset($_GET['selectRoom'])) {
             o.location === el.id
           );
           if (office) {
-            updateRoomLabel(parentGroup, office.name);
+            updateRoomLabelMain(parentGroup, office.name);
           }
         }
         
@@ -379,7 +392,79 @@ if (isset($_GET['selectRoom'])) {
         const officesData = <?php echo json_encode($offices); ?>;
         console.log("Offices Data Loaded:", officesData); // For debugging
         
-        // Function to update room labels with office names (same approach as explore.php)
+        // Function to update room labels with proper centering
+        function updateRoomLabelMain(group, officeName) {
+            // First try to find existing text element in the SVG by roomlabel ID
+            const roomElement = group.querySelector("path, rect");
+            if (!roomElement || !roomElement.id) return;
+            
+            const roomMatch = roomElement.id.match(/room-(\d+)/);
+            if (!roomMatch) return;
+            
+            const roomNumber = roomMatch[1];
+            
+            // Look for existing roomlabel text element in the entire SVG
+            let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
+            
+            if (!textEl) {
+                // If no existing text element, look for any text element in the group
+                textEl = group.querySelector("text");
+            }
+            
+            if (!textEl) {
+                // Only create text element if absolutely no text element exists
+                console.warn(`No existing text element found for room ${roomNumber}, creating new one`);
+                textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                textEl.setAttribute("class", "room-label");
+                textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+                
+                // Get the room path/rect to position the label at its center
+                const bbox = roomElement.getBBox();
+                textEl.setAttribute("x", bbox.x + bbox.width/2);
+                textEl.setAttribute("y", bbox.y + bbox.height/2);
+                
+                // Add to the SVG root, not the group, to match existing structure
+                const svg = document.querySelector('svg');
+                if (svg) {
+                    svg.appendChild(textEl);
+                } else {
+                    group.appendChild(textEl);
+                }
+            }
+
+            // Store original x coordinate for centering
+            const originalX = parseFloat(textEl.getAttribute("x")) || 0;
+
+            // Set text-anchor to middle for automatic centering. This is key.
+            textEl.setAttribute("text-anchor", "middle");
+
+            // Clear existing content
+            textEl.textContent = "";
+            while (textEl.firstChild) {
+                textEl.removeChild(textEl.firstChild);
+            }
+
+            const lineHeight = "1.2em";
+            const words = officeName.split(" ");
+
+            // Create tspans for each word to handle multi-line text
+            words.forEach((word, index) => {
+                const newTspan = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "tspan"
+                );
+                newTspan.textContent = word;
+                // The x attribute must be set on each tspan to align them vertically.
+                newTspan.setAttribute("x", originalX); 
+                // Move to the next line after the first word.
+                if (index > 0) {
+                    newTspan.setAttribute("dy", lineHeight);
+                }
+                textEl.appendChild(newTspan);
+            });
+        }
+        
+        // Function to update room labels with office names (using updateRoomLabelMain for centering)
         function updateRoomLabels(svg) {
             if (!svg) svg = document.querySelector('svg');
             if (!svg) return;
@@ -400,33 +485,14 @@ if (isset($_GET['selectRoom'])) {
                 console.log(`Room ${roomNum} (${el.id}):`, office ? `Found office: ${office.name}` : 'No office assigned');
                 
                 if (office) {
-                    // Use the same approach as explore.php - find the specific roomlabel tspan
-                    const oldTspan = document.querySelector(`#roomlabel-${roomNum}`);
-                    if (oldTspan) {
-                        const x = oldTspan.getAttribute("x");
-                        const y = oldTspan.getAttribute("y");
-                        const newTspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-                        newTspan.setAttribute("id", `roomlabel-${roomNum}`);
-                        newTspan.setAttribute("x", x);
-                        newTspan.setAttribute("y", y);
-                        newTspan.textContent = office.name;
-                        
-                        // Copy other attributes from the old tspan
-                        const attributes = ['font-size', 'font-weight', 'fill', 'text-anchor', 'alignment-baseline'];
-                        attributes.forEach(attr => {
-                            const value = oldTspan.getAttribute(attr);
-                            if (value) newTspan.setAttribute(attr, value);
-                        });
-                        
-                        // Improve rendering quality for crisp text on zoom
-                        if (oldTspan.parentNode) {
-                            oldTspan.parentNode.setAttribute("text-rendering", "geometricPrecision");
-                        }
-
-                        oldTspan.parentNode.replaceChild(newTspan, oldTspan);
-                        console.log(`Updated label for room ${roomNum} to "${office.name}"`);
+                    // Find the parent group and text element
+                    const parentGroup = el.closest('g[id^="room-"]');
+                    if (parentGroup) {
+                        // Use the updateRoomLabelMain function for proper centering
+                        updateRoomLabelMain(parentGroup, office.name);
+                        console.log(`Updated label for room ${roomNum} to "${office.name}" with centering`);
                     } else {
-                        console.log(`No roomlabel-${roomNum} tspan found for room ${roomNum}`);
+                        console.log(`No parent group found for room ${roomNum}`);
                     }
                 }
             });

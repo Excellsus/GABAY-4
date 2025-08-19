@@ -20,11 +20,36 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("Tooltip found:", !!tooltip);
 
   function updateRoomLabel(group, officeName) {
-    const textEl = group.querySelector("text");
+    let textEl = group.querySelector("text");
     if (!textEl) {
-      console.warn(`No text element found in group ${group.id}`);
-      return;
+      const roomElement = group.querySelector("path, rect");
+      if(!roomElement) return;
+
+      const roomMatch = roomElement.id.match(/room-(\d+)/);
+      if (!roomMatch) return;
+      const roomNumber = roomMatch[1];
+
+      textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textEl.setAttribute("class", "room-label");
+      textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+      
+      const bbox = roomElement.getBBox();
+      textEl.setAttribute("x", bbox.x + bbox.width / 2);
+      textEl.setAttribute("y", bbox.y + bbox.height / 2);
+      
+      const svg = group.closest('svg');
+      if (svg) {
+          svg.appendChild(textEl);
+      } else {
+          group.appendChild(textEl);
+      }
     }
+
+    // Store original x coordinate for centering
+    const originalX = parseFloat(textEl.getAttribute("x")) || 0;
+
+    // Set text-anchor to middle for automatic centering
+    textEl.setAttribute("text-anchor", "middle");
 
     // Clear existing content
     textEl.textContent = "";
@@ -32,37 +57,23 @@ document.addEventListener("DOMContentLoaded", function () {
       textEl.removeChild(textEl.firstChild);
     }
 
-    // Get the original x position
-    const originalX = textEl.getAttribute("x") || 0;
     const lineHeight = "1.2em";
+    const words = officeName.split(" ");
 
-    if (officeName.includes(" ")) {
-      // Split into words and create tspans
-      const words = officeName.split(" ");
-      words.forEach((word, index) => {
-        const newTspan = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "tspan"
-        );
-        newTspan.textContent = word;
-        newTspan.setAttribute("x", originalX);
-        if (index > 0) {
-          newTspan.setAttribute("dy", lineHeight);
-        }
-        textEl.appendChild(newTspan);
-      });
-    } else {
-      // Single word, use a single tspan
-      const newTspan = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "tspan"
-      );
-      newTspan.textContent = officeName;
-      newTspan.setAttribute("x", originalX);
-      textEl.appendChild(newTspan);
+    if (words.length > 0) {
+        words.forEach((word, index) => {
+            const newTspan = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "tspan"
+            );
+            newTspan.textContent = word;
+            newTspan.setAttribute("x", originalX); // Set x for each tspan
+            if (index > 0) {
+                newTspan.setAttribute("dy", lineHeight);
+            }
+            textEl.appendChild(newTspan);
+        });
     }
-
-    console.log(`Updated label for group ${group.id} to: ${officeName}`);
   }
 
   function updateRoomAppearanceById(officeId, isActive) {
@@ -380,8 +391,8 @@ document.addEventListener("DOMContentLoaded", function () {
       // Only update the existing <text> element, do not create new ones
       if (textEl) {
         // Save original style and position
-        const originalX = textEl.getAttribute("x") || 0;
-        const originalY = textEl.getAttribute("y") || 0;
+        const originalX = parseFloat(textEl.getAttribute("x")) || 0;
+        const originalY = parseFloat(textEl.getAttribute("y")) || 0;
         const originalFill = textEl.getAttribute("fill");
         const originalFontSize = textEl.getAttribute("font-size");
         const originalFontWeight = textEl.getAttribute("font-weight");
@@ -414,8 +425,33 @@ document.addEventListener("DOMContentLoaded", function () {
           newTspan.setAttribute("x", originalX);
           textEl.appendChild(newTspan);
         }
-        // Restore original style and position
-        textEl.setAttribute("x", originalX);
+
+        // Center the text by calculating bounding box and adjusting position
+        try {
+          // Force layout update
+          textEl.getBBox();
+          
+          // Get the bounding box of the updated text
+          const bbox = textEl.getBBox();
+          
+          // Calculate offset to center the text horizontally around original X
+          const centerOffset = bbox.width / 2;
+          const centeredX = originalX - centerOffset;
+          
+          // Update all tspan x positions to center the text
+          const tspans = textEl.querySelectorAll("tspan");
+          tspans.forEach((tspan) => {
+            tspan.setAttribute("x", centeredX);
+          });
+          
+          // Update the text element's x attribute for consistency
+          textEl.setAttribute("x", centeredX);
+          
+        } catch (error) {
+          console.warn("Could not center text, using original position:", error);
+        }
+
+        // Restore original style and position (y remains unchanged)
         textEl.setAttribute("y", originalY);
         if (originalFill) textEl.setAttribute("fill", originalFill);
         if (originalFontSize)

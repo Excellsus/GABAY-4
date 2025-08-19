@@ -466,22 +466,64 @@ try {
         const roomPath = group.querySelector("path");
         if (!roomPath || !roomPath.id) return;
         
-        const match = roomPath.id.match(/room-(\d+)-1/);
+        const match = roomPath.id.match(/room-(\d+)/);
         if (!match) return;
         
         const roomNumber = match[1];
-        const oldTspan = document.querySelector(`#roomlabel-${roomNumber}`);
-        if (oldTspan) {
-          const x = oldTspan.getAttribute("x");
-          const y = oldTspan.getAttribute("y");
-          const newTspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-          newTspan.setAttribute("x", x);
-          newTspan.textContent = officeName;
-          oldTspan.parentNode.replaceChild(newTspan, oldTspan);
-        }
-      }
+        let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
 
-      // Floor map configuration
+        if (!textEl) {
+            textEl = group.querySelector("text");
+        }
+
+        if (!textEl) {
+            // Create text element if it doesn't exist
+            textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            textEl.setAttribute("class", "room-label");
+            textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+            
+            const bbox = roomPath.getBBox();
+            textEl.setAttribute("x", bbox.x + bbox.width / 2);
+            textEl.setAttribute("y", bbox.y + bbox.height / 2);
+            
+            const svg = group.closest('svg');
+            if (svg) {
+                svg.appendChild(textEl);
+            } else {
+                group.appendChild(textEl);
+            }
+        }
+        
+        // Store original x coordinate for centering
+        const originalX = parseFloat(textEl.getAttribute("x")) || 0;
+
+        // Set text-anchor to middle for automatic centering
+        textEl.setAttribute("text-anchor", "middle");
+
+        // Clear existing content
+        textEl.textContent = "";
+        while (textEl.firstChild) {
+            textEl.removeChild(textEl.firstChild);
+        }
+
+        const lineHeight = "1.2em";
+        const words = officeName.split(" ");
+
+        if (words.length > 0) {
+            words.forEach((word, index) => {
+                const newTspan = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "tspan"
+                );
+                newTspan.textContent = word;
+                newTspan.setAttribute("x", originalX); // Set x for each tspan
+                if (index > 0) {
+                    newTspan.setAttribute("dy", lineHeight);
+                }
+                textEl.appendChild(newTspan);
+            });
+        }
+      }      // Floor map configuration
       const floorMaps = {
         1: '../SVG/Capitol_1st_floor_layout_20_modified.svg',
         2: '../SVG/Capitol_2nd_floor_layout_6_modified.svg',
