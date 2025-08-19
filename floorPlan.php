@@ -63,6 +63,21 @@ if (isset($_GET['getRoomList'])) {
 }
 // --- API endpoint: selectRoom mode for iframe ---
 if (isset($_GET['selectRoom'])) {
+    $floor = $_GET['floor'] ?? '1'; // Default to floor 1 if not specified
+    $svgWebPath = '';
+    switch ($floor) {
+        case '2':
+            $svgWebPath = 'SVG/Capitol_2nd_floor_layout_6_modified.svg';
+            break;
+        case '3':
+            $svgWebPath = 'SVG/Capitol_3rd_floor_layout_6.svg';
+            break;
+        default:
+            $svgWebPath = 'SVG/Capitol_1st_floor_layout_20_modified.svg';
+            break;
+    }
+    $svgFile = __DIR__ . '/' . $svgWebPath;
+
     // Minimal HTML/JS to show SVG and allow clicking a room to select
     ?>
     <!DOCTYPE html>
@@ -129,79 +144,73 @@ if (isset($_GET['selectRoom'])) {
         }
       }
 
-      // Store original x coordinate for centering. This is our center line.
-      const originalX = parseFloat(textEl.getAttribute("x")) || 0;
-
-      // Set text-anchor to middle for automatic centering. This is key.
-      textEl.setAttribute("text-anchor", "middle");
-
-      // Clear existing content
-      textEl.textContent = "";
+      // Clear existing tspans
       while (textEl.firstChild) {
         textEl.removeChild(textEl.firstChild);
       }
 
-      const lineHeight = "1.2em";
-      const words = officeName.split(" ");
+      // Set text-anchor to middle for centering
+      textEl.setAttribute("text-anchor", "middle");
 
-      // Create tspans for each word to handle multi-line text
-      words.forEach((word, index) => {
-          const newTspan = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "tspan"
-          );
-          newTspan.textContent = word;
-          // The x attribute must be set on each tspan to align them vertically under the same center line.
-          newTspan.setAttribute("x", originalX); 
-          // Move to the next line after the first word.
-          if (index > 0) {
-            newTspan.setAttribute("dy", lineHeight);
-          }
-          textEl.appendChild(newTspan);
+      // Create new tspans for each line
+      officeName.split(' ').forEach((line, index) => {
+        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.textContent = line;
+        textEl.appendChild(tspan);
       });
+
+      // Adjust position after adding text
+      const textBBox = textEl.getBBox();
+      const roomBBox = roomElement.getBBox();
+      textEl.setAttribute("x", roomBBox.x + roomBBox.width / 2);
+      textEl.setAttribute("y", roomBBox.y + roomBBox.height / 2 - textBBox.height / 2 + textBBox.height * 0.25);
     }
 
-    fetch('SVG/Capitol_1st_floor_layout_20_modified.svg').then(r=>r.text()).then(svgText=>{
-      document.getElementById('svg-container').innerHTML = svgText;
-      const svg = document.querySelector('svg');
-      
-      // Make only room-X-1 elements clickable
-      svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
-        el.classList.add('selectable-room');
-        const parentGroup = el.closest('g');
+    // Fetch and display the SVG
+    fetch('<?php echo $svgWebPath; ?>')
+      .then(response => response.text())
+      .then(svgData => {
+        const container = document.getElementById('svg-container');
+        container.innerHTML = svgData;
+        const svg = container.querySelector('svg');
         
-        // Find if this room has an office assigned
-        if (parentGroup) {
-          const roomNum = el.id.match(/room-(\d+)-1/)[1];
-          // Try both location formats: 'room-7' and 'room-7-1'
-          const office = officesData.find(o => 
-            o.location === `room-${roomNum}` || 
-            o.location === `room-${roomNum}-1` ||
-            o.location === el.id
-          );
-          if (office) {
-            updateRoomLabelMain(parentGroup, office.name);
+        // Make only room-X-1 elements clickable
+        svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
+          el.classList.add('selectable-room');
+          const parentGroup = el.closest('g');
+          
+          // Find if this room has an office assigned
+          if (parentGroup) {
+            const roomNum = el.id.match(/room-(\d+)-1/)[1];
+            // Try both location formats: 'room-7' and 'room-7-1'
+            const office = officesData.find(o => 
+              o.location === `room-${roomNum}` || 
+              o.location === `room-${roomNum}-1` ||
+              o.location === el.id
+            );
+            if (office) {
+              updateRoomLabelMain(parentGroup, office.name);
+            }
           }
-        }
-        
-        el.addEventListener('click', function(e) {
-          e.stopPropagation();
-          let id = el.id;
-          let label = id;
-          // Try to get label from associated roomlabel element
-          if (el.id.match(/room-(\d+)-1/)) {
-            let roomNum = el.id.match(/room-(\d+)-1/)[1];
-            let labelEl = svg.querySelector('#roomlabel-' + roomNum);
-            if (labelEl) label = labelEl.textContent.trim();
-          }
-          // Highlight selection
-          svg.querySelectorAll('.selectable-room').forEach(x=>x.classList.remove('selected'));
-          el.classList.add('selected');
-          // Send selection to parent
-          window.parent.postMessage({selectedRoomId: id, selectedRoomLabel: label}, '*');
+          
+          el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            let id = el.id;
+            let label = id;
+            // Try to get label from associated roomlabel element
+            if (el.id.match(/room-(\d+)-1/)) {
+              let roomNum = el.id.match(/room-(\d+)-1/)[1];
+              let labelEl = svg.querySelector('#roomlabel-' + roomNum);
+              if (labelEl) label = labelEl.textContent.trim();
+            }
+            // Highlight selection
+            svg.querySelectorAll('.selectable-room').forEach(x=>x.classList.remove('selected'));
+            el.classList.add('selected');
+            // Send selection to parent
+            window.parent.postMessage({selectedRoomId: id, selectedRoomLabel: label}, '*');
+          });
         });
       });
-    });
     </script>
     </body></html>
     <?php

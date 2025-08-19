@@ -438,6 +438,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
 .btn-primary:hover {
   background-color: #c53030;
 }
+.floor-btn-modal {
+    padding: 4px 12px;
+    border: 1px solid #04aa6d;
+    background: white;
+    color: #04aa6d;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.floor-btn-modal.active {
+    background: #04aa6d;
+    color: white;
+}
   </style>
 </head>
 <body>
@@ -666,9 +681,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
           </form>
         </div>
         <div id="map-modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
-          <div style="position:relative;width:90vw;max-width:900px;height:70vh;background:#fff;border-radius:10px;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;">
-            <button id="close-map-btn" style="position:absolute;top:10px;right:10px;font-size:22px;background:none;border:none;cursor:pointer;z-index:10;">&times;</button>
-            <iframe id="room-map-frame" src="floorPlan.php?selectRoom=1" style="width:100%;height:100%;border:none;border-radius:10px;"></iframe>
+          <div style="position:relative;width:80vw;max-width:1200px;aspect-ratio:1918/630;background:#fff;border-radius:10px;box-shadow:0 4px 24px #0002;display:flex;flex-direction:column;">
+            <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee;">
+                <div class="floor-selector-modal" style="display: flex; gap: 5px;">
+                    <button class="floor-btn-modal active" data-floor="1">1F</button>
+                    <button class="floor-btn-modal" data-floor="2">2F</button>
+                    <button class="floor-btn-modal" data-floor="3">3F</button>
+                </div>
+                <button id="close-map-btn" style="font-size:22px;background:none;border:none;cursor:pointer;">&times;</button>
+            </div>
+            <iframe id="room-map-frame" src="floorPlan.php?selectRoom=1&floor=1" style="width:100%;height:100%;border:none;border-radius:0 0 10px 10px;"></iframe>
           </div>
         </div>
         <script>
@@ -678,8 +700,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
         const selectedRoomLabel = document.getElementById('selected-room-label');
         const locationInput = document.getElementById('location');
         const mapFrame = document.getElementById('room-map-frame');
+
+        // --- Floor switching logic for modal ---
+        const floorButtonsModal = document.querySelectorAll('.floor-btn-modal');
+        const floorMaps = {
+            1: 'floorPlan.php?selectRoom=1&floor=1',
+            2: 'floorPlan.php?selectRoom=1&floor=2',
+            3: 'floorPlan.php?selectRoom=1&floor=3'
+        };
+
+        floorButtonsModal.forEach(button => {
+            button.addEventListener('click', function() {
+                const floor = this.getAttribute('data-floor');
+                
+                // Update button styles
+                floorButtonsModal.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+
+                // Load the corresponding floor map in the iframe
+                if(mapFrame) {
+                    mapFrame.src = floorMaps[floor];
+                }
+            });
+        });
+        // --- End floor switching ---
+
         openMapBtn.addEventListener('click',function(){
           mapModal.style.display = 'flex';
+          // Reset to 1st floor view when opening
+          floorButtonsModal.forEach(btn => btn.classList.remove('active'));
+          document.querySelector('.floor-btn-modal[data-floor="1"]').classList.add('active');
+          mapFrame.src = floorMaps[1];
         });
         closeMapBtn.addEventListener('click',function(){
           mapModal.style.display = 'none';
