@@ -102,7 +102,8 @@ if (isset($_GET['selectRoom'])) {
     }
     </style>
     </head><body style="margin:0;padding:0;">
-    <div id="svg-container"></div>
+    <div id="svg-container" style="width: 100%; height: 100%;"></div>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script>
     // Get office data from PHP
     const officesData = <?php echo json_encode($offices); ?>;
@@ -166,6 +167,26 @@ if (isset($_GET['selectRoom'])) {
       textEl.setAttribute("y", roomBBox.y + roomBBox.height / 2 - textBBox.height / 2 + textBBox.height * 0.25);
     }
 
+    function initializePanZoom(svgElement) {
+        if (typeof svgPanZoom !== 'undefined' && svgElement) {
+            const panZoomInstance = svgPanZoom(svgElement, {
+                zoomEnabled: true,
+                controlIconsEnabled: true,
+                fit: true,
+                center: true,
+                minZoom: 0.5,
+                maxZoom: 10
+            });
+            window.addEventListener('resize', () => {
+                panZoomInstance.resize();
+                panZoomInstance.fit();
+                panZoomInstance.center();
+            });
+        } else {
+            console.error('svg-pan-zoom library not loaded or SVG element not found.');
+        }
+    }
+
     // Fetch and display the SVG
     fetch('<?php echo $svgWebPath; ?>')
       .then(response => response.text())
@@ -173,6 +194,11 @@ if (isset($_GET['selectRoom'])) {
         const container = document.getElementById('svg-container');
         container.innerHTML = svgData;
         const svg = container.querySelector('svg');
+        if (!svg) {
+            console.error('SVG element not found in fetched data.');
+            return;
+        }
+        svg.id = 'svg1'; // Assign ID for panzoom
         
         // Make only room-X-1 elements clickable
         svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
@@ -181,15 +207,18 @@ if (isset($_GET['selectRoom'])) {
           
           // Find if this room has an office assigned
           if (parentGroup) {
-            const roomNum = el.id.match(/room-(\d+)-1/)[1];
-            // Try both location formats: 'room-7' and 'room-7-1'
-            const office = officesData.find(o => 
-              o.location === `room-${roomNum}` || 
-              o.location === `room-${roomNum}-1` ||
-              o.location === el.id
-            );
-            if (office) {
-              updateRoomLabelMain(parentGroup, office.name);
+            const roomMatch = el.id.match(/room-(\d+)-1/);
+            if (roomMatch) {
+                const roomNum = roomMatch[1];
+                // Try both location formats: 'room-7' and 'room-7-1'
+                const office = officesData.find(o => 
+                  o.location === `room-${roomNum}` || 
+                  o.location === `room-${roomNum}-1` ||
+                  o.location === el.id
+                );
+                if (office) {
+                  updateRoomLabelMain(parentGroup, office.name);
+                }
             }
           }
           
@@ -198,8 +227,9 @@ if (isset($_GET['selectRoom'])) {
             let id = el.id;
             let label = id;
             // Try to get label from associated roomlabel element
-            if (el.id.match(/room-(\d+)-1/)) {
-              let roomNum = el.id.match(/room-(\d+)-1/)[1];
+            const roomMatch = el.id.match(/room-(\d+)-1/);
+            if (roomMatch) {
+              let roomNum = roomMatch[1];
               let labelEl = svg.querySelector('#roomlabel-' + roomNum);
               if (labelEl) label = labelEl.textContent.trim();
             }
@@ -210,6 +240,12 @@ if (isset($_GET['selectRoom'])) {
             window.parent.postMessage({selectedRoomId: id, selectedRoomLabel: label}, '*');
           });
         });
+
+        // Initialize Pan and Zoom
+        initializePanZoom(svg);
+      })
+      .catch(error => {
+        console.error('Error loading or processing SVG:', error);
       });
     </script>
     </body></html>
