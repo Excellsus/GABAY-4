@@ -530,9 +530,13 @@ try {
         3: '../SVG/Capitol_3rd_floor_layout_6.svg'
       };
 
+      // Track current floor
+      let currentFloor = 1;
+
       // Function to load SVG for a specific floor
       function loadFloorMap(floorNumber) {
         console.log(`Loading floor ${floorNumber} map...`);
+        currentFloor = floorNumber; // Track the current floor
         fetch(floorMaps[floorNumber])
           .then(response => response.text())
           .then(svgText => {
@@ -554,51 +558,32 @@ try {
         if (!svg) return;
         console.log("Initializing SVG interactivity...");
         
-        // First, ensure all room IDs are in the correct format
-        svg.querySelectorAll('[id^="room"]').forEach(el => {
-          const match = el.id.match(/room-?(\d+)(?:-1)?/);
-          if (match) {
-            const roomNum = match[1];
-            // Standardize the ID format to room-X-1
-            el.id = `room-${roomNum}-1`;
-          }
-        });
-
-        // Make rooms clickable and update labels
+        // Make rooms clickable and update labels (preserve original room IDs)
         svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
           el.classList.add('selectable-room', 'interactive-room');
           
           // Add click handler directly to the path
           el.addEventListener('click', function(e) {
             e.stopPropagation();
-            const roomNum = el.id.match(/room-(\d+)-1/)?.[1];
-            if (roomNum) {
-              const office = officesData.find(o => {
-                const locMatch = o.location?.match(/room-?(\d+)(?:-1)?/);
-                return locMatch && locMatch[1] === roomNum;
-              });
-              if (office) {
-                handleRoomClick(office);
-              }
+            // Match by exact room ID (floor-specific)
+            const office = officesData.find(o => o.location === el.id);
+            if (office) {
+              handleRoomClick(office);
             }
           });
 
           const parentGroup = el.closest('g');
           
           if (parentGroup) {
-            // Get room number from the path ID
-            const roomNum = el.id.match(/room-(\d+)-1/)?.[1];
-            if (roomNum) {
+            // Extract room number for group ID
+            const roomMatch = el.id.match(/^room-(\d+)(?:-\d+)?$/);
+            if (roomMatch) {
+              const roomNum = roomMatch[1];
               // Ensure the parent group has the same ID format
               parentGroup.id = `group-${roomNum}`;
               
-              // Find matching office
-              const office = officesData.find(o => {
-                const officeLoc = o.location;
-                if (!officeLoc) return false;
-                const locMatch = officeLoc.match(/room-?(\d+)(?:-1)?/);
-                return locMatch && locMatch[1] === roomNum;
-              });
+              // Find matching office by exact room ID (floor-specific)
+              const office = officesData.find(o => o.location === el.id);
 
               if (office) {
                 updateRoomLabel(parentGroup, office.name);
@@ -612,7 +597,7 @@ try {
                   }
                 }
 
-                console.log(`Room ${roomNum} initialized with office:`, office.name);
+                console.log(`Room ${el.id} initialized with office:`, office.name);
                 
                 // Add hover effect
                 el.addEventListener('mouseenter', () => {
@@ -1064,17 +1049,11 @@ try {
               console.log("Room path clicked:", target.id);
               event.stopPropagation();
               
-              const roomNum = target.id.match(/room-(\d+)-1/)?.[1];
-              if (roomNum) {
-                const office = officesData.find(o => {
-                  const locMatch = o.location?.match(/room-?(\d+)(?:-1)?/);
-                  return locMatch && locMatch[1] === roomNum;
-                });
-                
-                if (office) {
-                  console.log("Found matching office:", office.name);
-                  handleRoomClick(office);
-                }
+              // Match by exact room ID (floor-specific)
+              const office = officesData.find(o => o.location === target.id);
+              if (office) {
+                console.log("Found matching office:", office.name);
+                handleRoomClick(office);
               }
               break;
             }
@@ -1094,16 +1073,11 @@ try {
             
             if (roomPath) {
               console.log("Room path found on tap:", roomPath.id);
-              const roomNum = roomPath.id.match(/room-(\d+)-1/)?.[1];
-              if (roomNum) {
-                const office = officesData.find(o => {
-                  const locMatch = o.location?.match(/room-?(\d+)(?:-1)?/);
-                  return locMatch && locMatch[1] === roomNum;
-                });
-                if (office) {
-                  console.log("Found matching office on tap:", office.name);
-                  handleRoomClick(office);
-                }
+              // Match by exact room ID (floor-specific)
+              const office = officesData.find(o => o.location === roomPath.id);
+              if (office) {
+                console.log("Found matching office on tap:", office.name);
+                handleRoomClick(office);
               }
             }
           }
