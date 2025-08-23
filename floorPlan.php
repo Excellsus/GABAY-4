@@ -120,29 +120,28 @@ if (isset($_GET['selectRoom'])) {
       const roomNumber = roomMatch[1];
       
       // Look for existing roomlabel text element in the entire SVG
-      let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
+  let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
       
       if (!textEl) {
         // If no existing text element, look for any text element in the group
         textEl = group.querySelector("text");
       }
-      
+
       if (!textEl) {
-        // Only create text element if absolutely no text element exists
+        // Remove any duplicate with same id elsewhere (from previous runs)
+        const dup = document.querySelector(`#roomlabel-${roomNumber}`);
+        if (dup) dup.remove();
+
+        // Create text element inside the same group so transforms apply
         textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textEl.setAttribute("class", "room-label");
         textEl.setAttribute("id", `roomlabel-${roomNumber}`);
-        
+
         const bbox = roomElement.getBBox();
         textEl.setAttribute("x", bbox.x + bbox.width/2);
         textEl.setAttribute("y", bbox.y + bbox.height/2);
 
-        const svg = document.querySelector('svg');
-        if (svg) {
-          svg.appendChild(textEl);
-        } else {
-          group.appendChild(textEl);
-        }
+        group.appendChild(textEl);
       }
 
       // Clear existing tspans
@@ -200,25 +199,21 @@ if (isset($_GET['selectRoom'])) {
         }
         svg.id = 'svg1'; // Assign ID for panzoom
         
-        // Make only room-X-1 elements clickable
+        // Make room elements clickable and map labels for any floor suffix (-1, -2, -3)
         svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
           el.classList.add('selectable-room');
           const parentGroup = el.closest('g');
           
           // Find if this room has an office assigned
           if (parentGroup) {
-            const roomMatch = el.id.match(/room-(\d+)-1/);
+            const roomMatch = el.id.match(/^room-(\d+)(?:-\d+)?$/);
             if (roomMatch) {
-                const roomNum = roomMatch[1];
-                // Try both location formats: 'room-7' and 'room-7-1'
-                const office = officesData.find(o => 
-                  o.location === `room-${roomNum}` || 
-                  o.location === `room-${roomNum}-1` ||
-                  o.location === el.id
-                );
-                if (office) {
-                  updateRoomLabelMain(parentGroup, office.name);
-                }
+              const roomNum = roomMatch[1];
+              // Only match offices with the exact room ID (floor-specific)
+              const office = officesData.find(o => o.location === el.id);
+              if (office) {
+                updateRoomLabelMain(parentGroup, office.name);
+              }
             }
           }
           
@@ -227,9 +222,9 @@ if (isset($_GET['selectRoom'])) {
             let id = el.id;
             let label = id;
             // Try to get label from associated roomlabel element
-            const roomMatch = el.id.match(/room-(\d+)-1/);
-            if (roomMatch) {
-              let roomNum = roomMatch[1];
+            const rm = el.id.match(/^room-(\d+)(?:-\d+)?$/);
+            if (rm) {
+              let roomNum = rm[1];
               let labelEl = svg.querySelector('#roomlabel-' + roomNum);
               if (labelEl) label = labelEl.textContent.trim();
             }
@@ -437,7 +432,7 @@ if (isset($_GET['selectRoom'])) {
         const officesData = <?php echo json_encode($offices); ?>;
         console.log("Offices Data Loaded:", officesData); // For debugging
         
-        // Function to update room labels with proper centering
+      // Function to update room labels with proper centering
         function updateRoomLabelMain(group, officeName) {
             // First try to find existing text element in the SVG by roomlabel ID
             const roomElement = group.querySelector("path, rect");
@@ -451,31 +446,30 @@ if (isset($_GET['selectRoom'])) {
             // Look for existing roomlabel text element in the entire SVG
             let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
             
-            if (!textEl) {
-                // If no existing text element, look for any text element in the group
-                textEl = group.querySelector("text");
-            }
-            
-            if (!textEl) {
-                // Only create text element if absolutely no text element exists
-                console.warn(`No existing text element found for room ${roomNumber}, creating new one`);
-                textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                textEl.setAttribute("class", "room-label");
-                textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+      if (!textEl) {
+        // If no existing text element, look for any text element in the group
+        textEl = group.querySelector("text");
+      }
+
+      if (!textEl) {
+        // Remove any duplicate elsewhere first
+        const dup = document.querySelector(`#roomlabel-${roomNumber}`);
+        if (dup) dup.remove();
+
+        // Create inside the group so any transforms apply correctly
+        console.warn(`No existing text element found for room ${roomNumber}, creating new one`);
+        textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textEl.setAttribute("class", "room-label");
+        textEl.setAttribute("id", `roomlabel-${roomNumber}`);
                 
-                // Get the room path/rect to position the label at its center
-                const bbox = roomElement.getBBox();
-                textEl.setAttribute("x", bbox.x + bbox.width/2);
-                textEl.setAttribute("y", bbox.y + bbox.height/2);
+        // Get the room path/rect to position the label at its center
+        const bbox = roomElement.getBBox();
+        textEl.setAttribute("x", bbox.x + bbox.width/2);
+        textEl.setAttribute("y", bbox.y + bbox.height/2);
                 
-                // Add to the SVG root, not the group, to match existing structure
-                const svg = document.querySelector('svg');
-                if (svg) {
-                    svg.appendChild(textEl);
-                } else {
-                    group.appendChild(textEl);
-                }
-            }
+        // Append to the room group
+        group.appendChild(textEl);
+      }
 
             // Store original x coordinate for centering
             const originalX = parseFloat(textEl.getAttribute("x")) || 0;
@@ -510,37 +504,34 @@ if (isset($_GET['selectRoom'])) {
         }
         
         // Function to update room labels with office names (using updateRoomLabelMain for centering)
-        function updateRoomLabels(svg) {
+    function updateRoomLabels(svg) {
             if (!svg) svg = document.querySelector('svg');
             if (!svg) return;
             
             console.log('updateRoomLabels called, processing rooms...');
             
-            svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
-                if (!el.id.match(/room-(\d+)-1/)) return; // Only process main room paths
+      svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
+        const match = el.id.match(/^room-(\d+)(?:-\d+)?$/);
+        if (!match) return;
+        const roomNum = match[1];
+
+        // Match by exact id first, then by common variants across floors
+        const office = officesData.find(o => o.location === el.id);
                 
-                const roomNum = el.id.match(/room-(\d+)-1/)[1];
-                // Try both location formats: 'room-7' and 'room-7-1'
-                const office = officesData.find(o => 
-                    o.location === `room-${roomNum}` || 
-                    o.location === `room-${roomNum}-1` ||
-                    o.location === el.id
-                );
+        console.log(`Room ${roomNum} (${el.id}):`, office ? `Found office: ${office.name}` : 'No office assigned');
                 
-                console.log(`Room ${roomNum} (${el.id}):`, office ? `Found office: ${office.name}` : 'No office assigned');
-                
-                if (office) {
-                    // Find the parent group and text element
-                    const parentGroup = el.closest('g[id^="room-"]');
-                    if (parentGroup) {
-                        // Use the updateRoomLabelMain function for proper centering
-                        updateRoomLabelMain(parentGroup, office.name);
-                        console.log(`Updated label for room ${roomNum} to "${office.name}" with centering`);
-                    } else {
-                        console.log(`No parent group found for room ${roomNum}`);
-                    }
-                }
-            });
+        if (office) {
+          // Find the parent group and text element
+          const parentGroup = el.closest('g[id^="room-"]') || el.closest('g');
+          if (parentGroup) {
+            // Use the updateRoomLabelMain function for proper centering
+            updateRoomLabelMain(parentGroup, office.name);
+            console.log(`Updated label for room ${roomNum} to "${office.name}" with centering`);
+          } else {
+            console.log(`No parent group found for room ${roomNum}`);
+          }
+        }
+      });
         }
         
         // Initialize labels on page load for embedded SVG
