@@ -29,6 +29,10 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!roomMatch) return;
       const roomNumber = roomMatch[1];
 
+      // Remove any existing duplicate elsewhere
+      const dup = document.querySelector(`#roomlabel-${roomNumber}`);
+      if (dup && !group.contains(dup)) dup.remove();
+
       textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
       textEl.setAttribute("class", "room-label");
       textEl.setAttribute("id", `roomlabel-${roomNumber}`);
@@ -37,12 +41,8 @@ document.addEventListener("DOMContentLoaded", function () {
       textEl.setAttribute("x", bbox.x + bbox.width / 2);
       textEl.setAttribute("y", bbox.y + bbox.height / 2);
       
-      const svg = group.closest('svg');
-      if (svg) {
-          svg.appendChild(textEl);
-      } else {
-          group.appendChild(textEl);
-      }
+      // Always append to the group so transforms align
+      group.appendChild(textEl);
     }
 
     // Store original x coordinate for centering
@@ -511,13 +511,11 @@ document.addEventListener("DOMContentLoaded", function () {
           officeStatusText.textContent = isActive ? "Active" : "Inactive";
           officeStatusText.style.color = isActive ? "#4CAF50" : "#f44336";
         }
-        // Update the room label
-        updateRoomLabel(e.currentTarget, office.name);
+  // Do not update/recreate the label on click to avoid duplicate/misaligned tspans
         if (typeof officeDetailsModal !== "undefined" && officeDetailsModal) {
           openModal();
         }
       };
-      // ...existing code...
 
       // Add click handler to both the group and the element
       roomGroup.addEventListener("click", handleRoomClick, true);
