@@ -2141,7 +2141,7 @@
      y="101.41903"
      id="text-1-2"
      transform="matrix(1.0001227,0,0,0.98985526,-0.01012331,0.70923025)"><tspan
-       id="roomlabel-17"
+       id="roomlabel-1"
        style="fill:url(#linearGradient121);fill-opacity:1;stroke:url(#linearGradient122);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="57.188728"
        y="101.41903">Room1</tspan></text><text
@@ -2150,7 +2150,7 @@
      x="85.531937"
      y="427.17856"
      id="text-2-2"><tspan
-       id="roomlabel-18"
+       id="roomlabel-2"
        style="stroke:url(#linearGradient123);stroke-width:0.998879;paint-order:stroke fill markers"
        x="85.531937"
        y="427.17856">Room2</tspan></text><text
@@ -2160,7 +2160,7 @@
      y="120.25727"
      id="text-3-2"
      transform="matrix(1.0000693,0,0,0.99008571,-0.01348154,0.69293953)"><tspan
-       id="roomlabel-19"
+       id="roomlabel-3"
        style="fill:url(#linearGradient124);stroke:url(#linearGradient125);stroke-width:0.998879;stroke-dasharray:none;paint-order:stroke fill markers"
        x="170.53032"
        y="120.25727">Room3</tspan></text><text
@@ -2170,7 +2170,7 @@
      y="239.26437"
      id="text-4-2"
      transform="matrix(0.99494486,0,0,1.000061,2.0590073,-0.01509013)"><tspan
-       id="roomlabel-20"
+       id="roomlabel-4"
        style="fill:url(#linearGradient172);fill-opacity:1;stroke:url(#linearGradient173);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="268.46732"
        y="239.26437">Room4</tspan></text><text
@@ -2179,7 +2179,7 @@
      x="521.83899"
      y="254.08778"
      id="text-5-2"><tspan
-       id="roomlabel-21"
+       id="roomlabel-5"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="521.83899"
        y="254.08778">Room5</tspan></text><text
@@ -2189,7 +2189,7 @@
      y="412.92828"
      id="text-7-2"
      transform="translate(-19.145794,-214.59494)"><tspan
-       id="roomlabel-23"
+       id="roomlabel-6"
        x="751.30774"
        y="412.92828"
        style="fill:url(#linearGradient129);stroke:url(#linearGradient90);stroke-width:0.999878;stroke-dasharray:none;paint-order:stroke fill markers">Room7</tspan></text><text
@@ -2199,7 +2199,7 @@
      y="241.16432"
      id="text-6-2"
      transform="scale(1.062047,0.94157789)"><tspan
-       id="roomlabel-22"
+       id="roomlabel-7"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient81);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="615.5802"
        y="241.16432">Room6</tspan></text><text
@@ -2209,7 +2209,7 @@
      y="527.7998"
      id="text-8-2"
      transform="translate(-19.145794,-214.59494)"><tspan
-       id="roomlabel-24"
+       id="roomlabel-8"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="719.55042"
        y="527.7998">Room8</tspan></text><text
@@ -2218,7 +2218,7 @@
      x="769.73883"
      y="314.1488"
      id="text-9-2"><tspan
-       id="roomlabel-25"
+       id="roomlabel-9"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="769.73883"
        y="314.1488">Room9</tspan></text><text
@@ -2228,7 +2228,7 @@
      y="526.39722"
      id="text-10-2"
      transform="matrix(0.88394967,0,0,1.1312861,-19.145794,-214.59494)"><tspan
-       id="roomlabel-26"
+       id="roomlabel-10"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient109);stroke-width:0.892998;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="881.117"
        y="526.39722">Room10</tspan></text><text
@@ -2238,7 +2238,7 @@
      y="480.09262"
      id="text-11-2"
      transform="matrix(0.87738919,0,0,1.1397451,-19.145794,-214.59494)"><tspan
-       id="roomlabel-27"
+       id="roomlabel-11"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="963.56824"
        y="480.09262">Room11</tspan></text><text
@@ -2248,7 +2248,7 @@
      y="544.38281"
      id="text-12-2"
      transform="translate(-19.145794,-214.59494)"><tspan
-       id="roomlabel-28"
+       id="roomlabel-12"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient111);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="1037.8807"
        y="544.38281">Room12</tspan></text><text
@@ -2257,7 +2257,7 @@
      x="1018.2125"
      y="211.89957"
      id="text-13-2"><tspan
-       id="roomlabel-29"
+       id="roomlabel-13"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient103);paint-order:stroke fill markers"
        x="1018.2125"
        y="211.89957">Room13</tspan></text><text
@@ -2266,7 +2266,7 @@
      x="1178.899"
      y="256.37228"
      id="text-14-2"><tspan
-       id="roomlabel-30"
+       id="roomlabel-14"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient113);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="1178.899"
        y="256.37228">Room14</tspan></text><text
@@ -2275,7 +2275,7 @@
      x="1312.0393"
      y="257.96149"
      id="text-15-2"><tspan
-       id="roomlabel-31"
+       id="roomlabel-15"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="1312.0393"
        y="257.96149">Room15</tspan></text><text
@@ -2284,7 +2284,7 @@
      x="1428.1506"
      y="233.67749"
      id="text-16-2"><tspan
-       id="roomlabel-32"
+       id="roomlabel-16"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient116);stroke-width:1.00088;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="1428.1506"
        y="233.67749">Room16</tspan></text><text
@@ -2293,7 +2293,7 @@
      x="1575.9607"
      y="118.03504"
      id="text-17-2"><tspan
-       id="roomlabel-33"
+       id="roomlabel-17"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
        x="1575.9607"
        y="118.03504">Room17</tspan></text><text
@@ -2302,7 +2302,7 @@
      x="1588.4653"
      y="432.90067"
      id="text-18-2"><tspan
-       id="roomlabel-34"
+       id="roomlabel-18"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient131);stroke-width:0.998879;paint-order:stroke fill markers"
        x="1588.4653"
        y="432.90067">Room18</tspan></text><text
@@ -2311,7 +2311,7 @@
      x="1618.3123"
      y="543.04858"
      id="text-19-2"><tspan
-       id="roomlabel-35"
+       id="roomlabel-19"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="1618.3123"
        y="543.04858">Room19</tspan></text><text
@@ -2320,7 +2320,7 @@
      x="1664.5104"
      y="295.32651"
      id="text-20-2"><tspan
-       id="roomlabel-36"
+       id="roomlabel-20"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="1664.5104"
        y="295.32651">Room20</tspan></text><text
@@ -2329,7 +2329,7 @@
      x="1699.6293"
      y="90.918137"
      id="text-21-2"><tspan
-       id="roomlabel-37"
+       id="roomlabel-21"
        style="fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
        x="1699.6293"
        y="90.918137">Room21</tspan></text></g><text
