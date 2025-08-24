@@ -137,18 +137,30 @@ if (isset($_GET['selectRoom'])) {
               }
           }
       }
+      
       let textEl = null;
+      let originalX, originalY;
       
       if (tspanEl && tspanEl.tagName === 'tspan') {
-        // Found existing tspan, get its parent text element
+        // Found existing tspan, get its parent text element and preserve coordinates
         textEl = tspanEl.parentElement;
+        originalX = parseFloat(textEl.getAttribute("x")) || parseFloat(tspanEl.getAttribute("x"));
+        originalY = parseFloat(textEl.getAttribute("y")) || parseFloat(tspanEl.getAttribute("y"));
       } else {
         // Look for existing text element within the group first (more reliable)
         textEl = group.querySelector("text");
+        if (textEl) {
+          originalX = parseFloat(textEl.getAttribute("x"));
+          originalY = parseFloat(textEl.getAttribute("y"));
+        }
         
         // If no text in group, try to find by roomlabel ID pattern (1st floor pattern)
         if (!textEl) {
           textEl = document.querySelector(`#${labelId}`);
+          if (textEl) {
+            originalX = parseFloat(textEl.getAttribute("x"));
+            originalY = parseFloat(textEl.getAttribute("y"));
+          }
         }
       }
 
@@ -162,33 +174,49 @@ if (isset($_GET['selectRoom'])) {
         textEl.setAttribute("class", "room-label");
         textEl.setAttribute("id", labelId);
 
+        // Use room center as fallback if no original coordinates found
         const bbox = roomElement.getBBox();
-        textEl.setAttribute("x", bbox.x + bbox.width/2);
-        textEl.setAttribute("y", bbox.y + bbox.height/2);
+        originalX = originalX || (bbox.x + bbox.width/2);
+        originalY = originalY || (bbox.y + bbox.height/2);
+        
+        textEl.setAttribute("x", originalX);
+        textEl.setAttribute("y", originalY);
 
         group.appendChild(textEl);
       }
 
-      // Clear existing tspans
+      // Set text-anchor to middle for centering
+      textEl.setAttribute("text-anchor", "middle");
+      textEl.setAttribute("dominant-baseline", "central");
+
+      // Clear existing content
+      textEl.textContent = "";
       while (textEl.firstChild) {
         textEl.removeChild(textEl.firstChild);
       }
 
-      // Set text-anchor to middle for centering
-      textEl.setAttribute("text-anchor", "middle");
+      const lineHeight = "1.2em";
+      const words = officeName.split(" ");
 
-      // Create new tspans for each line
-      officeName.split(' ').forEach((line, index) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.textContent = line;
-        textEl.appendChild(tspan);
+      // Create tspans for each word to handle multi-line text
+      words.forEach((word, index) => {
+        const newTspan = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "tspan"
+        );
+        newTspan.textContent = word;
+        // The x attribute must be set on each tspan to align them vertically.
+        newTspan.setAttribute("x", originalX); 
+        // Move to the next line after the first word.
+        if (index > 0) {
+          newTspan.setAttribute("dy", lineHeight);
+        }
+        textEl.appendChild(newTspan);
       });
 
-      // Adjust position after adding text
-      const textBBox = textEl.getBBox();
-      const roomBBox = roomElement.getBBox();
-      textEl.setAttribute("x", roomBBox.x + roomBBox.width / 2);
-      textEl.setAttribute("y", roomBBox.y + roomBBox.height / 2 - textBBox.height / 2 + textBBox.height * 0.25);
+      // Set final position using preserved coordinates
+      textEl.setAttribute("x", originalX);
+      textEl.setAttribute("y", originalY);
     }
 
     function initializePanZoom(svgElement) {
@@ -246,12 +274,39 @@ if (isset($_GET['selectRoom'])) {
             e.stopPropagation();
             let id = el.id;
             let label = id;
-            // Try to get label from associated roomlabel element
+            // Try to get label from associated roomlabel element using smart detection
             const rm = el.id.match(/^room-(\d+)(?:-\d+)?$/);
             if (rm) {
               let roomNum = rm[1];
+              let fullRoomId = el.id; // e.g., "room-1-2"
+              
+              // First try direct mapping (works for 1st floor)
               let labelEl = svg.querySelector('#roomlabel-' + roomNum);
-              if (labelEl) label = labelEl.textContent.trim();
+              
+              // If not found and this is 2nd floor, search by placeholder text
+              if (!labelEl && fullRoomId.includes('-2')) {
+                const targetText = `Room${roomNum}`;
+                const allTspans = svg.querySelectorAll('tspan[id*="roomlabel"]');
+                for (let tspan of allTspans) {
+                  if (tspan.textContent && tspan.textContent.trim() === targetText) {
+                    labelEl = tspan;
+                    break;
+                  }
+                }
+              }
+              
+              // Get the label text
+              if (labelEl) {
+                label = labelEl.textContent.trim();
+              } else {
+                // Try to find the office name from officesData if label not found
+                const office = officesData.find(o => o.location === fullRoomId);
+                if (office) {
+                  label = office.name;
+                } else {
+                  label = `Room ${roomNum}`;
+                }
+              }
             }
             // Highlight selection
             svg.querySelectorAll('.selectable-room').forEach(x=>x.classList.remove('selected'));
