@@ -466,21 +466,49 @@ try {
         const roomPath = group.querySelector("path");
         if (!roomPath || !roomPath.id) return;
         
-        const match = roomPath.id.match(/room-(\d+)/);
+        const match = roomPath.id.match(/room-(\d+)(-\d+)?/);
         if (!match) return;
         
         const roomNumber = match[1];
-        let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
-
-        if (!textEl) {
+        const fullRoomId = match[0]; // e.g., "room-1-2"
+        
+        // Look for existing roomlabel by room number (works for 1st floor: room-1-1 -> roomlabel-1)
+        let labelId = `roomlabel-${roomNumber}`;
+        let tspanEl = document.querySelector(`#${labelId}`);
+        let textEl = null;
+        
+        // If not found and this is 2nd floor, look for labels containing the room number in their text
+        if (!tspanEl && fullRoomId.includes('-2')) {
+            // Find tspan elements that contain "Room" + the room number
+            const targetText = `Room${roomNumber}`;
+            const allTspans = document.querySelectorAll('tspan[id*="roomlabel"]');
+            for (let tspan of allTspans) {
+                if (tspan.textContent && tspan.textContent.trim() === targetText) {
+                    tspanEl = tspan;
+                    labelId = tspan.id;
+                    break;
+                }
+            }
+        }
+        
+        if (tspanEl && tspanEl.tagName === 'tspan') {
+            // Found existing tspan, get its parent text element
+            textEl = tspanEl.parentElement;
+        } else {
+            // Look for existing text element within the group first (more reliable)
             textEl = group.querySelector("text");
+
+            // If no text in group, try to find by roomlabel ID pattern (1st floor pattern)
+            if (!textEl) {
+                textEl = document.querySelector(`#${labelId}`);
+            }
         }
 
         if (!textEl) {
             // Create text element if it doesn't exist
             textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
             textEl.setAttribute("class", "room-label");
-            textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+            textEl.setAttribute("id", labelId);
             
             const bbox = roomPath.getBBox();
             textEl.setAttribute("x", bbox.x + bbox.width / 2);

@@ -114,28 +114,53 @@ if (isset($_GET['selectRoom'])) {
       const roomElement = group.querySelector("path, rect");
       if (!roomElement || !roomElement.id) return;
       
-      const roomMatch = roomElement.id.match(/room-(\d+)/);
+      const roomMatch = roomElement.id.match(/room-(\d+)(-\d+)?/);
       if (!roomMatch) return;
       
       const roomNumber = roomMatch[1];
+      const fullRoomId = roomMatch[0]; // e.g., "room-1-2"
       
-      // Look for existing roomlabel text element in the entire SVG
-  let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
+      // Look for existing roomlabel by room number (works for 1st floor: room-1-1 -> roomlabel-1)
+      let labelId = `roomlabel-${roomNumber}`;
+      let tspanEl = document.querySelector(`#${labelId}`);
       
-      if (!textEl) {
-        // If no existing text element, look for any text element in the group
+      // If not found and this is 2nd floor, look for labels containing the room number in their text
+      if (!tspanEl && fullRoomId.includes('-2')) {
+          // Find tspan elements that contain "Room" + the room number
+          const targetText = `Room${roomNumber}`;
+          const allTspans = document.querySelectorAll('tspan[id*="roomlabel"]');
+          for (let tspan of allTspans) {
+              if (tspan.textContent && tspan.textContent.trim() === targetText) {
+                  tspanEl = tspan;
+                  labelId = tspan.id;
+                  break;
+              }
+          }
+      }
+      let textEl = null;
+      
+      if (tspanEl && tspanEl.tagName === 'tspan') {
+        // Found existing tspan, get its parent text element
+        textEl = tspanEl.parentElement;
+      } else {
+        // Look for existing text element within the group first (more reliable)
         textEl = group.querySelector("text");
+        
+        // If no text in group, try to find by roomlabel ID pattern (1st floor pattern)
+        if (!textEl) {
+          textEl = document.querySelector(`#${labelId}`);
+        }
       }
 
       if (!textEl) {
         // Remove any duplicate with same id elsewhere (from previous runs)
-        const dup = document.querySelector(`#roomlabel-${roomNumber}`);
+        const dup = document.querySelector(`#${labelId}`);
         if (dup) dup.remove();
 
         // Create text element inside the same group so transforms apply
         textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textEl.setAttribute("class", "room-label");
-        textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+        textEl.setAttribute("id", labelId);
 
         const bbox = roomElement.getBBox();
         textEl.setAttribute("x", bbox.x + bbox.width/2);
@@ -438,29 +463,54 @@ if (isset($_GET['selectRoom'])) {
             const roomElement = group.querySelector("path, rect");
             if (!roomElement || !roomElement.id) return;
             
-            const roomMatch = roomElement.id.match(/room-(\d+)/);
+            const roomMatch = roomElement.id.match(/room-(\d+)(-\d+)?/);
             if (!roomMatch) return;
             
             const roomNumber = roomMatch[1];
+            const fullRoomId = roomMatch[0]; // e.g., "room-1-2"
             
-            // Look for existing roomlabel text element in the entire SVG
-            let textEl = document.querySelector(`#roomlabel-${roomNumber}`);
+            // Look for existing roomlabel by room number (works for 1st floor: room-1-1 -> roomlabel-1)
+            let labelId = `roomlabel-${roomNumber}`;
+            let tspanEl = document.querySelector(`#${labelId}`);
+            let textEl = null;
             
-      if (!textEl) {
-        // If no existing text element, look for any text element in the group
-        textEl = group.querySelector("text");
-      }
+            // If not found and this is 2nd floor, look for labels containing the room number in their text
+            if (!tspanEl && fullRoomId.includes('-2')) {
+                // Find tspan elements that contain "Room" + the room number
+                const targetText = `Room${roomNumber}`;
+                const allTspans = document.querySelectorAll('tspan[id*="roomlabel"]');
+                for (let tspan of allTspans) {
+                    if (tspan.textContent && tspan.textContent.trim() === targetText) {
+                        tspanEl = tspan;
+                        labelId = tspan.id;
+                        break;
+                    }
+                }
+            }
+            
+            if (tspanEl && tspanEl.tagName === 'tspan') {
+                // Found existing tspan, get its parent text element
+                textEl = tspanEl.parentElement;
+            } else {
+                // Look for existing text element within the group first (more reliable)
+                textEl = group.querySelector("text");
+                
+                // If no text in group, try to find by roomlabel ID pattern (1st floor pattern)  
+                if (!textEl) {
+                    textEl = document.querySelector(`#${labelId}`);
+                }
+            }
 
-      if (!textEl) {
-        // Remove any duplicate elsewhere first
-        const dup = document.querySelector(`#roomlabel-${roomNumber}`);
-        if (dup) dup.remove();
+            if (!textEl) {
+                // Remove any duplicate elsewhere first
+                const dup = document.querySelector(`#${labelId}`);
+                if (dup) dup.remove();
 
-        // Create inside the group so any transforms apply correctly
-        console.warn(`No existing text element found for room ${roomNumber}, creating new one`);
+                // Create inside the group so any transforms apply correctly
+                console.warn(`No existing text element found for ${fullRoomId}, creating new one`);
         textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textEl.setAttribute("class", "room-label");
-        textEl.setAttribute("id", `roomlabel-${roomNumber}`);
+        textEl.setAttribute("id", labelId);
                 
         // Get the room path/rect to position the label at its center
         const bbox = roomElement.getBBox();
