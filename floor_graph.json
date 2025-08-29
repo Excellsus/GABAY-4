@@ -238,14 +238,14 @@
     {
       "id": "path2",
       "style": {
-        "color": "#2196F3",
+        "color": "#4CAF50",
         "width": 3,
         "opacity": 0.8,
         "highlight": true,
         "pointMarker": {
           "type": "circle",
           "radius": 6,
-          "color": "#2196F3",
+          "color": "#4CAF50",
           "hoverColor": "#FF4444",
           "strokeColor": "#000",
           "strokeWidth": 1

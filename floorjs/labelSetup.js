@@ -29,15 +29,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!roomMatch) return;
       const roomNumber = roomMatch[1];
 
-      // First, try to find existing roomlabel tspan (for 2nd floor compatibility)
-      let labelEl = document.querySelector(`#roomlabel-${roomNumber}`);
-      
-      if (labelEl && labelEl.tagName.toLowerCase() === 'tspan') {
-        // Update existing tspan directly (2nd floor format)
-        labelEl.textContent = officeName;
-        return;
-      }
-
       // Remove any existing duplicate elsewhere
       const dup = document.querySelector(`#roomlabel-${roomNumber}`);
       if (dup && !group.contains(dup)) dup.remove();
