@@ -75,11 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GABAY | Negros Occidental Provincial Capitol</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="login.css" />
   </head>
   <body>
     <div class="background-blur">
@@ -149,11 +145,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
               Sign In
             </button>
           </form>
-
-          <div class="footer" style="margin-top: 2rem;">
-            Need help? Contact
-            <a href="mailto:support@gabay-capitol.com">support@gabay-capitol.com</a>
-          </div>
         </div>
       </div>
       <div class="footer" style="margin-top: 1rem;">

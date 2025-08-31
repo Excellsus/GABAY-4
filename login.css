@@ -9,7 +9,7 @@
   
   body {
     margin: 0;
-    font-family: "Poppins", sans-serif;
+    font-family: Arial, sans-serif;
     background-color: #f9fafb;
     display: flex;
     justify-content: center;
@@ -52,9 +52,9 @@
   .container {
     position: relative;
     z-index: 1;
-    max-width: 80rem;
-    width: 100%;
-    margin: 1rem;
+    width: 75%;
+    max-width: 95rem;
+    margin: 1rem auto;
   }
   
   .card {
@@ -66,12 +66,26 @@
     overflow: hidden;
     border: 1px solid #e5e7eb;
     height: 100%;
+    min-height: 75vh;
   }
   
   @media (min-width: 1024px) {
     .card {
       flex-direction: row;
-      height: 32rem; /* or any desired consistent height */
+      height: 75vh;
+      min-height: 32rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      width: 75%;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .container {
+      width: 90%;
     }
   }
   
@@ -116,14 +130,14 @@
   }
   
   .image-overlay h1 {
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: 700;
     margin-left: 0.5rem;
   }
   
   .form-section {
     flex: 1;
-    padding: 2rem;
+    padding: 3rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -131,46 +145,38 @@
   
   
   .form-section h2 {
-    font-size: 1.5rem;
+    font-size: 2.25rem;
     font-weight: 700;
     color: var(--negros-green);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
     animation: fade-in 0.8s ease-out forwards;
     animation-delay: 0.4s;
   }
   
   .form-section p {
     color: #4b5563;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+    font-size: 1.125rem;
   }
   
   label {
     display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: 1.125rem;
+    font-weight: 600;
     color: #374151;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
   }
   
   .input-group {
     position: relative;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
     animation: fade-in-up 0.6s ease-out forwards;
-  }
-  
-  label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
   }
   
   .input-icon {
     position: absolute;
-    /* Adjust these values to align with label */
-    top: calc(50% + 0.5rem); /* Move down to account for the label height */
-    left: 0.75rem;
+    top: calc(50% + 0.75rem);
+    left: 1rem;
     transform: translateY(-50%);
     pointer-events: none;
     color: #9ca3af;
@@ -178,37 +184,49 @@
     align-items: center;
     justify-content: center;
     z-index: 2;
-    height: 20px; /* Match the SVG height */
+    height: 24px;
+  }
+  
+  .input-icon svg {
+    width: 24px;
+    height: 24px;
   }
   
   input {
     width: 100%;
-    padding: 0.75rem 1rem 0.75rem 2.5rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
+    padding: 1rem 1.25rem 1rem 3.25rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.75rem;
     outline: none;
     transition: border 0.2s, box-shadow 0.2s;
     position: relative;
+    font-size: 1.125rem;
+    font-family: Arial, sans-serif;
   }
   
   input:focus {
     border-color: var(--negros-green);
-    box-shadow: 0 0 0 2px rgba(26, 86, 50, 0.3);
+    box-shadow: 0 0 0 3px rgba(26, 86, 50, 0.3);
   }
   
   .error-message {
     color: #dc2626;
-    font-size: 0.875rem;
+    font-size: 1rem;
     display: none;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    background-color: rgba(220, 38, 38, 0.1);
+    border-left: 4px solid #dc2626;
+    border-radius: 0.5rem;
   }
   
   .btn {
     background-color: var(--negros-green);
     color: #fff;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 500;
+    padding: 1.25rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 1.125rem;
     border: none;
     width: 100%;
     display: flex;
@@ -217,17 +235,24 @@
     cursor: pointer;
     transition: all 0.3s ease;
     animation: fade-in-up 0.6s ease-out forwards;
+    font-family: Arial, sans-serif;
   }
   
   .btn:hover {
     background-color: #174c2c;
     transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  }
+  
+  .btn svg {
+    width: 24px;
+    height: 24px;
+    margin-right: 0.75rem;
   }
   
   .footer {
     text-align: center;
-    font-size: 0.875rem;
+    font-size: 1rem;
     color: #6b7280;
     margin-top: 2rem;
     animation: fade-in 0.8s ease-out forwards;
@@ -241,6 +266,51 @@
   
   a:hover {
     text-decoration: underline;
+  }
+
+  /* Mobile responsive adjustments */
+  @media (max-width: 767px) {
+    .form-section {
+      padding: 2rem;
+    }
+    
+    .form-section h2 {
+      font-size: 1.875rem;
+    }
+    
+    .form-section p {
+      font-size: 1rem;
+    }
+    
+    label {
+      font-size: 1rem;
+    }
+    
+    input {
+      font-size: 1rem;
+      padding: 0.875rem 1rem 0.875rem 2.75rem;
+    }
+    
+    .btn {
+      font-size: 1rem;
+      padding: 1rem 1.25rem;
+    }
+    
+    .input-icon {
+      top: calc(50% + 0.5rem);
+      left: 0.75rem;
+    }
+    
+    .input-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    .btn svg {
+      width: 20px;
+      height: 20px;
+      margin-right: 0.5rem;
+    }
   }
   
   /* Animations */

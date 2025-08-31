@@ -64,7 +64,10 @@
     },
     "room-6-1": {
       "doorPoints": [
-        {"x": 303, "y": 215}
+        {"x": 303, "y": 215},
+        {"x": 190, "y": 215, "nearestPathId": "path1"}
+
+
       ],
       "nearestPathId": "path2",
       "style": {

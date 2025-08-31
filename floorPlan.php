@@ -335,7 +335,6 @@ if (isset($_GET['selectRoom'])) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GABAY Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="floorPlan.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -417,11 +416,11 @@ if (isset($_GET['selectRoom'])) {
       <!-- Main Content -->
       <div class="main-content">
       <header class="header">
-        <div class="flex justify-between items-center w-full">
-          <div>
-            <h2 class="font-bold">Floor Plan</h2>
-            <p class="text-gray-500">View and manage floor plans</p>
-          </div>
+        <div>
+          <h2>Floor Plan</h2>
+          <p>View and manage floor plans</p>
+        </div>
+        <div class="actions">
           <div class="flex gap-2">
             <button class="floor-select-btn active" data-floor="1" 
               style="padding: 4px 12px; border: 1px solid #04aa6d; background: #04aa6d; color: white; 
