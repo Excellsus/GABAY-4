@@ -232,6 +232,7 @@
         {"x": 130, "y": 110, "isPano": true, "panoImage": ""},
         {"x": 130, "y": 175, "isPano": true, "panoImage": ""},   
         {"x": 165, "y": 175, "isPano": true, "panoImage": ""},
+        {"x": 165, "y": 215},
         {"x": 165, "y": 255, "isPano": true, "panoImage": ""},
         {"x": 165, "y": 340, "isPano": true, "panoImage": ""},
         {"x": 185, "y": 340},

@@ -79,7 +79,10 @@ try {
   <html lang="en">
     <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Visitor Navigation</title>
     <link rel="stylesheet" href="explore.css" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
@@ -116,16 +119,9 @@ try {
         </div>
 
         <!-- SVG Container -->
-        <!-- Adjusted container for better fit on mobile -->
-        <div class="flex-grow bg-white rounded-lg card-shadow overflow-hidden flex relative h-full w-full"> <!-- Use full height/width -->
-          <div class="floor-plan-container flex-grow relative w-full h-full"> <!-- Ensure inner div also fills space -->
-          <div class="svg-container" id="svg-container">
-            <!-- SVG will be loaded here -->
-          </div>
-          </div>
+        <div class="svg-container" id="svg-container">
+          <!-- SVG will be loaded here -->
         </div>
-      </div>
-    </div>
     </main>
 
     <style>
@@ -166,8 +162,63 @@ try {
         color: white;
       }
 
-      /* SVG styles */
-      svg { width: 100%; height: 100%; } 
+      /* SVG styles - ensure full coverage */
+      svg { 
+        width: 100% !important; 
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        display: block !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      
+      /* Override any Tailwind classes that might interfere */
+      .svg-container * {
+        max-width: none !important;
+        max-height: none !important;
+      }
+      
+      /* Mobile-specific SVG adjustments */
+      @media (max-width: 768px) {
+        svg {
+          width: 100vw !important;
+          height: 100% !important;
+          min-height: calc(100vh - 120px) !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+        }
+        
+        .svg-container {
+          width: 100vw !important;
+          height: 100% !important;
+          min-height: calc(100vh - 120px) !important;
+          position: relative !important;
+          overflow: hidden !important;
+        }
+        
+        /* Adjust floor selector for mobile */
+        .floor-selector {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 1000;
+          display: flex;
+          gap: 4px;
+          background: rgba(255, 255, 255, 0.9);
+          padding: 6px;
+          border-radius: 20px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .floor-btn {
+          padding: 6px 12px;
+          font-size: 14px;
+          min-width: 36px;
+        }
+      } 
       .selectable-room { 
         cursor: pointer; 
         stroke: #1976d2; 
@@ -195,6 +246,45 @@ try {
       }
       .interactive-room:hover {
         opacity: 0.8;
+      }
+      
+      /* YOU ARE HERE styles */
+      .you-are-here {
+        stroke: #ff4444 !important;
+        stroke-width: 4 !important;
+        fill: rgba(255, 68, 68, 0.2) !important;
+        animation: pulse 2s infinite;
+      }
+      
+      @keyframes pulse {
+        0% { stroke-opacity: 1; }
+        50% { stroke-opacity: 0.5; }
+        100% { stroke-opacity: 1; }
+      }
+      
+      .you-are-here-label {
+        animation: bounce 2s infinite;
+      }
+      
+      @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-5px); }
+        60% { transform: translateY(-3px); }
+      }
+      
+      /* Path highlighting styles */
+      .path-highlight {
+        stroke: #ff4444 !important;
+        stroke-width: 3 !important;
+        fill: rgba(255, 68, 68, 0.1) !important;
+        stroke-dasharray: 5,5;
+        animation: pathPulse 1.5s infinite;
+      }
+      
+      @keyframes pathPulse {
+        0% { stroke-opacity: 1; }
+        50% { stroke-opacity: 0.6; }
+        100% { stroke-opacity: 1; }
       }
     </style>
 
@@ -233,6 +323,12 @@ try {
           <div class="button-container">
             <button id="explore-btn" class="drawer-button">
               <i class="fas fa-location-arrow"></i> Explore
+            </button>
+            <button id="directions-btn" class="drawer-button" style="background: #1a5632;">
+              <i class="fas fa-route"></i> Get Directions
+            </button>
+            <button id="navigate-here-btn" class="drawer-button" style="background: #2196f3;">
+              <i class="fas fa-navigation"></i> Navigate Here
             </button>
             <button id="details-btn" class="drawer-button">
               <i class="fas fa-info-circle"></i> More Info
@@ -283,6 +379,14 @@ try {
       #details-btn:hover {
         background: #038857;
       }
+
+      #directions-btn {
+        background: #1a5632;
+      }
+
+      #directions-btn:hover {
+        background: #0d3018;
+      }
     </style>
 
     <!-- Floor Plan Modal for Explore Button -->
@@ -290,6 +394,38 @@ try {
       <div style="position:relative; width:95vw; max-width:900px; height:80vh; background:#fff; border-radius:16px; box-shadow:0 4px 24px #0002; display:flex; flex-direction:column;">
         <button id="close-explore-modal" style="position:absolute; top:10px; right:10px; font-size:28px; background:none; border:none; cursor:pointer; z-index:10;">&times;</button>
         <iframe id="explore-map-frame" src="../floorPlan.php?selectRoom=1" style="width:100%; height:100%; border:none; border-radius:16px;"></iframe>
+      </div>
+    </div>
+
+    <!-- Pathfinding Modal for Directions -->
+    <div id="pathfinding-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:3000; align-items:center; justify-content:center;">
+      <div style="position:relative; width:95vw; max-width:400px; background:#fff; border-radius:16px; box-shadow:0 4px 24px #0002; padding:20px;">
+        <button id="close-pathfinding-modal" style="position:absolute; top:10px; right:15px; font-size:24px; background:none; border:none; cursor:pointer;">&times;</button>
+        <h3 style="margin: 0 0 20px 0; color: #1a5632; text-align: center;">Get Directions</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">From:</label>
+          <select id="start-location" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+            <option value="lobby">Lobby (Main Entrance)</option>
+            <!-- Other rooms will be populated dynamically -->
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">To:</label>
+          <select id="end-location" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+            <option value="">Select destination...</option>
+          </select>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+          <button id="find-path-btn" style="flex: 1; padding: 12px; background: #1a5632; color: white; border: none; border-radius: 8px; font-weight: bold;">
+            Find Path
+          </button>
+          <button id="clear-path-btn" style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; font-weight: bold;">
+            Clear Path
+          </button>
+        </div>
       </div>
     </div>
 
@@ -318,6 +454,7 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script src="../floorjs/labelSetup.js"></script>
+    <script src="../pathfinding.js"></script> <!-- Add pathfinding functionality -->
     <script>
       // Make PHP-derived data available globally first
       const officesData = <?php echo json_encode($offices); ?>;
@@ -343,20 +480,31 @@ try {
       function refreshSvgContainer() {
         if (window.svgPanZoomInstance) {
           requestAnimationFrame(() => {
-            // Get drawer position
-            const detailsDrawer = document.getElementById("details-drawer");
-            const drawerTransform = window.getComputedStyle(detailsDrawer).transform;
-            const matrix = drawerTransform.match(/^matrix\((.+)\)$/);
-            const translateY = matrix ? parseFloat(matrix[1].split(", ")[5]) : 0;
-            
-            // Calculate visible area height
-            const viewportHeight = window.innerHeight;
-            const visibleHeight = viewportHeight - (detailsDrawer.offsetHeight - translateY);
-            
-            // Adjust SVG container height to fit above drawer
+            // Ensure containers are properly sized for mobile
             const svgContainer = document.getElementById('svg-container');
+            const svg = document.querySelector('svg');
+            
             if (svgContainer) {
-              svgContainer.style.height = `${visibleHeight}px`;
+              // For mobile, use viewport dimensions
+              const isMobile = window.innerWidth <= 768;
+              if (isMobile) {
+                svgContainer.style.width = '100vw';
+                svgContainer.style.height = `${window.innerHeight - 120}px`; // Account for header and nav
+              } else {
+                svgContainer.style.width = '100%';
+                svgContainer.style.height = '100%';
+              }
+            }
+            
+            if (svg) {
+              const isMobile = window.innerWidth <= 768;
+              if (isMobile) {
+                svg.style.width = '100vw';
+                svg.style.height = `${window.innerHeight - 120}px`;
+              } else {
+                svg.style.width = '100%';
+                svg.style.height = '100%';
+              }
             }
             
             // Refresh SVG view
@@ -457,9 +605,97 @@ try {
       // Global function to handle room clicks
       function handleRoomClick(office) {
         console.log("handleRoomClick called with office:", office);
+        
+        // Store selected office globally for pathfinding
+        window.currentSelectedOffice = office;
+        
         populateAndShowDrawerWithData(office);
         setTimeout(refreshSvgContainer, 250);
       }
+
+      // Global pathfinding functions
+      window.findPath = function(startLocation, endLocation) {
+        console.log('Finding path from', startLocation, 'to', endLocation);
+        
+        if (!window.floorGraph || !window.floorGraph.rooms) {
+          console.error('Floor graph not loaded');
+          return null;
+        }
+        
+        const startRoom = window.floorGraph.rooms[startLocation];
+        const endRoom = window.floorGraph.rooms[endLocation];
+        
+        if (!startRoom || !endRoom) {
+          console.error('Start or end room not found in graph');
+          return null;
+        }
+        
+        // Use A* algorithm from pathfinding.js
+        if (typeof aStar === 'function') {
+          return aStar(startLocation, endLocation);
+        } else {
+          console.error('A* algorithm not available');
+          return null;
+        }
+      };
+
+      window.clearPath = function() {
+        console.log('Clearing paths');
+        if (typeof clearAllPaths === 'function') {
+          clearAllPaths();
+        }
+        
+        // Also clear any room highlights
+        document.querySelectorAll('.path-highlight').forEach(el => {
+          el.classList.remove('path-highlight');
+        });
+        document.querySelectorAll('.you-are-here').forEach(el => {
+          el.classList.remove('you-are-here');
+        });
+      };
+
+      window.highlightPath = function(path) {
+        console.log('Highlighting path:', path);
+        if (typeof highlightPath === 'function') {
+          highlightPath(path);
+        }
+      };
+
+      // "YOU ARE HERE" functionality
+      window.showYouAreHere = function(officeLocation) {
+        console.log('Showing YOU ARE HERE for:', officeLocation);
+        
+        // Clear existing highlights
+        document.querySelectorAll('.you-are-here').forEach(el => {
+          el.classList.remove('you-are-here');
+        });
+        
+        // Find and highlight the current office
+        const roomElement = document.getElementById(officeLocation);
+        if (roomElement) {
+          roomElement.classList.add('you-are-here');
+          
+          // Add "YOU ARE HERE" label
+          const svg = document.querySelector('svg');
+          if (svg) {
+            // Remove existing "you are here" labels
+            svg.querySelectorAll('.you-are-here-label').forEach(label => label.remove());
+            
+            // Create new label
+            const bbox = roomElement.getBBox();
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("class", "you-are-here-label");
+            label.setAttribute("x", bbox.x + bbox.width / 2);
+            label.setAttribute("y", bbox.y - 10);
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("fill", "#ff4444");
+            label.setAttribute("font-weight", "bold");
+            label.setAttribute("font-size", "14");
+            label.textContent = "YOU ARE HERE";
+            svg.appendChild(label);
+          }
+        }
+      };
 
       // Function to update room label
       function updateRoomLabel(group, officeName) {
@@ -558,6 +794,13 @@ try {
         3: '../SVG/Capitol_3rd_floor_layout_6.svg'
       };
 
+      // Floor graph configuration for pathfinding
+      const floorGraphs = {
+        1: '../floor_graph.json',
+        2: '../floor_graph_2.json',
+        3: '../floor_graph_3.json'
+      };
+
       // Track current floor
       let currentFloor = 1;
 
@@ -565,20 +808,103 @@ try {
       function loadFloorMap(floorNumber) {
         console.log(`Loading floor ${floorNumber} map...`);
         currentFloor = floorNumber; // Track the current floor
-        fetch(floorMaps[floorNumber])
-          .then(response => response.text())
-          .then(svgText => {
-            document.getElementById('svg-container').innerHTML = svgText;
-            const svg = document.querySelector('svg');
-            if (window.svgPanZoomInstance) {
-              window.svgPanZoomInstance.destroy();
-            }
-            initializeSVG(svg);
+        
+        // Load both SVG and floor graph for pathfinding
+        Promise.all([
+          fetch(floorMaps[floorNumber]).then(response => {
+            if (!response.ok) throw new Error(`SVG fetch failed: ${response.status}`);
+            return response.text();
+          }),
+          fetch(floorGraphs[floorNumber]).then(response => {
+            if (!response.ok) throw new Error(`Floor graph fetch failed: ${response.status}`);
+            return response.json();
+          }).catch(error => {
+            console.warn(`Floor graph for floor ${floorNumber} not available:`, error.message);
+            return null; // Return null instead of failing completely
           })
-          .catch(error => {
-            console.error(`Error loading floor ${floorNumber} SVG:`, error);
-            document.getElementById('svg-container').innerHTML = `<p style="color:red;">Floor ${floorNumber} map not found.</p>`;
-          });
+        ])
+        .then(([svgText, graphData]) => {
+          // Load SVG
+          document.getElementById('svg-container').innerHTML = svgText;
+          const svg = document.querySelector('svg');
+          
+          // Ensure SVG has proper attributes for full container fill
+          if (svg) {
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+              svg.style.width = '100vw';
+              svg.style.height = `${window.innerHeight - 120}px`;
+            } else {
+              svg.style.width = '100%';
+              svg.style.height = '100%';
+            }
+            
+            svg.style.display = 'block';
+            svg.removeAttribute('width');
+            svg.removeAttribute('height');
+            
+            // Set viewBox if not present to ensure proper scaling
+            if (!svg.getAttribute('viewBox')) {
+              const bbox = svg.getBBox();
+              svg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
+            }
+            
+            // Ensure preserveAspectRatio is set for mobile
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          }
+          
+          // Load floor graph for pathfinding
+          if (graphData) {
+            window.floorGraph = graphData;
+            console.log(`Floor ${floorNumber} navigation graph loaded:`, graphData);
+          } else {
+            window.floorGraph = null;
+            console.log(`Floor ${floorNumber} loaded without navigation graph (pathfinding disabled)`);
+          }
+          
+          if (window.svgPanZoomInstance) {
+            window.svgPanZoomInstance.destroy();
+          }
+          
+          // Remove any existing custom zoom controls when switching floors
+          const existingCustomControls = document.getElementById('custom-zoom-controls');
+          if (existingCustomControls) {
+            existingCustomControls.remove();
+          }
+          
+          // Initialize SVG with a short delay to ensure DOM is ready
+          setTimeout(() => {
+            initializeSVG(svg);
+            
+            // Force a proper resize after everything is loaded
+            setTimeout(() => {
+              if (window.svgPanZoomInstance) {
+                window.svgPanZoomInstance.resize();
+                window.svgPanZoomInstance.fit();
+                window.svgPanZoomInstance.center();
+              }
+            }, 200);
+            
+            // Initialize pathfinding system only if graph data is available
+            if (graphData && typeof initPathfinding === 'function') {
+              initPathfinding(floorNumber);
+            } else {
+              console.log(`Pathfinding disabled for floor ${floorNumber} - no graph data available`);
+            }
+            
+            // Dispatch custom event for pathfinding initialization
+            window.dispatchEvent(new CustomEvent('floorMapLoaded', { 
+              detail: { floor: floorNumber, graphData: graphData } 
+            }));
+          }, 100);
+          
+          console.log(`Floor ${floorNumber} map and navigation graph loaded successfully`);
+        })
+        .catch(error => {
+          console.error(`Error loading floor ${floorNumber} data:`, error);
+          document.getElementById('svg-container').innerHTML = `<p style="color:red;">Floor ${floorNumber} map not found.</p>`;
+        });
       }
 
       // Function to initialize SVG interactivity
@@ -656,34 +982,53 @@ try {
       // Function to initialize pan-zoom functionality
       function initializePanZoom(svg) {
         try {
+          const isMobile = window.innerWidth <= 768;
+          
+          // Destroy any existing instance first
+          if (window.svgPanZoomInstance) {
+            try {
+              window.svgPanZoomInstance.destroy();
+            } catch (e) {
+              console.warn("Error destroying previous instance:", e);
+            }
+            window.svgPanZoomInstance = null;
+          }
+          
+          // Ensure SVG has valid viewBox before initializing
+          if (!svg.getAttribute('viewBox')) {
+            try {
+              const bbox = svg.getBBox();
+              if (bbox && !isNaN(bbox.x) && !isNaN(bbox.y) && bbox.width > 0 && bbox.height > 0) {
+                svg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
+              } else {
+                // Fallback viewBox
+                svg.setAttribute('viewBox', '0 0 1000 800');
+              }
+            } catch (e) {
+              console.warn("Could not get SVG bbox, using fallback viewBox");
+              svg.setAttribute('viewBox', '0 0 1000 800');
+            }
+          }
+          
           const panZoomInstance = svgPanZoom(svg, {
             zoomEnabled: true,
-            controlIconsEnabled: true,
+            controlIconsEnabled: true, // Always show zoom controls
             fit: true,
             center: true,
-            minZoom: 0.5,
-            maxZoom: 10,
-            zoomScaleSensitivity: 0.5,
-            dblClickZoomEnabled: false,
+            minZoom: isMobile ? 0.2 : 0.3,
+            maxZoom: isMobile ? 8 : 10,
+            zoomScaleSensitivity: isMobile ? 0.3 : 0.5,
+            dblClickZoomEnabled: true,
             preventMouseEventsDefault: true,
             touchEnabled: true,
+            contain: false,
             beforePan: function(oldPan, newPan) {
-              // Get the SVG dimensions and current zoom level
-              const sizes = this.getSizes();
-              const containerWidth = sizes.width;
-              const containerHeight = sizes.height;
-              const viewboxWidth = sizes.viewBox.width * sizes.realZoom;
-              const viewboxHeight = sizes.viewBox.height * sizes.realZoom;
-
-              // Calculate bounds to allow panning beyond container edges
-              const maxX = viewboxWidth;
-              const maxY = viewboxHeight;
-
-              // Allow panning in all directions but prevent excessive dragging
-              return {
-                x: Math.max(-maxX, Math.min(maxX, newPan.x)),
-                y: Math.max(-maxY, Math.min(maxY, newPan.y))
-              };
+              // Simple validation to prevent NaN values
+              if (isNaN(newPan.x) || isNaN(newPan.y)) {
+                console.warn("Prevented NaN pan values:", newPan);
+                return oldPan;
+              }
+              return newPan;
             },
             customEventsHandler: {
               haltEventListeners: ['touchstart', 'touchend', 'touchmove', 'touchleave', 'touchcancel'],
@@ -693,17 +1038,21 @@ try {
                 let pannedX = 0;
                 let pannedY = 0;
 
-                // Init Hammer with better touch recognition
+                // Init Hammer with better touch recognition for mobile
                 const hammer = new Hammer(options.svgElement, {
                   touchAction: 'none',
-                  inputClass: Hammer.SUPPORT_POINTER_EVENTS ? Hammer.PointerEventInput : Hammer.TouchInput
+                  inputClass: Hammer.SUPPORT_POINTER_EVENTS ? Hammer.PointerEventInput : Hammer.TouchInput,
+                  recognizers: [
+                    [Hammer.Pinch, { enable: true }],
+                    [Hammer.Pan, { direction: Hammer.DIRECTION_ALL, threshold: 0 }]
+                  ]
                 });
 
-                // Configure Hammer gestures
+                // Configure Hammer gestures for mobile
                 hammer.get('pinch').set({ enable: true });
                 hammer.get('pan').set({ 
                   direction: Hammer.DIRECTION_ALL,
-                  threshold: 0
+                  threshold: 2 // Slightly higher threshold for mobile
                 });
 
                 // Handle pan with improved tracking
@@ -760,8 +1109,46 @@ try {
           });
 
           console.log("svg-pan-zoom initialized successfully");
+          console.log("Control icons enabled:", true);
+          console.log("Pan-zoom instance created:", panZoomInstance);
           window.svgPanZoomInstance = panZoomInstance;
           window.panZoom = panZoomInstance;
+
+          // Check if controls were actually created
+          setTimeout(() => {
+            const controls = document.querySelector('.svg-pan-zoom-control');
+            console.log("Zoom controls found:", controls);
+            if (controls) {
+              console.log("Controls position:", controls.style.position, controls.style.right, controls.style.top);
+              console.log("Controls z-index:", controls.style.zIndex);
+            } else {
+              console.warn("Zoom controls not found in DOM!");
+            }
+          }, 100);
+
+          // Force immediate resize and fit
+          setTimeout(() => {
+            panZoomInstance.resize();
+            panZoomInstance.fit();
+            panZoomInstance.center();
+            
+            // Always create custom zoom controls for better visibility and control
+            setTimeout(() => {
+              // First try to find built-in controls
+              const controls = document.querySelector('.svg-pan-zoom-control');
+              if (controls) {
+                controls.style.display = 'block';
+                controls.style.visibility = 'visible';
+                controls.style.opacity = '1';
+                controls.style.zIndex = '999';
+                console.log("Built-in zoom controls found and made visible");
+              }
+              
+              // Always create custom zoom controls as backup/primary controls
+              console.log("Creating custom zoom controls for better reliability");
+              createCustomZoomControls(panZoomInstance);
+            }, 300); // Longer delay to ensure controls are rendered
+          }, 50);
 
           // Remove any existing resize listener
           if (window.panZoomResizeHandler) {
@@ -773,6 +1160,20 @@ try {
             if (window.svgPanZoomInstance) {
               requestAnimationFrame(() => {
                 try {
+                  // Ensure container sizing is correct
+                  const svgContainer = document.getElementById('svg-container');
+                  const svg = document.querySelector('svg');
+                  
+                  if (svgContainer && svg) {
+                    // Force container to full size
+                    svgContainer.style.width = '100%';
+                    svgContainer.style.height = '100%';
+                    
+                    // Force SVG to full size
+                    svg.style.width = '100%';
+                    svg.style.height = '100%';
+                  }
+                  
                   window.svgPanZoomInstance.resize();
                   window.svgPanZoomInstance.fit();
                   window.svgPanZoomInstance.center();
@@ -785,9 +1186,171 @@ try {
 
           // Add the new resize listener
           window.addEventListener("resize", window.panZoomResizeHandler);
+          
+          // Add orientation change handler for mobile
+          window.addEventListener("orientationchange", () => {
+            setTimeout(() => {
+              if (window.svgPanZoomInstance) {
+                refreshSvgContainer();
+              }
+            }, 100);
+          });
+          
+          // Add mobile-specific touch optimization
+          if (window.innerWidth <= 768) {
+            // Prevent bounce scrolling on iOS
+            document.addEventListener('touchmove', function(e) {
+              if (e.target.closest('.svg-container')) {
+                e.preventDefault();
+              }
+            }, { passive: false });
+          }
         } catch (e) {
           console.error("Error initializing svg-pan-zoom:", e);
         }
+      }
+
+      // Function to create custom zoom controls if svg-pan-zoom controls don't appear
+      function createCustomZoomControls(panZoomInstance) {
+        // Remove any existing custom controls
+        const existingControls = document.getElementById('custom-zoom-controls');
+        if (existingControls) {
+          existingControls.remove();
+        }
+
+        // Create control container
+        const controlsContainer = document.createElement('div');
+        controlsContainer.id = 'custom-zoom-controls';
+        controlsContainer.style.cssText = `
+          position: fixed !important;
+          bottom: 120px !important;
+          right: 20px !important;
+          z-index: 999 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 8px !important;
+          background: rgba(255, 255, 255, 0.95) !important;
+          padding: 8px !important;
+          border-radius: 12px !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+          pointer-events: auto !important;
+          border: 1px solid rgba(0,0,0,0.1) !important;
+        `;
+
+        // Helper function to create buttons with unified event handling
+        function createZoomButton(text, action, actionName) {
+          const button = document.createElement('button');
+          button.innerHTML = text;
+          button.style.cssText = `
+            width: 48px !important;
+            height: 48px !important;
+            border: none !important;
+            background: #ffffff !important;
+            color: #333333 !important;
+            font-size: 24px !important;
+            font-weight: bold !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+            touch-action: manipulation !important;
+            user-select: none !important;
+            border: 1px solid rgba(0,0,0,0.1) !important;
+          `;
+
+          // Unified action handler
+          const executeAction = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log(actionName + " triggered");
+            try {
+              action();
+            } catch (err) {
+              console.warn(actionName + " failed:", err);
+            }
+          };
+
+          // For mobile devices, use touchend instead of click for better responsiveness
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+                           window.innerWidth <= 768;
+
+          if (isMobile) {
+            let touchStarted = false;
+            
+            button.addEventListener('touchstart', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              touchStarted = true;
+              button.style.background = '#f0f0f0 !important';
+              button.style.transform = 'scale(0.95) !important';
+            });
+            
+            button.addEventListener('touchend', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (touchStarted) {
+                executeAction(e);
+                touchStarted = false;
+              }
+              button.style.background = '#ffffff !important';
+              button.style.transform = 'scale(1) !important';
+            });
+            
+            button.addEventListener('touchcancel', (e) => {
+              touchStarted = false;
+              button.style.background = '#ffffff !important';
+              button.style.transform = 'scale(1) !important';
+            });
+          } else {
+            // Desktop click handling
+            button.addEventListener('click', executeAction);
+            
+            // Hover effects for desktop
+            button.addEventListener('mouseenter', () => {
+              button.style.background = '#f0f0f0 !important';
+              button.style.transform = 'scale(1.05) !important';
+              button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25) !important';
+            });
+            button.addEventListener('mouseleave', () => {
+              button.style.background = '#ffffff !important';
+              button.style.transform = 'scale(1) !important';
+              button.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15) !important';
+            });
+            button.addEventListener('mousedown', () => {
+              button.style.transform = 'scale(0.95) !important';
+            });
+            button.addEventListener('mouseup', () => {
+              button.style.transform = 'scale(1) !important';
+            });
+          }
+
+          return button;
+        }
+
+        // Create zoom in button
+        const zoomInBtn = createZoomButton('+', () => panZoomInstance.zoomIn(), 'Zoom in');
+        
+        // Create zoom out button
+        const zoomOutBtn = createZoomButton('−', () => panZoomInstance.zoomOut(), 'Zoom out');
+        
+        // Create reset button
+        const resetBtn = createZoomButton('⌘', () => {
+          panZoomInstance.fit();
+          panZoomInstance.center();
+        }, 'Reset');
+
+        // Add buttons to container
+        controlsContainer.appendChild(zoomInBtn);
+        controlsContainer.appendChild(zoomOutBtn);
+        controlsContainer.appendChild(resetBtn);
+
+        // Add to document body for better positioning
+        document.body.appendChild(controlsContainer);
+        console.log("Custom zoom controls created and added to document body");
       }
 
       // Initialize floor buttons on document load
@@ -802,11 +1365,79 @@ try {
             this.classList.add('active');
             // Load the selected floor map
             loadFloorMap(floor);
+            
+            // Trigger a resize after floor change
+            setTimeout(() => {
+              if (window.svgPanZoomInstance) {
+                refreshSvgContainer();
+              }
+            }, 300);
+            
+            // Additional mobile-specific resize for orientation changes
+            if (window.innerWidth <= 768) {
+              setTimeout(() => {
+                const svg = document.querySelector('svg');
+                const svgContainer = document.getElementById('svg-container');
+                
+                if (svg && svgContainer) {
+                  svg.style.width = '100vw';
+                  svg.style.height = `${window.innerHeight - 120}px`;
+                  svgContainer.style.width = '100vw';
+                  svgContainer.style.height = `${window.innerHeight - 120}px`;
+                  
+                  if (window.svgPanZoomInstance) {
+                    window.svgPanZoomInstance.resize();
+                    window.svgPanZoomInstance.fit();
+                    window.svgPanZoomInstance.center();
+                  }
+                }
+              }, 500);
+            }
           });
         });
 
         // Load initial floor (1st floor)
         loadFloorMap(1);
+        
+        // Verify zoom controls are created after a delay
+        setTimeout(() => {
+          const customControls = document.getElementById('custom-zoom-controls');
+          const svgControls = document.querySelector('.svg-pan-zoom-control');
+          console.log("=== ZOOM CONTROLS STATUS ===");
+          console.log("Custom controls found:", !!customControls);
+          console.log("SVG-pan-zoom controls found:", !!svgControls);
+          if (customControls) {
+            console.log("Custom controls display:", customControls.style.display);
+            console.log("Custom controls visibility:", customControls.style.visibility);
+            console.log("Custom controls z-index:", customControls.style.zIndex);
+            console.log("Custom controls position:", customControls.getBoundingClientRect());
+          }
+          console.log("=== END STATUS ===");
+        }, 1000);
+        
+        // Mobile-specific initialization
+        if (window.innerWidth <= 768) {
+          // Force mobile layout after DOM load
+          setTimeout(() => {
+            const svgContainer = document.getElementById('svg-container');
+            const svg = document.querySelector('svg');
+            
+            if (svgContainer) {
+              svgContainer.style.width = '100vw';
+              svgContainer.style.height = `${window.innerHeight - 120}px`;
+            }
+            
+            if (svg) {
+              svg.style.width = '100vw';
+              svg.style.height = `${window.innerHeight - 120}px`;
+            }
+            
+            // Trigger resize if pan-zoom is available
+            if (window.svgPanZoomInstance) {
+              refreshSvgContainer();
+            }
+          }, 200);
+        }
       });
     </script>
     <script>
@@ -818,19 +1449,10 @@ try {
         const floorButtons = document.querySelectorAll('.floor-btn');
 
         // Add click handlers for floor buttons
-        floorButtons.forEach(button => {
-          button.addEventListener('click', function() {
-            const floor = parseInt(this.getAttribute('data-floor'));
-            // Update active state of buttons
-            floorButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
-            // Load the selected floor map
-            loadFloorMap(floor);
-          });
-        });
+        // (Floor button handlers are already set up above)
 
         // Load initial floor (1st floor)
-        loadFloorMap(1);
+        // (Initial floor loading is already handled above)
 
         // --- Basic Checks ---
         if (!detailsDrawer || !drawerHandle || !mainContent) {
@@ -1007,9 +1629,36 @@ try {
             const officeToHighlight = officesData.find(office => Number(office.id) === highlightOfficeIdFromPHP);
             if (officeToHighlight) {
                 console.log("QR Code: Found office to highlight:", officeToHighlight);
+                
+                // Store as current selected office for pathfinding
+                window.currentSelectedOffice = officeToHighlight;
+                
                 setTimeout(() => {
-                    console.log("QR Code: setTimeout triggered. Calling populateAndShowDrawerWithData.");
+                    console.log("QR Code: setTimeout triggered. Calling populateAndShowDrawerWithData and showYouAreHere.");
                     populateAndShowDrawerWithData(officeToHighlight);
+                    
+                    // Show "YOU ARE HERE" indicator
+                    if (officeToHighlight.location && window.showYouAreHere) {
+                        window.showYouAreHere(officeToHighlight.location);
+                    }
+                    
+                    // Auto-center on the highlighted office
+                    setTimeout(() => {
+                        const roomElement = document.getElementById(officeToHighlight.location);
+                        if (roomElement && window.svgPanZoomInstance) {
+                            const bbox = roomElement.getBBox();
+                            const svg = document.querySelector('svg');
+                            if (svg) {
+                                const svgRect = svg.getBoundingClientRect();
+                                const centerX = bbox.x + bbox.width / 2;
+                                const centerY = bbox.y + bbox.height / 2;
+                                
+                                // Pan to the room location
+                                window.svgPanZoomInstance.pan({x: centerX, y: centerY});
+                                window.svgPanZoomInstance.zoom(1.5); // Zoom in a bit
+                            }
+                        }
+                    }, 500);
                 }, 300); // 300ms delay to ensure UI is ready
             } else {
                 console.warn("QR Code: Office ID", highlightOfficeIdFromPHP, "not found in officesData.");
@@ -1058,6 +1707,197 @@ try {
         };
         document.getElementById('close-explore-modal').onclick = function() {
           document.getElementById('explore-modal-overlay').style.display = 'none';
+        };
+
+        // Navigate Here button logic - quickly navigate to selected room
+        document.getElementById('navigate-here-btn').onclick = function() {
+          if (!window.currentSelectedOffice || !window.currentSelectedOffice.location) {
+            alert('Please select a room first');
+            return;
+          }
+          
+          // Open pathfinding modal with destination pre-selected
+          const startLocationSelect = document.getElementById('start-location');
+          const endLocationSelect = document.getElementById('end-location');
+          
+          // Clear and populate dropdowns
+          startLocationSelect.innerHTML = '';
+          endLocationSelect.innerHTML = '';
+          
+          // Add "Main Entrance" as default start option
+          const mainEntranceOption = document.createElement('option');
+          mainEntranceOption.value = 'room-1'; // Assuming room-1 is main entrance
+          mainEntranceOption.textContent = 'Main Entrance (Lobby)';
+          mainEntranceOption.selected = true;
+          startLocationSelect.appendChild(mainEntranceOption);
+          
+          // Add all offices on current floor to both dropdowns
+          if (officesData) {
+            officesData.forEach(office => {
+              if (office.location) {
+                // Add to start dropdown
+                const startOption = document.createElement('option');
+                startOption.value = office.location;
+                startOption.textContent = office.name;
+                startLocationSelect.appendChild(startOption);
+                
+                // Add to end dropdown
+                const endOption = document.createElement('option');
+                endOption.value = office.location;
+                endOption.textContent = office.name;
+                // Pre-select the current office as destination
+                if (office.location === window.currentSelectedOffice.location) {
+                  endOption.selected = true;
+                }
+                endLocationSelect.appendChild(endOption);
+              }
+            });
+          }
+          
+          // Show pathfinding modal
+          document.getElementById('pathfinding-modal-overlay').style.display = 'flex';
+        };
+
+        // Directions button logic - open pathfinding modal
+        document.getElementById('directions-btn').onclick = function() {
+          // Populate both dropdowns with all available locations
+          const startLocationSelect = document.getElementById('start-location');
+          const endLocationSelect = document.getElementById('end-location');
+          
+          // Clear existing options
+          startLocationSelect.innerHTML = '';
+          endLocationSelect.innerHTML = '<option value="">Select destination...</option>';
+          
+          // If user came from QR code, set their current location as default start
+          let defaultStartLocation = null;
+          let defaultStartText = 'Lobby (Main Entrance)';
+          
+          if (window.currentSelectedOffice && window.currentSelectedOffice.location && highlightOfficeIdFromPHP) {
+            defaultStartLocation = window.currentSelectedOffice.location;
+            defaultStartText = window.currentSelectedOffice.name + ' (YOU ARE HERE)';
+          }
+          
+          // Add default start option
+          const defaultStart = document.createElement('option');
+          defaultStart.value = defaultStartLocation || 'lobby';
+          defaultStart.textContent = defaultStartText;
+          defaultStart.selected = true;
+          startLocationSelect.appendChild(defaultStart);
+          
+          // Add lobby option to end dropdown too
+          const lobbyEnd = document.createElement('option');
+          lobbyEnd.value = 'lobby';
+          lobbyEnd.textContent = 'Lobby (Main Entrance)';
+          endLocationSelect.appendChild(lobbyEnd);
+          
+          // Add all available offices on current floor to both dropdowns
+          officesData.forEach(office => {
+            if (office.location.includes(`-${currentFloor}`)) { // Only show offices on current floor
+              // Add to "From" dropdown (but not if it's already the default)
+              if (office.location !== defaultStartLocation) {
+                const startOption = document.createElement('option');
+                startOption.value = office.location;
+                startOption.textContent = office.name;
+                startLocationSelect.appendChild(startOption);
+              }
+              
+              // Add to "To" dropdown
+              const endOption = document.createElement('option');
+              endOption.value = office.location;
+              endOption.textContent = office.name;
+              // Pre-select if this is the currently selected office but not from QR code
+              if (window.currentSelectedOffice && office.location === window.currentSelectedOffice.location && !highlightOfficeIdFromPHP) {
+                endOption.selected = true;
+              }
+              endLocationSelect.appendChild(endOption);
+            }
+          });
+          
+          // Show pathfinding modal
+          document.getElementById('pathfinding-modal-overlay').style.display = 'flex';
+        };
+
+        // Pathfinding modal event handlers
+        document.getElementById('close-pathfinding-modal').onclick = function() {
+          document.getElementById('pathfinding-modal-overlay').style.display = 'none';
+        };
+
+        document.getElementById('find-path-btn').onclick = function() {
+          const startLocation = document.getElementById('start-location').value;
+          const endLocation = document.getElementById('end-location').value;
+          
+          if (!startLocation || !endLocation) {
+            alert('Please select both start and destination locations');
+            return;
+          }
+          
+          console.log(`Finding path from ${startLocation} to ${endLocation} on floor ${currentFloor}`);
+          
+          if (window.floorGraph && window.floorGraph.rooms) {
+            try {
+              // Clear any existing paths
+              if (window.clearPath) {
+                window.clearPath();
+              }
+              
+              // Get room data
+              const startRoom = window.floorGraph.rooms[startLocation];
+              const endRoom = window.floorGraph.rooms[endLocation];
+              
+              if (!startRoom || !endRoom) {
+                alert('Selected rooms not found on current floor');
+                return;
+              }
+              
+              // Use the pathfinding system from pathfinding.js
+              if (typeof aStar === 'function') {
+                const path = aStar(startLocation, endLocation);
+                if (path && path.length > 0) {
+                  // Highlight the path
+                  if (typeof highlightPath === 'function') {
+                    highlightPath(path);
+                  } else {
+                    // Fallback highlighting
+                    path.forEach(roomId => {
+                      const roomEl = document.getElementById(roomId);
+                      if (roomEl) {
+                        roomEl.classList.add('path-highlight');
+                      }
+                    });
+                  }
+                  
+                  // Close modal and show success
+                  document.getElementById('pathfinding-modal-overlay').style.display = 'none';
+                  alert(`Directions found! Path highlighted on the map.`);
+                } else {
+                  alert('No path found between these locations.');
+                }
+              } else {
+                alert('Pathfinding algorithm not loaded. Please refresh and try again.');
+              }
+            } catch (error) {
+              console.error('Pathfinding error:', error);
+              alert('Error finding directions: ' + error.message);
+            }
+          } else {
+            alert('Navigation system not loaded. Please wait and try again.');
+          }
+        };
+
+        document.getElementById('clear-path-btn').onclick = function() {
+          // Clear all path highlights
+          if (window.clearPath) {
+            window.clearPath();
+          } else {
+            // Fallback clearing
+            document.querySelectorAll('.path-highlight').forEach(el => {
+              el.classList.remove('path-highlight');
+            });
+            if (typeof clearAllPaths === 'function') {
+              clearAllPaths();
+            }
+          }
+          document.getElementById('pathfinding-modal-overlay').style.display = 'none';
         };
       });
     </script>

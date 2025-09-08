@@ -1,5 +1,24 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 
+/* Full height support */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Mobile viewport fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific viewport height fix */
+  html, body {
+    height: -webkit-fill-available;
+  }
+  
+  .content {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+}
+
 /* Basic body reset and bottom padding for nav */
 body {
   margin: 0;
@@ -56,41 +75,67 @@ body {
   margin: 0;
   overflow: hidden;
   z-index: 1;
-}
-
-/* SVG outer container */
-.flex-grow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #ffffff;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: hidden;
   display: flex;
+  flex-direction: column;
 }
 
-/* Floor plan container */
-.floor-plan-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background-color: #f8f9fa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  touch-action: none;
-  overflow: hidden;
-}
-
-/* SVG container */
+/* SVG container - now direct child of content */
 .svg-container {
   width: 100%;
   height: 100%;
+  flex: 1;
   position: relative;
   touch-action: none;
+  background-color: #f8f9fa;
+  overflow: hidden;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  /* Ensure full viewport usage on mobile */
+  .content {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 60px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: calc(100vh - 120px); /* Subtract header and nav heights */
+  }
+  
+  .svg-container {
+    width: 100vw;
+    height: 100%;
+    position: relative;
+    touch-action: none;
+    background-color: #f8f9fa;
+    overflow: hidden;
+    flex: 1;
+    /* Prevent rubber band scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+  
+  /* Mobile touch optimizations */
+  svg {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Optimize room interactions for mobile */
+  svg path[id^="room"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
 }
 
 /* SVG element */
@@ -295,6 +340,37 @@ svg path {
   flex-direction: column;
 }
 
+/* Mobile-specific drawer adjustments */
+@media (max-width: 768px) {
+  .details-drawer {
+    height: 45vh; /* Slightly smaller on mobile */
+    max-height: calc(100vh - 120px);
+    width: 100vw;
+    left: 0;
+    right: 0;
+  }
+  
+  .drawer-content {
+    padding-bottom: 10px; /* Less padding on mobile */
+  }
+  
+  .location-info {
+    padding: 0px 15px; /* Reduce padding on mobile */
+  }
+  
+  .button-container {
+    flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+    gap: 8px;
+    padding: 10px;
+  }
+  
+  .drawer-button {
+    min-width: 120px; /* Ensure buttons aren't too small */
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
+}
+
 .details-drawer.dragging {
   transition: none;
 }
@@ -469,4 +545,73 @@ svg path {
 /* Ensure SVG controls are visible */
 .svg-pan-zoom-control {
   z-index: 999 !important;
+}
+
+/* Custom Zoom Controls - Guaranteed visibility */
+#custom-zoom-controls {
+  position: fixed !important;
+  bottom: 120px !important;
+  right: 20px !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  padding: 8px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+  pointer-events: auto !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#custom-zoom-controls button {
+  width: 48px !important;
+  height: 48px !important;
+  border: none !important;
+  background: #ffffff !important;
+  color: #333333 !important;
+  font-size: 24px !important;
+  font-weight: bold !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+#custom-zoom-controls button:hover {
+  background: #f0f0f0 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+}
+
+#custom-zoom-controls button:active {
+  transform: scale(0.95) !important;
+}
+
+@media (max-width: 768px) {
+  #custom-zoom-controls {
+    bottom: 80px !important;
+    right: 15px !important;
+  }
+  
+  #custom-zoom-controls button {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 20px !important;
+  }
 }

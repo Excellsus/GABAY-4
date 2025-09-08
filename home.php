@@ -272,6 +272,49 @@ $totalReviews = $feedbackData['total_reviews'] ?? 0;
   const officeNames = topOffices.map(office => office.name);
   const scanCounts = topOffices.map(office => office.scan_count);
 
+  // Create gradients for the chart
+  const canvas = document.getElementById('topOfficesChart');
+  const ctx = canvas.getContext('2d');
+  
+  // Create gradient colors
+  const gradients = [
+    // Red gradient - original to lighter
+    (() => {
+      const gradient = ctx.createLinearGradient(0, 0, 400, 400);
+      gradient.addColorStop(0, '#fc0000ff'); // original red on left
+      gradient.addColorStop(1, '#f5a9a9ff'); // lighter red on right
+      return gradient;
+    })(),
+    // Green gradient - original to lighter
+    (() => {
+      const gradient = ctx.createLinearGradient(0, 0, 400, 400);
+      gradient.addColorStop(0, '#0f9124ff'); // original green on left
+      gradient.addColorStop(1, '#f4f4f4ff'); // lighter green on right
+      return gradient;
+    })(),
+    // Blue gradient - original to lighter
+    (() => {
+      const gradient = ctx.createLinearGradient(0, 0, 400, 400);
+      gradient.addColorStop(0, '#74c0fc'); // original blue on left
+      gradient.addColorStop(1, '#a3d5ff'); // lighter blue on right
+      return gradient;
+    })(),
+    // Purple gradient - original to lighter
+    (() => {
+      const gradient = ctx.createLinearGradient(0, 0, 0, 0);
+      gradient.addColorStop(0, '#b197fc'); // original purple on left
+      gradient.addColorStop(1, '#d1b3ff'); // lighter purple on right
+      return gradient;
+    })(),
+    // Orange gradient - original to lighter
+    (() => {
+      const gradient = ctx.createLinearGradient(0, 0, 400, 0);
+      gradient.addColorStop(0, '#ffa94d'); // original orange on left
+      gradient.addColorStop(1, '#ffcc80'); // lighter orange on right
+      return gradient;
+    })()
+  ];
+
   const topOfficesChart = new Chart(document.getElementById('topOfficesChart'), {
     type: 'bar',
     data: {
@@ -279,9 +322,7 @@ $totalReviews = $feedbackData['total_reviews'] ?? 0;
       datasets: [{
         label: 'QR Scans',
         data: scanCounts,
-        backgroundColor: [
-        'red', 'green', 'blue', 'purple', 'orange'
-      ],
+        backgroundColor: gradients,
         borderRadius: 8
       }]
     },
@@ -303,6 +344,34 @@ $totalReviews = $feedbackData['total_reviews'] ?? 0;
   });
 
   // Monthly Visitor Log Chart
+  const visitorCanvas = document.getElementById('visitorLogChart');
+  const visitorCtx = visitorCanvas.getContext('2d');
+  
+  // Create gradients for visitor log chart
+  const visitorGradients = [
+    // Green gradient for Today - lighter on top, original on bottom
+    (() => {
+      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
+      gradient.addColorStop(0, '#81C784'); // lighter green on top
+      gradient.addColorStop(1, '#4CAF50'); // original green on bottom
+      return gradient;
+    })(),
+    // Amber gradient for This Week - lighter on top, original on bottom
+    (() => {
+      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
+      gradient.addColorStop(0, '#fcf7e2ff'); // lighter amber on top
+      gradient.addColorStop(1, '#ffcb30ff'); // original amber on bottom
+      return gradient;
+    })(),
+    // Purple gradient for This Month - lighter on top, original on bottom
+    (() => {
+      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
+      gradient.addColorStop(0, '#a58fcbff'); // lighter purple on top
+      gradient.addColorStop(1, '#551db6ff'); // original purple on bottom
+      return gradient;
+    })()
+  ];
+
   const visitorLogChart = new Chart(document.getElementById('visitorLogChart'), {
     type: 'bar',
     data: {
@@ -310,7 +379,7 @@ $totalReviews = $feedbackData['total_reviews'] ?? 0;
       datasets: [{
         label: 'Visitors',
         data: [dailyCount, weeklyCount, monthlyCount],
-        backgroundColor: ['#4CAF50', '#FFC107', '#673AB7'],
+        backgroundColor: visitorGradients,
         borderRadius: 8
       }]
     },
