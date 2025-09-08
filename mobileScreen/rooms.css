@@ -218,24 +218,27 @@ body {
 /* Content Section Styles */
 .content {
   padding: 80px 20px 20px 20px; /* Add padding-top for fixed header, keep existing side/bottom padding */
-  padding-bottom: 70px; /* Extra space for fixed bottom navigation */
+  padding-bottom: 80px; /* Extra space for fixed bottom navigation - increased for 60px height */
 }
 
 /* Bottom Navigation Styles */
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: #ffffff;
-  border-top: 1px solid #ccc;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  height: 40px; /* Example */
-  padding: 9.4px 0; /* Example: 40 + 9.4 + 9.4 = 58.8 */
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
-  z-index: 1000;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  background-color: #ffffff !important;
+  border-top: 1px solid #ccc !important;
+  display: flex !important;
+  justify-content: space-around !important;
+  align-items: center !important;
+  padding: 8px 0 !important;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08) !important;
+  z-index: 1001 !important; /* Above drawer - consistent with explore.css */
+  height: 60px !important;
+  box-sizing: border-box !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Link Styles within Bottom Navigation */
@@ -290,9 +293,9 @@ body {
 /* General content spacing */
 .content {
   padding: 80px 20px 20px 20px; /* Add padding-top for fixed header, keep existing side/bottom padding */
-  padding-bottom: 70px; /* Extra space for fixed bottom navigation */
+  padding-bottom: 80px; /* Extra space for fixed bottom navigation - increased for 60px height */
   /* Ensure padding-top is sufficient to clear the fixed header */
-  padding: 80px 20px 70px 20px; /* Top(header), Right, Bottom(nav), Left */
+  padding: 80px 20px 80px 20px; /* Top(header), Right, Bottom(nav), Left */
 }
 
 /* Title styling */

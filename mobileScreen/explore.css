@@ -280,20 +280,22 @@ svg path {
 
 /* Bottom Navigation - Always on top */
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: #ffffff;
-  border-top: 1px solid #ccc;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: 8px 0;
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
-  z-index: 1001; /* Above drawer */
-  height: 60px;
-  box-sizing: border-box;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  background-color: #ffffff !important;
+  border-top: 1px solid #ccc !important;
+  display: flex !important;
+  justify-content: space-around !important;
+  align-items: center !important;
+  padding: 8px 0 !important;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08) !important;
+  z-index: 1001 !important; /* Above drawer */
+  height: 60px !important;
+  box-sizing: border-box !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Link Styles within Bottom Navigation */
