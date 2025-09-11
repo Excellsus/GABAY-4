@@ -617,3 +617,224 @@ svg path {
     font-size: 20px !important;
   }
 }
+
+/* Pathfinding and navigation styles */
+.walkable-path {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.door-point {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.door-point:hover {
+  r: 8;
+  opacity: 0.8;
+}
+
+.panorama-point {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panorama-point:hover {
+  opacity: 0.8;
+}
+
+.path-line {
+  pointer-events: none;
+  animation: pathFlow 2s linear infinite;
+}
+
+@keyframes pathFlow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 15; }
+}
+
+.path-step-label {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Enhanced path highlighting */
+.path-highlight {
+  stroke: #ff4444 !important;
+  stroke-width: 4 !important;
+  fill: rgba(255, 68, 68, 0.3) !important;
+  animation: pathPulse 1.5s infinite;
+}
+
+/* Panorama modal styles */
+#panorama-modal img {
+  transition: transform 0.3s ease;
+}
+
+#panorama-modal img:hover {
+  transform: scale(1.02);
+}
+
+/* Mobile panorama optimizations */
+@media (max-width: 768px) {
+  .panorama-point {
+    r: 10;
+  }
+  
+  .door-point {
+    r: 8;
+  }
+  
+  .path-step-label {
+    font-size: 14px;
+  }
+}
+
+/* Office Details Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-dialog {
+    background: #ffffff;
+    border-radius: 12px;
+    max-width: 90%;
+    max-height: 80%;
+    overflow: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: scale(0.7);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.active .modal-dialog {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-title {
+    margin: 0;
+    color: #1a5632;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.panel-section {
+    margin-bottom: 20px;
+}
+
+.panel-section h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-weight: bold;
+}
+
+.panel-section p {
+    margin: 0;
+    color: #666;
+}
+
+/* Toggle Switch CSS */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    margin-right: 10px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #1a5632;
+}
+
+input:not(:checked) + .slider {
+    background-color: #ccc;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #1a5632;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Rounded slider */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}

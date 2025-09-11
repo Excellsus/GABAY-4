@@ -52,7 +52,8 @@ function getDistance(point1, point2) {
 
 // Function to reload graph data
 function reloadGraphData(floor) {
-    const graphFile = `floor_graph_${floor}.json`;
+    const basePath = window.FLOOR_GRAPH_BASE_PATH || '';
+    const graphFile = `${basePath}floor_graph_${floor}.json`;
     return fetch(graphFile + '?' + new Date().getTime())
         .then(res => {
             if (!res.ok) {
@@ -333,11 +334,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Initialize pathfinding for a specific floor
 const initPathfinding = (floor) => {
-    let graphFile = `floor_graph.json`; // Default to 1st floor
+    const basePath = window.FLOOR_GRAPH_BASE_PATH || '';
+    let graphFile = `${basePath}floor_graph.json`; // Default to 1st floor
     if (floor === 2) {
-        graphFile = 'floor_graph_2.json';
+        graphFile = `${basePath}floor_graph_2.json`;
     } else if (floor === 3) {
-        graphFile = 'floor_graph_3.json'; // Example for 3rd floor
+        graphFile = `${basePath}floor_graph_3.json`; // Example for 3rd floor
     }
 
     fetch(graphFile + '?' + new Date().getTime())

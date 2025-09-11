@@ -281,6 +281,20 @@ try {
         animation: pathPulse 1.5s infinite;
       }
       
+      /* Selected room styles for pathfinding */
+      .selected-room {
+        stroke: #43a047 !important;
+        stroke-width: 4 !important;
+        fill: rgba(67, 160, 71, 0.2) !important;
+        animation: selectedPulse 2s infinite;
+      }
+      
+      @keyframes selectedPulse {
+        0% { stroke-opacity: 1; }
+        50% { stroke-opacity: 0.6; }
+        100% { stroke-opacity: 1; }
+      }
+      
       @keyframes pathPulse {
         0% { stroke-opacity: 1; }
         50% { stroke-opacity: 0.6; }
@@ -406,7 +420,7 @@ try {
         <div style="margin-bottom: 15px;">
           <label style="display: block; margin-bottom: 5px; font-weight: bold;">From:</label>
           <select id="start-location" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
-            <option value="lobby">Lobby (Main Entrance)</option>
+            <option value="">Select starting point...</option>
             <!-- Other rooms will be populated dynamically -->
           </select>
         </div>
@@ -427,6 +441,26 @@ try {
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- Office Details Modal -->
+    <div id="office-details-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 id="panel-office-name" class="modal-title">Office Name</h3>
+                <button id="close-panel-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="panel-section">
+                    <h4>Status</h4>
+                    <label class="switch">
+                        <input type="checkbox" id="office-active-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <span id="office-status-text">Active</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Bottom Navigation Section -->
@@ -454,13 +488,32 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script src="../floorjs/labelSetup.js"></script>
-    <script src="../pathfinding.js"></script> <!-- Add pathfinding functionality -->
+    <!-- Add the actual pathfinding.js from desktop -->
+    <script>
+      // Set the correct path for floor_graph.json for mobile subdirectory
+      window.FLOOR_GRAPH_BASE_PATH = '../';
+    </script>
+    <script src="../pathfinding.js"></script>
+    
+    <!-- Add labelSetup.js for office details modal functionality -->
+    <script src="../floorjs/labelSetup.js"></script>
     <script>
       // Make PHP-derived data available globally first
       const officesData = <?php echo json_encode($offices); ?>;
       const highlightOfficeIdFromPHP = <?php echo json_encode($highlight_office_id); ?>;
       console.log("Offices Data Loaded (explore.php - global init):", officesData ? officesData.length : 0, "offices");
       console.log("Office to highlight from QR (ID - global init):", highlightOfficeIdFromPHP);
+
+      // Ensure the variable is available globally
+      window.highlightOfficeIdFromPHP = highlightOfficeIdFromPHP;
+
+      // Global variables for pathfinding.js compatibility
+      window.floorGraph = {};
+      window.selectedRooms = [];
+      window.pathResult = [];
+      
+      // CRITICAL: Disable desktop pathfinding room click handlers
+      window.MOBILE_MODE = true; // Flag to prevent desktop pathfinding initialization
 
       // Define global utility functions
       function isOfficeOpen(openTime, closeTime) {
@@ -613,51 +666,263 @@ try {
         setTimeout(refreshSvgContainer, 250);
       }
 
-      // Global pathfinding functions
-      window.findPath = function(startLocation, endLocation) {
-        console.log('Finding path from', startLocation, 'to', endLocation);
+      // Integration with desktop pathfinding.js
+      
+      // Global variables for pathfinding compatibility
+      window.selectedRooms = [];
+      window.pathResult = [];
+
+      // Mobile room click handler - only shows office details, no pathfinding
+      function mobileRoomClickHandler(event) {
+        // Stop event propagation to prevent desktop pathfinding handlers
+        event.stopPropagation();
+        event.preventDefault();
         
-        if (!window.floorGraph || !window.floorGraph.rooms) {
-          console.error('Floor graph not loaded');
-          return null;
-        }
-        
-        const startRoom = window.floorGraph.rooms[startLocation];
-        const endRoom = window.floorGraph.rooms[endLocation];
-        
-        if (!startRoom || !endRoom) {
-          console.error('Start or end room not found in graph');
-          return null;
-        }
-        
-        // Use A* algorithm from pathfinding.js
-        if (typeof aStar === 'function') {
-          return aStar(startLocation, endLocation);
+        const roomId = this.id;
+        console.log('Mobile room clicked:', roomId);
+
+        // Always handle as normal office selection (no pathfinding)
+        const office = officesData.find(o => o.location === roomId);
+        if (office) {
+          handleRoomClick(office);
         } else {
-          console.error('A* algorithm not available');
-          return null;
+          console.log('No office found for room:', roomId);
         }
+        
+        // Explicitly prevent any pathfinding behavior
+        return false;
+      }
+
+      // Use desktop pathfinding system (already defined by pathfinding.js)
+      // The functions togglePathfindingMode, drawCompletePath, clearAllPaths, etc. 
+      // are now provided by the included pathfinding.js file
+
+      // CRITICAL: Override desktop pathfinding room initialization to prevent conflicts
+      window.initRoomSelection = function() {
+        console.log('Desktop pathfinding initRoomSelection called - DISABLED for mobile');
+        // Do nothing - mobile handles room clicks differently
       };
+
+      // Function to open panorama viewer
+      function openPanoramaViewer(imagePath) {
+        console.log('Opening panorama viewer for:', imagePath);
+        
+        // Create panorama modal
+        const modal = document.createElement('div');
+        modal.id = 'panorama-modal';
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.9);
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        `;
+
+        const img = document.createElement('img');
+        img.src = `../Pano/${imagePath}`;
+        img.style.cssText = `
+          max-width: 95vw;
+          max-height: 95vh;
+          object-fit: contain;
+          border-radius: 8px;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = `
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: rgba(255, 255, 255, 0.9);
+          border: none;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          font-size: 24px;
+          cursor: pointer;
+          z-index: 10000;
+        `;
+
+        closeBtn.onclick = () => modal.remove();
+        modal.onclick = (e) => {
+          if (e.target === modal) modal.remove();
+        };
+
+        modal.appendChild(img);
+        modal.appendChild(closeBtn);
+        document.body.appendChild(modal);
+      }
+
+      // Function to draw walkable paths on the SVG (simplified version)
+      function drawWalkablePath(path) {
+        console.log('Drawing walkable path:', path.id);
+        const svg = document.querySelector('svg');
+        if (!svg || !path.pathPoints || path.pathPoints.length === 0) {
+          return;
+        }
+
+        const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+        
+        // Create or get the walkable path group
+        let pathGroup = mainGroup.querySelector('#walkable-path-group');
+        if (!pathGroup) {
+          pathGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          pathGroup.id = 'walkable-path-group';
+          mainGroup.appendChild(pathGroup);
+        }
+
+        // Create path element
+        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathElement.id = `walkable-path-${path.id}`;
+        
+        // Build path data
+        let pathData = `M ${path.pathPoints[0].x} ${path.pathPoints[0].y}`;
+        for (let i = 1; i < path.pathPoints.length; i++) {
+          pathData += ` L ${path.pathPoints[i].x} ${path.pathPoints[i].y}`;
+        }
+        
+        pathElement.setAttribute('d', pathData);
+        pathElement.setAttribute('fill', 'none');
+        pathElement.setAttribute('stroke', path.style?.color || '#4CAF50');
+        pathElement.setAttribute('stroke-width', path.style?.width || 3);
+        pathElement.setAttribute('opacity', path.style?.opacity || 0.8);
+        pathElement.setAttribute('vector-effect', 'non-scaling-stroke');
+        pathElement.classList.add('walkable-path');
+        
+        pathGroup.appendChild(pathElement);
+      }
+
+      // "YOU ARE HERE" functionality
+
+      // Function to draw door points
+      function drawDoorPoints(rooms) {
+        console.log('Drawing door points for rooms:', Object.keys(rooms).length);
+        const svg = document.querySelector('svg');
+        if (!svg) return;
+
+        let mainGroup = svg.querySelector('g');
+        if (!mainGroup) {
+          mainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          svg.appendChild(mainGroup);
+        }
+
+        // Create or get the door points group
+        let doorGroup = mainGroup.querySelector('#door-points-group');
+        if (!doorGroup) {
+          doorGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          doorGroup.id = 'door-points-group';
+          mainGroup.appendChild(doorGroup);
+        }
+
+        Object.keys(rooms).forEach(roomId => {
+          const room = rooms[roomId];
+          if (room.doorPoints && Array.isArray(room.doorPoints)) {
+            room.doorPoints.forEach((doorPoint, index) => {
+              const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+              circle.id = `door-${roomId}-${index}`;
+              circle.setAttribute('cx', doorPoint.x);
+              circle.setAttribute('cy', doorPoint.y);
+              circle.setAttribute('r', room.style?.pointMarker?.radius || 6);
+              circle.setAttribute('fill', room.style?.pointMarker?.color || '#FF6B35');
+              circle.setAttribute('stroke', room.style?.pointMarker?.strokeColor || '#000');
+              circle.setAttribute('stroke-width', room.style?.pointMarker?.strokeWidth || 1);
+              circle.classList.add('door-point');
+              
+              doorGroup.appendChild(circle);
+            });
+          }
+        });
+      }
 
       window.clearPath = function() {
         console.log('Clearing paths');
-        if (typeof clearAllPaths === 'function') {
-          clearAllPaths();
-        }
         
-        // Also clear any room highlights
+        // Clear path highlights from rooms
         document.querySelectorAll('.path-highlight').forEach(el => {
           el.classList.remove('path-highlight');
         });
         document.querySelectorAll('.you-are-here').forEach(el => {
           el.classList.remove('you-are-here');
         });
+
+        // Clear path lines
+        const svg = document.querySelector('svg');
+        if (svg) {
+          const pathLines = svg.querySelectorAll('.path-line');
+          pathLines.forEach(line => line.remove());
+        }
       };
 
       window.highlightPath = function(path) {
         console.log('Highlighting path:', path);
-        if (typeof highlightPath === 'function') {
-          highlightPath(path);
+        
+        if (!path || path.length === 0) {
+          console.log('No path to highlight');
+          return;
+        }
+
+        // Clear existing highlights
+        window.clearPath();
+
+        // Highlight each room in the path
+        path.forEach((roomId, index) => {
+          const roomElement = document.getElementById(roomId);
+          if (roomElement) {
+            roomElement.classList.add('path-highlight');
+            
+            // Add step numbers to the path
+            setTimeout(() => {
+              const bbox = roomElement.getBBox();
+              const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+              label.setAttribute("class", "path-step-label");
+              label.setAttribute("x", bbox.x + bbox.width / 2);
+              label.setAttribute("y", bbox.y + bbox.height / 2);
+              label.setAttribute("text-anchor", "middle");
+              label.setAttribute("dominant-baseline", "middle");
+              label.setAttribute("fill", "#ffffff");
+              label.setAttribute("font-weight", "bold");
+              label.setAttribute("font-size", "16");
+              label.setAttribute("stroke", "#000");
+              label.setAttribute("stroke-width", "1");
+              label.textContent = index + 1;
+              
+              const svg = document.querySelector('svg');
+              if (svg) svg.appendChild(label);
+            }, 100);
+          }
+        });
+
+        // Draw connecting lines between path points
+        if (window.floorGraph && window.floorGraph.rooms) {
+          const svg = document.querySelector('svg');
+          if (svg) {
+            for (let i = 0; i < path.length - 1; i++) {
+              const currentRoom = window.floorGraph.rooms[path[i]];
+              const nextRoom = window.floorGraph.rooms[path[i + 1]];
+              
+              if (currentRoom && nextRoom && currentRoom.doorPoints && nextRoom.doorPoints) {
+                const start = currentRoom.doorPoints[0];
+                const end = nextRoom.doorPoints[0];
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', start.x);
+                line.setAttribute('y1', start.y);
+                line.setAttribute('x2', end.x);
+                line.setAttribute('y2', end.y);
+                line.setAttribute('stroke', '#ff4444');
+                line.setAttribute('stroke-width', '4');
+                line.setAttribute('stroke-dasharray', '10,5');
+                line.classList.add('path-line');
+                
+                svg.appendChild(line);
+              }
+            }
+          }
         }
       };
 
@@ -787,7 +1052,9 @@ try {
                 textEl.appendChild(newTspan);
             });
         }
-      }      // Floor map configuration
+      }
+      
+      // Floor map configuration
       const floorMaps = {
         1: '../SVG/Capitol_1st_floor_layout_20_modified.svg',
         2: '../SVG/Capitol_2nd_floor_layout_6_modified.svg',
@@ -797,10 +1064,10 @@ try {
       // Floor graph configuration for pathfinding
       const floorGraphs = {
         1: '../floor_graph.json',
-        2: '../floor_graph_2.json',
+        2: '../floor_graph_2.json', 
         3: '../floor_graph_3.json'
       };
-
+      
       // Track current floor
       let currentFloor = 1;
 
@@ -858,6 +1125,29 @@ try {
           if (graphData) {
             window.floorGraph = graphData;
             console.log(`Floor ${floorNumber} navigation graph loaded:`, graphData);
+            console.log(`Available rooms in floor ${floorNumber}:`, Object.keys(graphData.rooms || {}));
+            console.log('Sample room data:', Object.keys(graphData.rooms || {}).slice(0, 3).map(roomId => ({ 
+              id: roomId, 
+              data: graphData.rooms[roomId] 
+            })));
+            
+            // Draw walkable paths and door points
+            setTimeout(() => {
+              if (graphData.walkablePaths && Array.isArray(graphData.walkablePaths)) {
+                console.log('Drawing', graphData.walkablePaths.length, 'walkable paths');
+                graphData.walkablePaths.forEach((path, index) => {
+                  if (path.pathPoints && path.pathPoints.length > 0) {
+                    console.log(`Drawing path ${index + 1}:`, path.id);
+                    drawWalkablePath(path);
+                  }
+                });
+              }
+              
+              // Draw door points for navigation
+              if (graphData.rooms) {
+                drawDoorPoints(graphData.rooms);
+              }
+            }, 200);
           } else {
             window.floorGraph = null;
             console.log(`Floor ${floorNumber} loaded without navigation graph (pathfinding disabled)`);
@@ -886,12 +1176,8 @@ try {
               }
             }, 200);
             
-            // Initialize pathfinding system only if graph data is available
-            if (graphData && typeof initPathfinding === 'function') {
-              initPathfinding(floorNumber);
-            } else {
-              console.log(`Pathfinding disabled for floor ${floorNumber} - no graph data available`);
-            }
+            // Initialize pathfinding system - graph data is already loaded above
+            console.log(`Pathfinding system ready for floor ${floorNumber}`);
             
             // Dispatch custom event for pathfinding initialization
             window.dispatchEvent(new CustomEvent('floorMapLoaded', { 
@@ -916,14 +1202,21 @@ try {
         svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
           el.classList.add('selectable-room', 'interactive-room');
           
-          // Add click handler directly to the path
+          // Add click handler directly to the path - MOBILE ONLY (no pathfinding)
           el.addEventListener('click', function(e) {
             e.stopPropagation();
+            e.preventDefault();
+            
+            console.log('Mobile room clicked (initializeSVG):', el.id);
+            
             // Match by exact room ID (floor-specific)
             const office = officesData.find(o => o.location === el.id);
             if (office) {
               handleRoomClick(office);
             }
+            
+            // Explicitly prevent any pathfinding behavior
+            return false;
           });
 
           const parentGroup = el.closest('g');
@@ -1113,6 +1406,16 @@ try {
           console.log("Pan-zoom instance created:", panZoomInstance);
           window.svgPanZoomInstance = panZoomInstance;
           window.panZoom = panZoomInstance;
+          
+          // Debug: Check SVG structure after pan-zoom initialization
+          console.log("SVG structure after pan-zoom init:");
+          console.log("SVG children:", svg.children);
+          const viewport = svg.querySelector('.svg-pan-zoom_viewport');
+          console.log("Viewport group found:", viewport);
+          if (viewport) {
+            console.log("Viewport transform:", viewport.getAttribute('transform'));
+            console.log("Viewport children:", viewport.children);
+          }
 
           // Check if controls were actually created
           setTimeout(() => {
@@ -1621,12 +1924,12 @@ try {
         // --- Logic for QR Code Office Highlight ---
         // This uses officesData and highlightOfficeIdFromPHP defined in the script tag above this one.
 
-        console.log("DOM Content Loaded. Checking for highlightOfficeIdFromPHP:", highlightOfficeIdFromPHP);
+        console.log("DOM Content Loaded. Checking for highlightOfficeIdFromPHP:", window.highlightOfficeIdFromPHP);
         console.log("DOM Content Loaded. Checking officesData:", officesData ? `Available with ${officesData.length} items` : "Not available or empty");
 
-        if (highlightOfficeIdFromPHP !== null && typeof officesData !== 'undefined' && officesData && officesData.length > 0) {
-            console.log("QR Code: Proceeding to find office with ID:", highlightOfficeIdFromPHP);
-            const officeToHighlight = officesData.find(office => Number(office.id) === highlightOfficeIdFromPHP);
+        if (window.highlightOfficeIdFromPHP !== null && typeof officesData !== 'undefined' && officesData && officesData.length > 0) {
+            console.log("QR Code: Proceeding to find office with ID:", window.highlightOfficeIdFromPHP);
+            const officeToHighlight = officesData.find(office => Number(office.id) === window.highlightOfficeIdFromPHP);
             if (officeToHighlight) {
                 console.log("QR Code: Found office to highlight:", officeToHighlight);
                 
@@ -1661,14 +1964,14 @@ try {
                     }, 500);
                 }, 300); // 300ms delay to ensure UI is ready
             } else {
-                console.warn("QR Code: Office ID", highlightOfficeIdFromPHP, "not found in officesData.");
+                console.warn("QR Code: Office ID", window.highlightOfficeIdFromPHP, "not found in officesData.");
                 console.log("Available office IDs in officesData:", officesData.map(o => o.id));
             }
-        } else if (highlightOfficeIdFromPHP !== null) {
+        } else if (window.highlightOfficeIdFromPHP !== null) {
             console.warn("QR Code: officesData is not defined, empty, or highlightOfficeIdFromPHP is null. Cannot highlight office from QR.");
         }
 
-        // --- SVG Room Click Handler ---
+        // --- SVG Room Click Handler (Enhanced with Desktop-style Pathfinding) ---
         function setupRoomClickHandlers() {
           // Wait for SVG to be loaded
           const svg = document.getElementById('svg1');
@@ -1676,26 +1979,51 @@ try {
             setTimeout(setupRoomClickHandlers, 100); // Try again shortly
             return;
           }
-          // For each office, try to find a matching SVG element by id or data-room-id
+          
+          // Set up click handlers for ALL room elements (not just office-assigned ones)
+          const roomElements = svg.querySelectorAll('[id^="room-"]');
+          console.log(`Found ${roomElements.length} room elements for click handling`);
+          
+          roomElements.forEach(function(el) {
+            const roomId = el.id;
+            
+            // Remove any existing event listeners
+            el.removeEventListener('click', mobileRoomClickHandler);
+            
+            // Add the mobile room click handler that integrates with desktop pathfinding
+            el.addEventListener('click', mobileRoomClickHandler);
+            
+            el.style.cursor = 'pointer';
+            
+            // Optional: highlight on hover
+            el.addEventListener('mouseenter', function() { 
+              if (window.pathfindingMode) {
+                el.style.opacity = 0.7; 
+                el.style.stroke = '#ff4444';
+                el.style.strokeWidth = '3';
+              } else {
+                el.style.opacity = 0.8;
+              }
+            });
+            el.addEventListener('mouseleave', function() { 
+              if (!el.classList.contains('selected-room')) {
+                el.style.opacity = ''; 
+                el.style.stroke = '';
+                el.style.strokeWidth = '';
+              }
+            });
+          });
+          
+          // Also set up office-specific labeling
           officesData.forEach(function(office) {
             if (!office.location) return;
-            // Try id match
             let el = svg.getElementById ? svg.getElementById(office.location) : document.getElementById(office.location);
-            // Fallback: querySelector for [data-room-id]
             if (!el) {
               el = svg.querySelector('[data-room-id="' + office.location + '"]');
             }
             if (el) {
-              el.style.cursor = 'pointer';
-              // Update the room label
+              // Update the room label with office name
               updateRoomLabel(el, office.name);
-              el.addEventListener('click', function(e) {
-                e.stopPropagation();
-                handleRoomClick(office);
-              });
-              // Optional: highlight on hover
-              el.addEventListener('mouseenter', function() { el.style.opacity = 0.7; });
-              el.addEventListener('mouseleave', function() { el.style.opacity = ''; });
             }
           });
         }
@@ -1721,20 +2049,18 @@ try {
           const endLocationSelect = document.getElementById('end-location');
           
           // Clear and populate dropdowns
-          startLocationSelect.innerHTML = '';
+          startLocationSelect.innerHTML = '<option value="">Select starting point...</option>';
           endLocationSelect.innerHTML = '';
-          
-          // Add "Main Entrance" as default start option
-          const mainEntranceOption = document.createElement('option');
-          mainEntranceOption.value = 'room-1'; // Assuming room-1 is main entrance
-          mainEntranceOption.textContent = 'Main Entrance (Lobby)';
-          mainEntranceOption.selected = true;
-          startLocationSelect.appendChild(mainEntranceOption);
           
           // Add all offices on current floor to both dropdowns
           if (officesData) {
+            let validOfficesCount = 0;
+            
             officesData.forEach(office => {
-              if (office.location) {
+              if (office.location && office.location.includes(`-${currentFloor}`) && 
+                  window.floorGraph && window.floorGraph.rooms && window.floorGraph.rooms[office.location]) {
+                validOfficesCount++;
+                
                 // Add to start dropdown
                 const startOption = document.createElement('option');
                 startOption.value = office.location;
@@ -1752,6 +2078,26 @@ try {
                 endLocationSelect.appendChild(endOption);
               }
             });
+            
+            // If no valid offices found, add floor graph rooms as backup
+            if (validOfficesCount === 0 && window.floorGraph && window.floorGraph.rooms) {
+              Object.keys(window.floorGraph.rooms).forEach(roomId => {
+                if (roomId.includes(`-${currentFloor}`)) {
+                  const startOption = document.createElement('option');
+                  startOption.value = roomId;
+                  startOption.textContent = `Room ${roomId}`;
+                  startLocationSelect.appendChild(startOption);
+                  
+                  const endOption = document.createElement('option');
+                  endOption.value = roomId;
+                  endOption.textContent = `Room ${roomId}`;
+                  if (roomId === window.currentSelectedOffice.location) {
+                    endOption.selected = true;
+                  }
+                  endLocationSelect.appendChild(endOption);
+                }
+              });
+            }
           }
           
           // Show pathfinding modal
@@ -1765,53 +2111,84 @@ try {
           const endLocationSelect = document.getElementById('end-location');
           
           // Clear existing options
-          startLocationSelect.innerHTML = '';
+          startLocationSelect.innerHTML = '<option value="">Select starting point...</option>';
           endLocationSelect.innerHTML = '<option value="">Select destination...</option>';
           
           // If user came from QR code, set their current location as default start
           let defaultStartLocation = null;
-          let defaultStartText = 'Lobby (Main Entrance)';
+          let defaultStartText = null;
           
-          if (window.currentSelectedOffice && window.currentSelectedOffice.location && highlightOfficeIdFromPHP) {
+          if (window.currentSelectedOffice && window.currentSelectedOffice.location && window.highlightOfficeIdFromPHP) {
             defaultStartLocation = window.currentSelectedOffice.location;
             defaultStartText = window.currentSelectedOffice.name + ' (YOU ARE HERE)';
+            
+            // Add default start option only if user came from QR code
+            const defaultStart = document.createElement('option');
+            defaultStart.value = defaultStartLocation;
+            defaultStart.textContent = defaultStartText;
+            defaultStart.selected = true;
+            startLocationSelect.appendChild(defaultStart);
           }
           
-          // Add default start option
-          const defaultStart = document.createElement('option');
-          defaultStart.value = defaultStartLocation || 'lobby';
-          defaultStart.textContent = defaultStartText;
-          defaultStart.selected = true;
-          startLocationSelect.appendChild(defaultStart);
-          
-          // Add lobby option to end dropdown too
-          const lobbyEnd = document.createElement('option');
-          lobbyEnd.value = 'lobby';
-          lobbyEnd.textContent = 'Lobby (Main Entrance)';
-          endLocationSelect.appendChild(lobbyEnd);
-          
           // Add all available offices on current floor to both dropdowns
+          console.log('Populating dropdowns with offices for floor:', currentFloor);
+          console.log('Available floorGraph rooms:', window.floorGraph ? Object.keys(window.floorGraph.rooms || {}) : 'No floor graph loaded');
+          
+          let validOfficesCount = 0;
+          
           officesData.forEach(office => {
-            if (office.location.includes(`-${currentFloor}`)) { // Only show offices on current floor
-              // Add to "From" dropdown (but not if it's already the default)
-              if (office.location !== defaultStartLocation) {
-                const startOption = document.createElement('option');
-                startOption.value = office.location;
-                startOption.textContent = office.name;
-                startLocationSelect.appendChild(startOption);
-              }
+            console.log('Checking office:', office.name, 'location:', office.location, 'includes floor:', office.location && office.location.includes(`-${currentFloor}`));
+            
+            if (office.location && office.location.includes(`-${currentFloor}`)) { // Only show offices on current floor
+              // Verify this location exists in the floor graph
+              const roomExists = window.floorGraph && window.floorGraph.rooms && window.floorGraph.rooms[office.location];
+              console.log('Room exists in floor graph:', office.location, roomExists);
               
-              // Add to "To" dropdown
-              const endOption = document.createElement('option');
-              endOption.value = office.location;
-              endOption.textContent = office.name;
-              // Pre-select if this is the currently selected office but not from QR code
-              if (window.currentSelectedOffice && office.location === window.currentSelectedOffice.location && !highlightOfficeIdFromPHP) {
-                endOption.selected = true;
+              if (roomExists) {
+                validOfficesCount++;
+                
+                // Add to "From" dropdown (but not if it's already the default from QR code)
+                if (office.location !== defaultStartLocation) {
+                  const startOption = document.createElement('option');
+                  startOption.value = office.location;
+                  startOption.textContent = office.name;
+                  startLocationSelect.appendChild(startOption);
+                }
+                
+                // Add to "To" dropdown
+                const endOption = document.createElement('option');
+                endOption.value = office.location;
+                endOption.textContent = office.name;
+                // Pre-select if this is the currently selected office but not from QR code
+                if (window.currentSelectedOffice && office.location === window.currentSelectedOffice.location && !window.highlightOfficeIdFromPHP) {
+                  endOption.selected = true;
+                }
+                endLocationSelect.appendChild(endOption);
+              } else {
+                console.warn('Office location not found in floor graph:', office.location, 'for office:', office.name);
               }
-              endLocationSelect.appendChild(endOption);
             }
           });
+          
+          // If no valid offices found, add all rooms from floor graph as backup
+          if (validOfficesCount === 0 && window.floorGraph && window.floorGraph.rooms) {
+            console.log('No valid offices found, adding all floor graph rooms as options');
+            Object.keys(window.floorGraph.rooms).forEach(roomId => {
+              if (roomId.includes(`-${currentFloor}`)) {
+                const startOption = document.createElement('option');
+                startOption.value = roomId;
+                startOption.textContent = `Room ${roomId}`;
+                startLocationSelect.appendChild(startOption);
+                
+                const endOption = document.createElement('option');
+                endOption.value = roomId;
+                endOption.textContent = `Room ${roomId}`;
+                endLocationSelect.appendChild(endOption);
+              }
+            });
+          }
+          
+          console.log('Added', validOfficesCount, 'valid offices to dropdowns');
           
           // Show pathfinding modal
           document.getElementById('pathfinding-modal-overlay').style.display = 'flex';
@@ -1831,56 +2208,77 @@ try {
             return;
           }
           
-          console.log(`Finding path from ${startLocation} to ${endLocation} on floor ${currentFloor}`);
+          if (startLocation === endLocation) {
+            alert('Start and end locations cannot be the same.');
+            return;
+          }
           
-          if (window.floorGraph && window.floorGraph.rooms) {
-            try {
-              // Clear any existing paths
-              if (window.clearPath) {
-                window.clearPath();
-              }
+          console.log(`Get Directions: Finding path from ${startLocation} to ${endLocation}`);
+          
+          // Close the modal immediately
+          document.getElementById('pathfinding-modal-overlay').style.display = 'none';
+          
+          // Clear any existing paths and selections
+          if (window.clearAllPaths && typeof window.clearAllPaths === 'function') {
+            window.clearAllPaths();
+          }
+          document.querySelectorAll('.selected-room').forEach(el => {
+            el.classList.remove('selected-room');
+          });
+          
+          // Reset the selectedRooms array to simulate desktop pathfinding behavior
+          window.selectedRooms = [];
+          
+          // Get the room elements
+          const startRoomElement = document.getElementById(startLocation);
+          const endRoomElement = document.getElementById(endLocation);
+          
+          if (!startRoomElement || !endRoomElement) {
+            alert('Selected rooms not found on the map');
+            return;
+          }
+          
+          // Use the EXACT same roomClickHandler from desktop pathfinding.js
+          if (typeof roomClickHandler === 'function') {
+            console.log('Using desktop roomClickHandler for pathfinding...');
+            
+            // Create realistic click events with proper coordinates
+            const startRect = startRoomElement.getBoundingClientRect();
+            const endRect = endRoomElement.getBoundingClientRect();
+            
+            const startEvent = new MouseEvent('click', {
+              bubbles: true,
+              cancelable: true,
+              clientX: startRect.left + startRect.width / 2,
+              clientY: startRect.top + startRect.height / 2
+            });
+            
+            const endEvent = new MouseEvent('click', {
+              bubbles: true,
+              cancelable: true,
+              clientX: endRect.left + endRect.width / 2,
+              clientY: endRect.top + endRect.height / 2
+            });
+            
+            // Simulate clicking the start room first
+            console.log('Clicking start room:', startLocation);
+            roomClickHandler.call(startRoomElement, startEvent);
+            
+            // Small delay then click the end room to complete the path
+            setTimeout(() => {
+              console.log('Clicking end room:', endLocation);
+              roomClickHandler.call(endRoomElement, endEvent);
               
-              // Get room data
-              const startRoom = window.floorGraph.rooms[startLocation];
-              const endRoom = window.floorGraph.rooms[endLocation];
-              
-              if (!startRoom || !endRoom) {
-                alert('Selected rooms not found on current floor');
-                return;
-              }
-              
-              // Use the pathfinding system from pathfinding.js
-              if (typeof aStar === 'function') {
-                const path = aStar(startLocation, endLocation);
-                if (path && path.length > 0) {
-                  // Highlight the path
-                  if (typeof highlightPath === 'function') {
-                    highlightPath(path);
-                  } else {
-                    // Fallback highlighting
-                    path.forEach(roomId => {
-                      const roomEl = document.getElementById(roomId);
-                      if (roomEl) {
-                        roomEl.classList.add('path-highlight');
-                      }
-                    });
-                  }
-                  
-                  // Close modal and show success
-                  document.getElementById('pathfinding-modal-overlay').style.display = 'none';
-                  alert(`Directions found! Path highlighted on the map.`);
-                } else {
-                  alert('No path found between these locations.');
-                }
-              } else {
-                alert('Pathfinding algorithm not loaded. Please refresh and try again.');
-              }
-            } catch (error) {
-              console.error('Pathfinding error:', error);
-              alert('Error finding directions: ' + error.message);
-            }
+              // Show success message after pathfinding completes
+              setTimeout(() => {
+                alert('Directions found! Path is highlighted on the map.');
+              }, 200);
+            }, 100);
+            
           } else {
-            alert('Navigation system not loaded. Please wait and try again.');
+            alert('Pathfinding system not available. Please refresh the page and try again.');
+            console.error('roomClickHandler function not found. Available functions:', 
+              Object.keys(window).filter(key => key.includes('path') || key.includes('room')));
           }
         };
 
@@ -1953,14 +2351,6 @@ try {
       }
 
       // Update the SVG initialization to use the new click handler
-      const originalInitializeSVG = initializeSVG;
-      initializeSVG = function(svg) {
-        if (!svg) return;
-        console.log("Initializing SVG with enhanced click handling...");
-        
-        originalInitializeSVG(svg);
-        setupRoomClickHandlers(svg);
-      };
     </script>
   </body>
 </html>
