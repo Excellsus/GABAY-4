@@ -567,7 +567,7 @@ try {
       // PAN_DAMPING: Multiplier applied after zoom compensation ( <1 slows, >1 speeds )
       // PAN_EXPONENT: Raises the (1/zoom) factor to this power for non‑linear sensitivity.
       //   Example: exponent 1.2 will make panning slower when highly zoomed in compared to linear.
-      window.PAN_DAMPING = 0.85;     // 1:1 finger movement ratio for precise control
+      window.PAN_DAMPING = 1;     // 1:1 finger movement ratio for precise control
       window.PAN_EXPONENT = 0.1;     // Linear response - SVG follows finger exactly
       window.PAN_MIN_STEP_PX = 0.1; // Higher minimum movement for better responsiveness
 
@@ -696,6 +696,12 @@ try {
         if (window.floorGraph.rooms) {
           console.log('Drawing door points for', Object.keys(window.floorGraph.rooms).length, 'rooms');
           drawDoorPoints(window.floorGraph.rooms);
+        }
+
+        // Initialize pathfinding room selection now that graph data is loaded
+        if (typeof window.initRoomSelection === 'function') {
+          console.log('Initializing pathfinding room selection handlers');
+          window.initRoomSelection();
         }
 
         // Handle office highlighting for QR scan
@@ -844,10 +850,55 @@ try {
       // The functions togglePathfindingMode, drawCompletePath, clearAllPaths, etc. 
       // are now provided by the included pathfinding.js file
 
-      // CRITICAL: Override desktop pathfinding room initialization to prevent conflicts
+      // Store the original initRoomSelection function
+      const originalInitRoomSelection = window.initRoomSelection;
+      
+      // Make sure roomClickHandler is available globally (from pathfinding.js)
+      if (typeof roomClickHandler !== 'undefined') {
+        window.roomClickHandler = roomClickHandler;
+      }
+      
+      // Override initRoomSelection to allow pathfinding handlers while preventing mobile conflicts
       window.initRoomSelection = function() {
-        console.log('Desktop pathfinding initRoomSelection called - DISABLED for mobile');
-        // Do nothing - mobile handles room clicks differently
+        console.log('Mobile-adapted initRoomSelection called');
+        
+        // Ensure floor graph is loaded before initializing pathfinding handlers
+        if (!window.floorGraph || !window.floorGraph.rooms) {
+          console.warn('Floor graph not ready yet, deferring pathfinding handler initialization');
+          return;
+        }
+        
+        console.log('Floor graph ready with', Object.keys(window.floorGraph.rooms).length, 'rooms, initializing pathfinding handlers');
+        
+        // Only attach pathfinding handlers to rooms, don't interfere with mobile room click behavior
+        document.querySelectorAll('[id^="room-"]').forEach(el => {
+          // Remove any existing pathfinding click listeners to avoid duplicates
+          if (el._pathfindingHandler) {
+            el.removeEventListener('click', el._pathfindingHandler);
+          }
+          
+          // Store the pathfinding handler separately so it can be called programmatically
+          el._pathfindingHandler = function(event) {
+            // Only run pathfinding logic if explicitly called (not from normal mobile clicks)
+            if (event && event._isPathfindingClick) {
+              // Double-check that floor graph is still available
+              if (!window.floorGraph || !window.floorGraph.rooms) {
+                console.error('Floor graph lost during pathfinding operation');
+                return;
+              }
+              // Call the global roomClickHandler function from pathfinding.js
+              if (typeof window.roomClickHandler === 'function') {
+                return window.roomClickHandler.call(this, event);
+              } else {
+                console.error('roomClickHandler not available globally');
+              }
+            }
+          };
+          
+          // Don't add the event listener - we'll call the handler programmatically from the modal
+        });
+        
+        console.log('Pathfinding handlers prepared for programmatic use');
       };
 
       // Function to open panorama viewer
@@ -2432,7 +2483,26 @@ try {
             return;
           }
           
+          // Critical: Check if floor graph data is loaded before proceeding
+          if (!window.floorGraph || !window.floorGraph.rooms) {
+            alert('Navigation data is still loading. Please wait a moment and try again.');
+            console.error('Floor graph not loaded yet. Cannot proceed with pathfinding.');
+            return;
+          }
+          
+          // Verify that the selected rooms exist in the current floor graph
+          if (!window.floorGraph.rooms[startLocation] || !window.floorGraph.rooms[endLocation]) {
+            console.error('Selected rooms not found in floor graph:', {
+              startExists: !!window.floorGraph.rooms[startLocation],
+              endExists: !!window.floorGraph.rooms[endLocation],
+              availableRooms: Object.keys(window.floorGraph.rooms)
+            });
+            alert('One or both selected rooms are not available for navigation on this floor. Please try different rooms.');
+            return;
+          }
+          
           console.log(`Get Directions: Finding path from ${startLocation} to ${endLocation}`);
+          console.log('Floor graph ready:', !!window.floorGraph, 'with rooms:', Object.keys(window.floorGraph.rooms || {}).length);
           
           // Close the modal immediately
           document.getElementById('pathfinding-modal-overlay').style.display = 'none';
@@ -2457,47 +2527,49 @@ try {
             return;
           }
           
-          // Use the EXACT same roomClickHandler from desktop pathfinding.js
-          if (typeof roomClickHandler === 'function') {
-            console.log('Using desktop roomClickHandler for pathfinding...');
+          // Use the stored pathfinding handlers with special pathfinding events
+          if (startRoomElement._pathfindingHandler && endRoomElement._pathfindingHandler) {
+            console.log('Using stored pathfinding handlers...');
             
-            // Create realistic click events with proper coordinates
-            const startRect = startRoomElement.getBoundingClientRect();
-            const endRect = endRoomElement.getBoundingClientRect();
-            
+            // Create special events marked for pathfinding
             const startEvent = new MouseEvent('click', {
               bubbles: true,
               cancelable: true,
-              clientX: startRect.left + startRect.width / 2,
-              clientY: startRect.top + startRect.height / 2
+              clientX: 0,
+              clientY: 0
             });
+            startEvent._isPathfindingClick = true;
             
             const endEvent = new MouseEvent('click', {
               bubbles: true,
               cancelable: true,
-              clientX: endRect.left + endRect.width / 2,
-              clientY: endRect.top + endRect.height / 2
+              clientX: 0,
+              clientY: 0
             });
+            endEvent._isPathfindingClick = true;
             
-            // Simulate clicking the start room first
-            console.log('Clicking start room:', startLocation);
-            roomClickHandler.call(startRoomElement, startEvent);
+            // Call the pathfinding handlers directly
+            console.log('Calling pathfinding for start room:', startLocation);
+            startRoomElement._pathfindingHandler.call(startRoomElement, startEvent);
             
-            // Small delay then click the end room to complete the path
+            // Small delay then handle the end room to complete the path
             setTimeout(() => {
-              console.log('Clicking end room:', endLocation);
-              roomClickHandler.call(endRoomElement, endEvent);
+              console.log('Calling pathfinding for end room:', endLocation);
+              endRoomElement._pathfindingHandler.call(endRoomElement, endEvent);
               
               // Show success message after pathfinding completes
               setTimeout(() => {
-                alert('Directions found! Path is highlighted on the map.');
+                if (window.selectedRooms && window.selectedRooms.length === 2) {
+                  alert('Directions found! Path is highlighted on the map.');
+                } else {
+                  alert('Pathfinding completed. Check the map for the route.');
+                }
               }, 200);
             }, 100);
             
           } else {
-            alert('Pathfinding system not available. Please refresh the page and try again.');
-            console.error('roomClickHandler function not found. Available functions:', 
-              Object.keys(window).filter(key => key.includes('path') || key.includes('room')));
+            alert('Pathfinding system not ready. Please wait for the map to fully load and try again.');
+            console.error('Pathfinding handlers not found on room elements');
           }
         };
 

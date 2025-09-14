@@ -240,7 +240,9 @@ function drawWalkablePath(walkablePath) {
                 marker.addEventListener('click', () => {
                     console.log('Clicked panorama point:', point);
                     // You can add your logic here to open a modal to upload/change the equirectangular image
-                    alert(`Panorama Point Clicked!\nCoordinates: (${point.x}, ${point.y})\nImage: ${point.panoImage || 'Not set'}`);
+                                        // NEW: Call function to open the editor modal
+                    openPanoramaEditor(walkablePath.id, index, point.panoImage || '');
+
                 });
                 
                 markerGroup.appendChild(marker);
@@ -319,16 +321,22 @@ function drawDoorPoints(rooms) {
 
 // Initialize everything when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    // Skip automatic desktop-style initialization when running in MOBILE_MODE
+    if (window.MOBILE_MODE) {
+        console.log('[Pathfinding] MOBILE_MODE detected – skipping auto initPathfinding. Mobile layer drives path loading.');
+        return; // Mobile flow will manage when/if to invoke pathfinding helpers explicitly
+    }
+
     console.log('Initializing pathfinding and room selection...');
 
-    // Listen for floor changes
+    // Listen for floor changes (desktop/admin context)
     window.addEventListener('floorMapLoaded', (event) => {
         const floor = event.detail.floor;
         console.log(`Floor map loaded for floor ${floor}, initializing pathfinding...`);
         initPathfinding(floor);
     });
 
-    // Initial load for the default floor (floor 1)
+    // Initial load for the default floor (floor 1) in desktop context
     initPathfinding(1);
 });
 
@@ -393,8 +401,21 @@ function initRoomSelection() {
 
 // Room click handler - separated for easier management
 function roomClickHandler(event) {
+    // Use the global floorGraph if in mobile mode, otherwise use the local one
+    const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
+
     const roomId = this.id;
     console.log('Room clicked:', roomId);
+    console.log('Current graph available:', !!graph);
+    console.log('Graph has rooms:', !!graph && !!graph.rooms);
+    console.log('Available room IDs:', graph && graph.rooms ? Object.keys(graph.rooms) : 'No rooms');
+
+    // Check if graph data is available
+    if (!graph || !graph.rooms) {
+        console.error('Floor graph data not available. Graph:', graph);
+        alert('Navigation data not loaded yet. Please wait a moment and try again.');
+        return;
+    }
 
     // If clicking the same room that's already selected, ignore
     if (selectedRooms.includes(roomId)) {
@@ -418,9 +439,12 @@ function roomClickHandler(event) {
     console.log('Selected rooms so far:', selectedRooms);
 
     // Get the clicked room's data
-    const clickedRoom = floorGraph.rooms[roomId];
+    const clickedRoom = graph.rooms[roomId];
     if (!clickedRoom) {
-        console.error('Room data not found');
+        console.error('Room data not found for room ID:', roomId);
+        console.error('Available rooms in graph:', Object.keys(graph.rooms || {}));
+        console.error('Full graph structure:', graph);
+        alert(`Room "${roomId}" not found in navigation data. Please try a different room.`);
         return;
     }
 
@@ -452,7 +476,7 @@ function roomClickHandler(event) {
     }
 
     // Find nearest point on the path for clicked room
-    const clickedPath = floorGraph.walkablePaths.find(p => p.id === clickedRoom.nearestPathId);
+    const clickedPath = graph.walkablePaths.find(p => p.id === clickedRoom.nearestPathId);
     if (!clickedPath) {
         console.error('Path not found');
         return;
@@ -471,8 +495,8 @@ function roomClickHandler(event) {
         ]);
     } else if (selectedRooms.length === 2) {
         const [startRoomId, endRoomId] = selectedRooms;
-        const startRoom = floorGraph.rooms[startRoomId];
-        const endRoom = floorGraph.rooms[endRoomId];
+        const startRoom = graph.rooms[startRoomId];
+        const endRoom = graph.rooms[endRoomId];
         
         const startDoors = startRoom.doorPoints || [startRoom.doorPoint];
         const endDoors = endRoom.doorPoints || [endRoom.doorPoint];
@@ -489,73 +513,106 @@ function roomClickHandler(event) {
                 const startPathId = startDoor.nearestPathId || startRoom.nearestPathId;
                 const endPathId = endDoor.nearestPathId || endRoom.nearestPathId;
                 
-                const startPath = floorGraph.walkablePaths.find(p => p.id === startPathId);
-                const endPath = floorGraph.walkablePaths.find(p => p.id === endPathId);
+                const startPath = graph.walkablePaths.find(p => p.id === startPathId);
+                const endPath = graph.walkablePaths.find(p => p.id === endPathId);
+
+                if (!startPath || !endPath) {
+                    console.warn('Could not find paths for a door combination, skipping.');
+                    continue;
+                }
+
+                const startPathPoint = findNearestPointOnPath(startDoor, startPath.pathPoints);
+                const endPathPoint = findNearestPointOnPath(endDoor, endPath.pathPoints);
                 
-                if (startPath && endPath) {
-                    // Calculate path distance by finding nearest points on each path and calculating route
-                    const startPathPoint = findNearestPointOnPath(startDoor, startPath.pathPoints);
-                    const endPathPoint = findNearestPointOnPath(endDoor, endPath.pathPoints);
-                    
-                    // Calculate total distance: door->path + path traversal + path->door
-                    const doorToPathDist = getDistance(startDoor, startPathPoint);
-                    const pathToPathDist = getDistance(startPathPoint, endPathPoint);
-                    const pathToDoorDist = getDistance(endPathPoint, endDoor);
-                    const totalPathDistance = doorToPathDist + pathToPathDist + pathToDoorDist;
-                    
-                    console.log(`Start(${startDoor.x}, ${startDoor.y})[${startPathId}] to End(${endDoor.x}, ${endDoor.y})[${endPathId}] = ${totalPathDistance.toFixed(2)}`);
-                    
-                    if (totalPathDistance < shortestPathDistance) {
-                        shortestPathDistance = totalPathDistance;
-                        bestStartDoor = startDoor;
-                        bestEndDoor = endDoor;
-                    }
+                // Calculate total distance: door->path + path traversal + path->door
+                const doorToPathDist = getDistance(startDoor, startPathPoint);
+                const pathToPathDist = getDistance(startPathPoint, endPathPoint);
+                const pathToDoorDist = getDistance(endPathPoint, endDoor);
+                const totalPathDistance = doorToPathDist + pathToPathDist + pathToDoorDist;
+                
+                console.log(`Start(${startDoor.x}, ${startDoor.y})[${startPathId}] to End(${endDoor.x}, ${endDoor.y})[${endPathId}] = ${totalPathDistance.toFixed(2)}`);
+                
+                if (totalPathDistance < shortestPathDistance) {
+                    shortestPathDistance = totalPathDistance;
+                    bestStartDoor = startDoor;
+                    bestEndDoor = endDoor;
                 }
             }
         }
 
         console.log(`Selected optimal doors: Start(${bestStartDoor.x}, ${bestStartDoor.y}) End(${bestEndDoor.x}, ${bestEndDoor.y}) Path Distance: ${shortestPathDistance.toFixed(2)}`);
 
-        // Get the nearest path for each selected door
-        const startPathId = bestStartDoor.nearestPathId || startRoom.nearestPathId;
-        const endPathId = bestEndDoor.nearestPathId || endRoom.nearestPathId;
-        
-        const startPath = floorGraph.walkablePaths.find(p => p.id === startPathId);
-        const endPath = floorGraph.walkablePaths.find(p => p.id === endPathId);
-        
-        if (!startPath || !endPath) {
-            console.error('One of the paths not found');
-            return;
-        }
+        // Now find the full path using the best door pair
+        const startPath = graph.walkablePaths.find(p => p.id === (bestStartDoor.nearestPathId || startRoom.nearestPathId));
+        const endPath = graph.walkablePaths.find(p => p.id === (bestEndDoor.nearestPathId || endRoom.nearestPathId));
 
         const startPathPoint = findNearestPointOnPath(bestStartDoor, startPath.pathPoints);
         const endPathPoint = findNearestPointOnPath(bestEndDoor, endPath.pathPoints);
-        
-        // Draw complete path including door connections
-        drawCompletePath([
-            bestStartDoor,
-            startPathPoint,
-            ...getPathBetweenPoints(startPathPoint, endPathPoint, floorGraph.walkablePaths),
-            endPathPoint,
-            bestEndDoor
-        ]);
+
+        console.log('Calculating path between optimal door points:', {
+            startDoor: bestStartDoor,
+            endDoor: bestEndDoor,
+            startPathPoint: startPathPoint,
+            endPathPoint: endPathPoint
+        });
+
+        const pathBetween = getPathBetweenPoints(startPathPoint, endPathPoint, graph.walkablePaths);
+
+        if (pathBetween) {
+            const finalPath = [bestStartDoor, ...pathBetween, bestEndDoor];
+            console.log('Final path calculated with', finalPath.length, 'points:', finalPath);
+            drawCompletePath(finalPath);
+        } else {
+            console.error('No path found between doors');
+            // Fallback: draw direct line between doors
+            console.log('Drawing fallback direct path between doors');
+            drawCompletePath([bestStartDoor, bestEndDoor]);
+        }
     }
 }
 
 // Heuristic: Euclidean distance
 function heuristic(a, b) {
-  const dx = floorGraph.rooms[a].x - floorGraph.rooms[b].x;
-  const dy = floorGraph.rooms[a].y - floorGraph.rooms[b].y;
+  const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
+  
+  // Safety check for graph and rooms
+  if (!graph || !graph.rooms || !graph.rooms[a] || !graph.rooms[b]) {
+    console.error('Heuristic calculation failed - missing room data:', {
+      graphExists: !!graph,
+      roomsExists: !!graph?.rooms,
+      roomAExists: !!graph?.rooms?.[a],
+      roomBExists: !!graph?.rooms?.[b],
+      roomA: a,
+      roomB: b
+    });
+    return Infinity; // Return a high value to avoid using invalid paths
+  }
+  
+  const dx = graph.rooms[a].x - graph.rooms[b].x;
+  const dy = graph.rooms[a].y - graph.rooms[b].y;
   return Math.sqrt(dx * dx + dy * dy);
 }
 
 // A* algorithm
 function aStar(start, goal) {
+  const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
   console.log('A* starting with:', start, '->', goal);
   
+  // Safety check - ensure graph and rooms exist
+  if (!graph || !graph.rooms) {
+    console.error('A* failed - no graph or rooms data available');
+    return null;
+  }
+  
   // Safety check - ensure both nodes exist in graph
-  if (!floorGraph.rooms[start] || !floorGraph.rooms[goal]) {
-    console.log('Start or goal node not found in graph');
+  if (!graph.rooms[start] || !graph.rooms[goal]) {
+    console.error('A* failed - start or goal node not found in graph:', {
+      start: start,
+      goal: goal,
+      startExists: !!graph.rooms[start],
+      goalExists: !!graph.rooms[goal],
+      availableRooms: Object.keys(graph.rooms)
+    });
     return null;
   }
   
@@ -602,15 +659,15 @@ function aStar(start, goal) {
     openSet = openSet.filter(n => n !== current);
     
     // Check neighbors
-    if (!floorGraph.rooms[current] || !floorGraph.rooms[current].neighbors) {
+    if (!graph.rooms[current] || !graph.rooms[current].neighbors) {
       console.log(`No neighbors found for ${current}`);
       continue;
     }
     
-    for (let neighbor of Object.keys(floorGraph.rooms[current].neighbors)) {
+    for (let neighbor of Object.keys(graph.rooms[current].neighbors)) {
       // Safety check - ensure neighbor exists
-      if (!floorGraph.rooms[neighbor]) {
-        console.log(`Neighbor ${neighbor} not found in graph, skipping`);
+      if (!graph.rooms[neighbor]) {
+        console.warn(`Neighbor ${neighbor} not found in graph, skipping.`);
         continue;
       }
       
@@ -733,10 +790,11 @@ function clearAllPaths() {
 }
 
 function getPathBetweenPoints(start, end, walkablePaths) {
+    const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
     console.log('Finding path between', start, 'and', end);
     
     // Convert walkable paths into a graph structure for A*
-    const graph = {};
+    const g = {};
     const processedPoints = new Set(); // Track unique points
     
     // First, create all points in the graph and build connections
@@ -756,8 +814,8 @@ function getPathBetweenPoints(start, end, walkablePaths) {
             }
 
             // Initialize the point in the graph if it doesn't exist
-            if (!graph[pointId]) {
-                graph[pointId] = {
+            if (!g[pointId]) {
+                g[pointId] = {
                     x: roundedX,
                     y: roundedY,
                     neighbors: {}
@@ -769,9 +827,9 @@ function getPathBetweenPoints(start, end, walkablePaths) {
                 const prevPointId = `${Math.round(previousPoint.x * 100) / 100},${Math.round(previousPoint.y * 100) / 100}`;
                 const distance = Math.sqrt(Math.pow(point.x - previousPoint.x, 2) + Math.pow(point.y - previousPoint.y, 2));
                 
-                graph[pointId].neighbors[prevPointId] = distance;
-                if (graph[prevPointId]) {
-                    graph[prevPointId].neighbors[pointId] = distance;
+                g[pointId].neighbors[prevPointId] = distance;
+                if (g[prevPointId]) {
+                    g[prevPointId].neighbors[pointId] = distance;
                 }
             }
 
@@ -780,43 +838,22 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     });
 
     // Add connections from pathConnections if they exist in the floor graph
-    if (floorGraph.pathConnections) {
-        Object.keys(floorGraph.pathConnections).forEach(intersectionPoint => {
-            const connectedPaths = floorGraph.pathConnections[intersectionPoint];
+    if (graph.pathConnections) {
+        Object.keys(graph.pathConnections).forEach(intersectionPoint => {
+            const connections = graph.pathConnections[intersectionPoint];
             
-            // For each intersection, connect all points that share this coordinate
-            // across different paths
-            connectedPaths.forEach(pathId1 => {
-                connectedPaths.forEach(pathId2 => {
-                    if (pathId1 !== pathId2) {
-                        // Find the actual point coordinate in both paths
-                        const path1 = walkablePaths.find(p => p.id === pathId1);
-                        const path2 = walkablePaths.find(p => p.id === pathId2);
-                        
-                        if (path1 && path2) {
-                            const [x, y] = intersectionPoint.split(',').map(Number);
-                            
-                            // Find matching points in both paths
-                            const point1 = path1.pathPoints.find(p => 
-                                Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < 1
-                            );
-                            const point2 = path2.pathPoints.find(p => 
-                                Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < 1
-                            );
-                            
-                            if (point1 && point2) {
-                                const point1Id = `${Math.round(point1.x * 100) / 100},${Math.round(point1.y * 100) / 100}`;
-                                const point2Id = `${Math.round(point2.x * 100) / 100},${Math.round(point2.y * 100) / 100}`;
-                                
-                                if (graph[point1Id] && graph[point2Id]) {
-                                    // Connect these intersection points with distance 0 (they're the same location)
-                                    graph[point1Id].neighbors[point2Id] = 0;
-                                    graph[point2Id].neighbors[point1Id] = 0;
-                                }
-                            }
-                        }
-                    }
-                });
+            // Find the actual point in the graph that corresponds to the intersection
+            connections.forEach((connection, index) => {
+                if (index === 0) return; // Skip first connection (no previous to connect to)
+                
+                const prevConnection = connections[index - 1];
+                
+                // Create a bidirectional connection between this point and the previous one
+                if (g[intersectionPoint] && g[prevConnection]) {
+                    const distance = getDistance(g[intersectionPoint], g[prevConnection]);
+                    g[intersectionPoint].neighbors[prevConnection] = distance;
+                    g[prevConnection].neighbors[intersectionPoint] = distance;
+                }
             });
         });
     }
@@ -834,8 +871,8 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     let minEndDist = Infinity;
     
     // Find nearest points from the graph
-    Object.keys(graph).forEach(pointId => {
-        const point = graph[pointId];
+    Object.keys(g).forEach(pointId => {
+        const point = g[pointId];
         const startDist = getDistance(start, point);
         const endDist = getDistance(end, point);
         
@@ -857,15 +894,15 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     });
     
     // Add start and end to graph with connections to nearest path points
-    if (!graph[startId]) {
-        graph[startId] = {
+    if (!g[startId]) {
+        g[startId] = {
             x: start.x,
             y: start.y,
             neighbors: {}
         };
     }
-    if (!graph[endId]) {
-        graph[endId] = {
+    if (!g[endId]) {
+        g[endId] = {
             x: end.x,
             y: end.y,
             neighbors: {}
@@ -874,23 +911,23 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     
     // Connect start and end to their nearest points
     if (startNearestId) {
-        graph[startId].neighbors[startNearestId] = minStartDist;
-        graph[startNearestId].neighbors[startId] = minStartDist;
+        g[startId].neighbors[startNearestId] = minStartDist;
+        g[startNearestId].neighbors[startId] = minStartDist;
     }
     
     if (endNearestId) {
-        graph[endId].neighbors[endNearestId] = minEndDist;
-        graph[endNearestId].neighbors[endId] = minEndDist;
+        g[endId].neighbors[endNearestId] = minEndDist;
+        g[endNearestId].neighbors[endId] = minEndDist;
     }
     
     // Use A* to find path through the graph
-    const path = aStarSearch(graph, startId, endId);
+    const path = aStarSearch(g, startId, endId);
     
     // Convert path IDs back to points
     if (path) {
         return path.map(id => ({
-            x: graph[id].x,
-            y: graph[id].y
+            x: g[id].x,
+            y: g[id].y
         }));
     }
     
@@ -981,9 +1018,31 @@ function aStarSearch(graph, startId, endId) {
 
 function drawCompletePath(points) {
     console.log('Drawing complete path:', points);
+    console.log('Number of points to draw:', points.length);
+    
+    // Validate points array
+    if (!points || points.length === 0) {
+        console.error('No points provided to drawCompletePath');
+        return;
+    }
+    
+    // Check if all points have valid coordinates
+    const validPoints = points.filter(point => 
+        point && typeof point.x === 'number' && typeof point.y === 'number' && 
+        !isNaN(point.x) && !isNaN(point.y)
+    );
+    
+    if (validPoints.length !== points.length) {
+        console.warn('Some points have invalid coordinates, using only valid points:', validPoints);
+    }
+    
+    if (validPoints.length === 0) {
+        console.error('No valid points to draw');
+        return;
+    }
     
     // Filter out redundant points (points that form a straight line)
-    const filteredPoints = points.filter((point, index, arr) => {
+    const filteredPoints = validPoints.filter((point, index, arr) => {
         if (index === 0 || index === arr.length - 1) return true; // Keep start and end points
         
         // Check if point is collinear with previous and next points
@@ -998,12 +1057,15 @@ function drawCompletePath(points) {
         return Math.abs(slope1 - slope2) > 0.1;
     });
     
+    console.log('Points after filtering redundant ones:', filteredPoints.length);
+    
     // Find the SVG container
     const svg = document.querySelector('svg');
     if (!svg) {
         console.error('SVG element not found');
         return;
     }
+    console.log('Found SVG element');
     
     // Get the main group
     const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g');
@@ -1011,6 +1073,7 @@ function drawCompletePath(points) {
         console.error('Main group not found');
         return;
     }
+    console.log('Found main group:', mainGroup);
     
     // Create or get the path group
     let pathGroup = mainGroup.querySelector('#path-highlight-group');
@@ -1018,25 +1081,31 @@ function drawCompletePath(points) {
         pathGroup = document.createElementNS("http://www.w3.org/2000/svg", 'g');
         pathGroup.setAttribute('id', 'path-highlight-group');
         mainGroup.appendChild(pathGroup);
+        console.log('Created new path highlight group');
+    } else {
+        console.log('Using existing path highlight group');
     }
     
     // Clear existing paths
     while (pathGroup.firstChild) {
         pathGroup.removeChild(pathGroup.firstChild);
     }
+    console.log('Cleared existing paths from group');
     
     // Create the path element
     const pathElement = document.createElementNS("http://www.w3.org/2000/svg", 'path');
     
     // Generate the path data
     let pathData = '';
-    points.forEach((point, index) => {
+    filteredPoints.forEach((point, index) => {
         if (index === 0) {
             pathData += `M ${point.x} ${point.y}`;
         } else {
             pathData += ` L ${point.x} ${point.y}`;
         }
     });
+    
+    console.log('Generated path data:', pathData);
     
     // Set path attributes
     pathElement.setAttribute('d', pathData);
@@ -1046,11 +1115,24 @@ function drawCompletePath(points) {
     pathElement.setAttribute('stroke-dasharray', '10,5');
     pathElement.setAttribute('vector-effect', 'non-scaling-stroke');
     
+    console.log('Path element created with attributes:', {
+        d: pathData,
+        stroke: '#FF4444',
+        strokeWidth: '4',
+        fill: 'none'
+    });
+    
     // Add the path to the group
     pathGroup.appendChild(pathElement);
+    console.log('Path element added to SVG group');
+    
+    // Verify the path was actually added
+    const addedPaths = pathGroup.querySelectorAll('path');
+    console.log('Number of paths in group after adding:', addedPaths.length);
 }
 
 function drawPathLines(path) {
+  const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
   console.log('Drawing path lines for:', path);
   
   // Find the SVG container
@@ -1085,53 +1167,23 @@ function drawPathLines(path) {
     const nextRoomId = path[i + 1];
     
     // Use coordinates from floor_graph.json instead of SVG bounding boxes
-    if (floorGraph.rooms[currentRoomId] && floorGraph.rooms[nextRoomId]) {
-      const currentRoom = floorGraph.rooms[currentRoomId];
-      const nextRoom = floorGraph.rooms[nextRoomId];
-      const waypoints = floorGraph.rooms[currentRoomId].neighbors[nextRoomId]?.waypoints || [];
-      
-      // Start point (current room)
-      let lastX = currentRoom.x;
-      let lastY = currentRoom.y;
-      
-      // Draw lines through waypoints
-      waypoints.forEach(waypoint => {
-        // Draw line from last point to waypoint
-        const waypointLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        waypointLine.setAttribute('x1', lastX);
-        waypointLine.setAttribute('y1', lastY);
-        waypointLine.setAttribute('x2', waypoint.x);
-        waypointLine.setAttribute('y2', waypoint.y);
-        waypointLine.setAttribute('class', 'path-line');
-        waypointLine.setAttribute('stroke', '#FF0000');
-        waypointLine.setAttribute('stroke-width', '4');
-        waypointLine.setAttribute('stroke-dasharray', '10,5');
-        waypointLine.setAttribute('opacity', '0.8');
-        pathGroup.appendChild(waypointLine);
+    if (graph.rooms[currentRoomId] && graph.rooms[nextRoomId]) {
+        const currentRoom = graph.rooms[currentRoomId];
+        const nextRoom = graph.rooms[nextRoomId];
         
-        // Update last point
-        lastX = waypoint.x;
-        lastY = waypoint.y;
-      });
-      
-      // Draw final line to next room using entry point or center, then x,y
-      const finalLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      finalLine.setAttribute('x1', lastX);
-      finalLine.setAttribute('y1', lastY);
-      // Use entry point if available, fall back to center, then x,y
-      const endX = nextRoom.entry?.x || nextRoom.center?.x || nextRoom.x;
-      const endY = nextRoom.entry?.y || nextRoom.center?.y || nextRoom.y;
-      finalLine.setAttribute('x2', endX);
-      finalLine.setAttribute('y2', endY);
-      finalLine.setAttribute('class', 'path-line');
-      finalLine.setAttribute('stroke', '#FF0000');
-      finalLine.setAttribute('stroke-width', '4');
-      finalLine.setAttribute('vector-effect', 'non-scaling-stroke');
-      finalLine.setAttribute('stroke-dasharray', '10,5');
-      finalLine.setAttribute('opacity', '0.8');
-      pathGroup.appendChild(finalLine);
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', currentRoom.x);
+        line.setAttribute('y1', currentRoom.y);
+        line.setAttribute('x2', nextRoom.x);
+        line.setAttribute('y2', nextRoom.y);
+        line.setAttribute('class', 'path-line');
+        line.setAttribute('stroke', '#FF0000');
+        line.setAttribute('stroke-width', '4');
+        line.setAttribute('stroke-dasharray', '10,5');
+        line.setAttribute('opacity', '0.8');
+        pathGroup.appendChild(line);
     } else {
-      console.warn(`Could not find elements for ${currentRoomId} or ${nextRoomId}`);
+        console.warn(`Could not find room data for ${currentRoomId} or ${nextRoomId}`);
     }
   }
   

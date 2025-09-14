@@ -11,28 +11,28 @@
       <a-entity camera look-controls>
         <a-entity cursor="rayOrigin: mouse"></a-entity>
       </a-entity>
-      <a-sky src="Gwa_balay.jpg"></a-sky>
+      <a-sky src="62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg"></a-sky>
       <!-- Hotspot to go to Sulod_balay.jpg (visible in Gwa_balay.jpg) -->
       <a-entity class="hotspot"
-                data-image="Gwa_balay.jpg"
+                data-image="62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg"
                 geometry="primitive: cone; radiusBottom: 0.2; radiusTop: 0; height: 0.5"
                 material="color: red"
                 position="0 0 -4"
                 visible="true"
                 event-set__enter="_event: mouseenter; material.color: yellow"
                 event-set__leave="_event: mouseleave; material.color: red"
-                hotspot-listener="target: Sulod_balay.jpg">
+                hotspot-listener="target: f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg">
       </a-entity>
       <!-- Hotspot to go back to Gwa_balay.jpg (visible in Sulod_balay.jpg) -->
       <a-entity class="hotspot"
-                data-image="Sulod_balay.jpg"
+                data-image="f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg"
                 geometry="primitive: sphere; radius: 1"
                 material="color: blue"
                 position="-3 -2 9"
                 visible="false"
                 event-set__enter="_event: mouseenter; material.color: cyan"
                 event-set__leave="_event: mouseleave; material.color: blue"
-                hotspot-listener="target: Gwa_balay.jpg">
+                hotspot-listener="target: 62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg">
       </a-entity>
     </a-scene>
   </body>

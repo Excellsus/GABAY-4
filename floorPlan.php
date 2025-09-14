@@ -502,7 +502,35 @@ if (isset($_GET['selectRoom'])) {
         </div>
     </div>
 
+    <!-- Panorama Editor Modal -->
+    <div id="panorama-editor-modal" class="modal-overlay">
+        <div class="modal-dialog" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Panorama Point</h3>
+                <button id="close-panorama-modal-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="panorama-point-info" class="mb-4 text-sm text-gray-600 bg-gray-100 p-2 rounded">
+                    <!-- Point info will be populated by JS -->
+                </div>
+                
+                <div class="mb-4">
+                    <label for="panorama-file-input" class="block text-sm font-medium text-gray-700 mb-1">Upload New Panorama</label>
+                    <input type="file" id="panorama-file-input" accept="image/jpeg, image/png, image/webp" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-negros-light file:text-negros-green hover:file:bg-negros-green/20">
+                </div>
 
+                <div id="panorama-preview-container" class="mb-4 p-2 border rounded-lg bg-gray-50" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <span class="text-gray-400">Image preview</span>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <button id="remove-panorama-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium">Remove</button>
+                    <button id="cancel-panorama-upload-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors text-sm font-medium">Cancel</button>
+                    <button id="upload-panorama-btn" class="px-4 py-2 bg-negros-green text-white rounded-md hover:bg-negros-dark transition-colors text-sm font-medium">Upload Image</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
      <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
      <script src="floorjs/panZoomSetup.js"></script> <!-- Link to the new JS file -->
@@ -813,5 +841,70 @@ if (isset($_GET['selectRoom'])) {
    <script src="./floorjs/labelSetup.js"></script> <!-- Add the labeling script -->
    <script src="./floorjs/dragDropSetup.js"></script> <!-- Add the drag/drop script for edit mode -->
    <script src="pathfinding.js"></script> <!-- Add the pathfinding script -->
+   <script>
+    // --- Panorama Editor Modal ---
+    const panoramaModal = document.getElementById('panorama-editor-modal');
+    const closePanoramaBtn = document.getElementById('close-panorama-modal-btn');
+    const cancelPanoramaBtn = document.getElementById('cancel-panorama-upload-btn');
+    const panoramaPointInfo = document.getElementById('panorama-point-info');
+    const fileInput = document.getElementById('panorama-file-input');
+    const previewContainer = document.getElementById('panorama-preview-container');
+    const uploadBtn = document.getElementById('upload-panorama-btn');
+    const removeBtn = document.getElementById('remove-panorama-btn');
+
+    let currentPanoData = {};
+
+    function openPanoramaEditor(pathId, pointIndex, currentImage) {
+        currentPanoData = { pathId, pointIndex, currentImage };
+        
+        panoramaPointInfo.innerHTML = `
+            <strong>Path ID:</strong> ${pathId}<br>
+            <strong>Point Index:</strong> ${pointIndex}
+        `;
+
+        if (currentImage) {
+            previewContainer.innerHTML = `<img src="Pano/${currentImage}" class="max-w-full max-h-48 object-contain">`;
+            removeBtn.style.display = 'inline-block';
+        } else {
+            previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
+            removeBtn.style.display = 'none';
+        }
+
+        fileInput.value = ''; // Clear previous selection
+        panoramaModal.classList.add('active');
+    }
+
+    function closePanoramaModal() {
+        panoramaModal.classList.remove('active');
+    }
+
+    function previewFile() {
+        const file = fileInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewContainer.innerHTML = `<img src="${e.target.result}" class="max-w-full max-h-48 object-contain">`;
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    closePanoramaBtn.addEventListener('click', closePanoramaModal);
+    cancelPanoramaBtn.addEventListener('click', closePanoramaModal);
+    fileInput.addEventListener('change', previewFile);
+
+    // Placeholder for upload functionality
+    uploadBtn.addEventListener('click', () => {
+        alert('Upload functionality not yet implemented.');
+        // Later: implement fetch to a PHP script to handle upload
+    });
+
+    // Placeholder for remove functionality
+    removeBtn.addEventListener('click', () => {
+        alert('Remove functionality not yet implemented.');
+        // Later: implement fetch to a PHP script to handle removal
+    });
+
+   </script>
    </body>
  </html>
