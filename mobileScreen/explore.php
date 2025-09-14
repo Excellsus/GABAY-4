@@ -79,7 +79,7 @@ try {
   <html lang="en">
     <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -172,9 +172,30 @@ try {
         position: absolute;
         top: 0;
         left: 0;
+        /* Allow pinch gestures while preventing unwanted touch behaviors */
+        touch-action: pan-x pan-y pinch-zoom !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
       }
       
       /* Override any Tailwind classes that might interfere */
+      .svg-container {
+        max-width: none !important;
+        max-height: none !important;
+        /* Essential touch handling for mobile - allow pinch-zoom */
+        touch-action: pan-x pan-y pinch-zoom !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        /* Prevent text selection and context menus */
+        -webkit-user-drag: none !important;
+        -khtml-user-drag: none !important;
+        -moz-user-drag: none !important;
+        -o-user-drag: none !important;
+        user-drag: none !important;
+      }
+      
       .svg-container * {
         max-width: none !important;
         max-height: none !important;
@@ -197,6 +218,11 @@ try {
           min-height: calc(100vh - 120px) !important;
           position: relative !important;
           overflow: hidden !important;
+          /* Allow pinch-to-zoom while preventing page scroll */
+          touch-action: pan-x pan-y pinch-zoom !important;
+          -webkit-overflow-scrolling: touch !important;
+          -webkit-transform: translateZ(0) !important;
+          transform: translateZ(0) !important;
         }
         
         /* Adjust floor selector for mobile */
@@ -264,6 +290,9 @@ try {
       
       .you-are-here-label {
         animation: bounce 2s infinite;
+        vector-effect: non-scaling-stroke;
+        font-size: 14px !important;
+        pointer-events: none;
       }
       
       @keyframes bounce {
@@ -299,6 +328,24 @@ try {
         0% { stroke-opacity: 1; }
         50% { stroke-opacity: 0.6; }
         100% { stroke-opacity: 1; }
+      }
+      
+      /* Panorama marker styles for mobile */
+      .panorama-marker {
+        transition: all 0.2s ease;
+        cursor: pointer !important;
+      }
+      
+      .panorama-marker:hover {
+        filter: drop-shadow(0 0 8px rgba(255, 68, 68, 0.6));
+      }
+      
+      /* Touch-friendly sizing for mobile panorama markers */
+      @media (max-width: 768px) {
+        .panorama-marker {
+          /* Markers will be slightly larger on mobile for easier touch interaction */
+          r: 8 !important;
+        }
       }
     </style>
 
@@ -515,6 +562,27 @@ try {
       // CRITICAL: Disable desktop pathfinding room click handlers
       window.MOBILE_MODE = true; // Flag to prevent desktop pathfinding initialization
 
+      // ==== PAN / ZOOM CONFIG (Mobile) ====
+      // You can tweak these at runtime from the console or set new defaults here.
+      // PAN_DAMPING: Multiplier applied after zoom compensation ( <1 slows, >1 speeds )
+      // PAN_EXPONENT: Raises the (1/zoom) factor to this power for non‑linear sensitivity.
+      //   Example: exponent 1.2 will make panning slower when highly zoomed in compared to linear.
+      window.PAN_DAMPING = 0.85;     // 1:1 finger movement ratio for precise control
+      window.PAN_EXPONENT = 0.1;     // Linear response - SVG follows finger exactly
+      window.PAN_MIN_STEP_PX = 0.1; // Higher minimum movement for better responsiveness
+
+      // Helper to update pan sensitivity programmatically
+      window.setPanSensitivity = function({damping, exponent, minStep} = {}) {
+        if (typeof damping === 'number') window.PAN_DAMPING = damping;
+        if (typeof exponent === 'number') window.PAN_EXPONENT = exponent;
+        if (typeof minStep === 'number') window.PAN_MIN_STEP_PX = minStep;
+        console.log('[PanSensitivity] Updated:', {
+          PAN_DAMPING: window.PAN_DAMPING,
+            PAN_EXPONENT: window.PAN_EXPONENT,
+            PAN_MIN_STEP_PX: window.PAN_MIN_STEP_PX
+        });
+      };
+
       // Define global utility functions
       function isOfficeOpen(openTime, closeTime) {
         if (!openTime || !closeTime) return null;
@@ -560,12 +628,92 @@ try {
               }
             }
             
-            // Refresh SVG view
-            window.svgPanZoomInstance.resize();
-            window.svgPanZoomInstance.fit();
-            window.svgPanZoomInstance.center();
+            // Refresh SVG view with proper sequencing
+            if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.resize === 'function') {
+              try {
+                window.svgPanZoomInstance.resize();
+                // Add small delay to ensure resize takes effect before fit/center
+                setTimeout(() => {
+                  if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.fit === 'function') {
+                    window.svgPanZoomInstance.fit();
+                    window.svgPanZoomInstance.center();
+                  }
+                }, 10);
+              } catch (e) {
+                console.warn("Failed to refresh SVG container:", e);
+              }
+            }
           });
         }
+      }
+
+      // Safe function to draw paths and doors only when everything is ready
+      function drawPathsAndDoorsWhenReady() {
+        console.log('Attempting to draw paths and doors...');
+        const svg = document.querySelector('svg');
+        const panZoomViewport = svg ? svg.querySelector('.svg-pan-zoom_viewport') : null;
+
+        // Ensure the pan-zoom viewport is ready before drawing
+        if (!panZoomViewport) {
+          console.warn('Pan-zoom viewport not ready. Drawing will be deferred.');
+          // Add a listener to try again once the pan-zoom is ready
+          document.addEventListener('panZoomReady', drawPathsAndDoorsWhenReady, { once: true });
+          return;
+        }
+
+        console.log('Pan-zoom viewport is ready. Proceeding with drawing.');
+
+        // Clear any old groups to prevent duplication on floor change
+        const oldPathGroup = panZoomViewport.querySelector('#walkable-path-group');
+        if (oldPathGroup) oldPathGroup.remove();
+        const oldMarkerGroup = panZoomViewport.querySelector('#marker-group');
+        if (oldMarkerGroup) oldMarkerGroup.remove();
+        const oldDoorGroup = panZoomViewport.querySelector('#door-points-group');
+        if (oldDoorGroup) oldDoorGroup.remove();
+
+        if (!window.pendingGraphData) {
+          console.warn('No pending graph data available for drawing');
+          return;
+        }
+
+        // Set the floor graph
+        window.floorGraph = window.pendingGraphData;
+
+        // Draw walkable paths first
+        if (window.floorGraph.walkablePaths && Array.isArray(window.floorGraph.walkablePaths)) {
+          console.log('Drawing', window.floorGraph.walkablePaths.length, 'walkable paths');
+          window.floorGraph.walkablePaths.forEach((path, index) => {
+            try {
+              console.log(`Drawing path ${index + 1}/${window.floorGraph.walkablePaths.length}: ${path.id}`);
+              drawWalkablePath(path);
+            } catch (error) {
+              console.error(`Error drawing path ${path.id}:`, error);
+            }
+          });
+        }
+
+        // Draw door points if available
+        if (window.floorGraph.rooms) {
+          console.log('Drawing door points for', Object.keys(window.floorGraph.rooms).length, 'rooms');
+          drawDoorPoints(window.floorGraph.rooms);
+        }
+
+        // Handle office highlighting for QR scan
+        if (window.highlightOfficeIdFromPHP) {
+          const targetOffice = officesData.find(office => office.id == window.highlightOfficeIdFromPHP);
+          if (targetOffice && targetOffice.location) {
+            console.log('Highlighting office from QR scan:', targetOffice.name, 'at location:', targetOffice.location);
+            setTimeout(() => {
+              window.showYouAreHere(targetOffice.location);
+              handleRoomClick(targetOffice);
+            }, 500);
+          }
+        }
+
+        // Clear the pending data
+        window.pendingGraphData = null;
+
+        console.log('Path and door drawing completed');
       }
 
       // Global function to populate and show drawer
@@ -668,9 +816,8 @@ try {
 
       // Integration with desktop pathfinding.js
       
-      // Global variables for pathfinding compatibility
-      window.selectedRooms = [];
-      window.pathResult = [];
+  // NOTE: selectedRooms & pathResult are already declared near the top for compatibility.
+  // Avoid re-declaring here to prevent accidental state resets.
 
       // Mobile room click handler - only shows office details, no pathfinding
       function mobileRoomClickHandler(event) {
@@ -763,21 +910,29 @@ try {
         console.log('Drawing walkable path:', path.id);
         const svg = document.querySelector('svg');
         if (!svg || !path.pathPoints || path.pathPoints.length === 0) {
+          console.warn('Cannot draw path - missing SVG or path points');
           return;
         }
 
+        const svgNS = "http://www.w3.org/2000/svg";
         const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+        
+        if (!mainGroup) {
+          console.warn('Cannot draw path - no main group found');
+          return;
+        }
         
         // Create or get the walkable path group
         let pathGroup = mainGroup.querySelector('#walkable-path-group');
         if (!pathGroup) {
-          pathGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          pathGroup = document.createElementNS(svgNS, 'g');
           pathGroup.id = 'walkable-path-group';
           mainGroup.appendChild(pathGroup);
+          console.log('Created walkable path group in:', mainGroup.classList || mainGroup.tagName);
         }
 
         // Create path element
-        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const pathElement = document.createElementNS(svgNS, 'path');
         pathElement.id = `walkable-path-${path.id}`;
         
         // Build path data
@@ -795,6 +950,64 @@ try {
         pathElement.classList.add('walkable-path');
         
         pathGroup.appendChild(pathElement);
+
+        // Add panorama point markers if they exist
+        if (path.style && path.style.pointMarker) {
+          // Create or get the marker group
+          let markerGroup = mainGroup.querySelector('#marker-group');
+          if (!markerGroup) {
+            markerGroup = document.createElementNS(svgNS, 'g');
+            markerGroup.setAttribute('id', 'marker-group');
+            mainGroup.appendChild(markerGroup);
+          }
+
+          // Add markers for each point that has isPano property
+          path.pathPoints.forEach((point, index) => {
+            if (point.isPano) {
+              const marker = document.createElementNS(svgNS, 'circle');
+              marker.setAttribute('cx', point.x);
+              marker.setAttribute('cy', point.y);
+              marker.setAttribute('r', path.style.pointMarker.radius || 6);
+              marker.setAttribute('fill', path.style.pointMarker.color || '#4CAF50');
+              marker.setAttribute('stroke', path.style.pointMarker.strokeColor || '#000');
+              marker.setAttribute('stroke-width', path.style.pointMarker.strokeWidth || 1);
+              marker.setAttribute('opacity', '0.9');
+              marker.style.cursor = 'pointer';
+              marker.classList.add('panorama-marker');
+              
+              // Add click event for panorama marker
+              marker.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                console.log(`Mobile panorama marker clicked: Path ${path.id}, Point ${index}`);
+                
+                // Call mobile panorama handler (to be implemented later)
+                if (typeof openMobilePanoramaViewer === 'function') {
+                  openMobilePanoramaViewer(path.id, index, point.panoImage || '');
+                } else {
+                  console.log('Mobile panorama viewer not yet implemented');
+                  // Placeholder alert for now
+                  alert(`Panorama point clicked! Path: ${path.id}, Point Index: ${index}`);
+                }
+              });
+
+              // Add hover effects
+              marker.addEventListener('mouseenter', function() {
+                this.setAttribute('fill', path.style.pointMarker.hoverColor || '#FF4444');
+                this.setAttribute('r', (path.style.pointMarker.radius || 6) + 2);
+              });
+
+              marker.addEventListener('mouseleave', function() {
+                this.setAttribute('fill', path.style.pointMarker.color || '#4CAF50');
+                this.setAttribute('r', path.style.pointMarker.radius || 6);
+              });
+
+              markerGroup.appendChild(marker);
+            }
+          });
+        }
+        
+        console.log(`Path ${path.id} drawn successfully in viewport group`);
       }
 
       // "YOU ARE HERE" functionality
@@ -803,10 +1016,14 @@ try {
       function drawDoorPoints(rooms) {
         console.log('Drawing door points for rooms:', Object.keys(rooms).length);
         const svg = document.querySelector('svg');
-        if (!svg) return;
+        if (!svg) {
+          console.warn('Cannot draw door points - no SVG found');
+          return;
+        }
 
-        let mainGroup = svg.querySelector('g');
+        let mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g');
         if (!mainGroup) {
+          console.warn('No viewport group found, creating new main group');
           mainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           svg.appendChild(mainGroup);
         }
@@ -817,6 +1034,7 @@ try {
           doorGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           doorGroup.id = 'door-points-group';
           mainGroup.appendChild(doorGroup);
+          console.log('Created door points group in:', mainGroup.classList || mainGroup.tagName);
         }
 
         Object.keys(rooms).forEach(roomId => {
@@ -831,10 +1049,12 @@ try {
               circle.setAttribute('fill', room.style?.pointMarker?.color || '#FF6B35');
               circle.setAttribute('stroke', room.style?.pointMarker?.strokeColor || '#000');
               circle.setAttribute('stroke-width', room.style?.pointMarker?.strokeWidth || 1);
+              circle.setAttribute('vector-effect', 'non-scaling-stroke');
               circle.classList.add('door-point');
               
               doorGroup.appendChild(circle);
             });
+            console.log(`Door points for room ${roomId} drawn successfully`);
           }
         });
       }
@@ -850,11 +1070,19 @@ try {
           el.classList.remove('you-are-here');
         });
 
-        // Clear path lines
+        // Clear path lines and labels from the entire SVG
         const svg = document.querySelector('svg');
         if (svg) {
           const pathLines = svg.querySelectorAll('.path-line');
           pathLines.forEach(line => line.remove());
+          
+          // Clear path step labels
+          const pathLabels = svg.querySelectorAll('.path-step-label');
+          pathLabels.forEach(label => label.remove());
+          
+          // Clear "you are here" labels
+          const youAreHereLabels = svg.querySelectorAll('.you-are-here-label');
+          youAreHereLabels.forEach(label => label.remove());
         }
       };
 
@@ -889,10 +1117,15 @@ try {
               label.setAttribute("font-size", "16");
               label.setAttribute("stroke", "#000");
               label.setAttribute("stroke-width", "1");
+              label.setAttribute("vector-effect", "non-scaling-stroke");
               label.textContent = index + 1;
               
               const svg = document.querySelector('svg');
-              if (svg) svg.appendChild(label);
+              if (svg) {
+                // Add to the viewport group so it transforms with pan/zoom
+                const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+                mainGroup.appendChild(label);
+              }
             }, 100);
           }
         });
@@ -917,9 +1150,12 @@ try {
                 line.setAttribute('stroke', '#ff4444');
                 line.setAttribute('stroke-width', '4');
                 line.setAttribute('stroke-dasharray', '10,5');
+                line.setAttribute('vector-effect', 'non-scaling-stroke');
                 line.classList.add('path-line');
                 
-                svg.appendChild(line);
+                // Add to the viewport group so it transforms with pan/zoom
+                const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+                mainGroup.appendChild(line);
               }
             }
           }
@@ -940,10 +1176,13 @@ try {
         if (roomElement) {
           roomElement.classList.add('you-are-here');
           
-          // Add "YOU ARE HERE" label
+          // Add "YOU ARE HERE" label to the proper viewport group
           const svg = document.querySelector('svg');
           if (svg) {
-            // Remove existing "you are here" labels
+            // Find the main group that gets transformed during pan/zoom
+            const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+            
+            // Remove existing "you are here" labels from the entire SVG
             svg.querySelectorAll('.you-are-here-label').forEach(label => label.remove());
             
             // Create new label
@@ -956,8 +1195,13 @@ try {
             label.setAttribute("fill", "#ff4444");
             label.setAttribute("font-weight", "bold");
             label.setAttribute("font-size", "14");
+            label.setAttribute("vector-effect", "non-scaling-stroke");
             label.textContent = "YOU ARE HERE";
-            svg.appendChild(label);
+            
+            // Add the label to the same group as the rooms so it transforms with them
+            mainGroup.appendChild(label);
+            
+            console.log('YOU ARE HERE label added to viewport group:', mainGroup);
           }
         }
       };
@@ -1017,7 +1261,9 @@ try {
             
             const svg = group.closest('svg');
             if (svg) {
-                svg.appendChild(textEl);
+                // Add to the viewport group so it transforms with pan/zoom
+                const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+                mainGroup.appendChild(textEl);
             } else {
                 group.appendChild(textEl);
             }
@@ -1095,30 +1341,33 @@ try {
           document.getElementById('svg-container').innerHTML = svgText;
           const svg = document.querySelector('svg');
           
-          // Ensure SVG has proper attributes for full container fill
+          // Ensure SVG has proper attributes matching floorPlan.php
           if (svg) {
-            const isMobile = window.innerWidth <= 768;
-            
-            if (isMobile) {
-              svg.style.width = '100vw';
-              svg.style.height = `${window.innerHeight - 120}px`;
-            } else {
-              svg.style.width = '100%';
-              svg.style.height = '100%';
-            }
-            
-            svg.style.display = 'block';
-            svg.removeAttribute('width');
-            svg.removeAttribute('height');
-            
-            // Set viewBox if not present to ensure proper scaling
-            if (!svg.getAttribute('viewBox')) {
-              const bbox = svg.getBBox();
-              svg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
-            }
-            
-            // Ensure preserveAspectRatio is set for mobile
+            svg.setAttribute('id', 'svg1'); // Ensure consistent ID
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            
+            // Ensure SVG has valid viewBox (matches floorPlan.php logic)
+            if (!svg.getAttribute('viewBox')) {
+              try {
+                // Force getBBox calculation after adding to DOM
+                const bbox = svg.getBBox();
+                if (bbox && !isNaN(bbox.x) && !isNaN(bbox.y) && bbox.width > 0 && bbox.height > 0) {
+                  svg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
+                  console.log(`Set SVG viewBox from getBBox: ${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
+                } else {
+                  // Use known Capitol building SVG dimensions as fallback
+                  svg.setAttribute('viewBox', '0 0 1917.8289 629.6413');
+                  console.log('Set SVG viewBox to Capitol building default dimensions');
+                }
+              } catch (e) {
+                console.warn("Could not get SVG bbox, using Capitol building fallback viewBox");
+                svg.setAttribute('viewBox', '0 0 1917.8289 629.6413');
+              }
+            } else {
+              console.log('SVG viewBox already set:', svg.getAttribute('viewBox'));
+            }
           }
           
           // Load floor graph for pathfinding
@@ -1130,24 +1379,6 @@ try {
               id: roomId, 
               data: graphData.rooms[roomId] 
             })));
-            
-            // Draw walkable paths and door points
-            setTimeout(() => {
-              if (graphData.walkablePaths && Array.isArray(graphData.walkablePaths)) {
-                console.log('Drawing', graphData.walkablePaths.length, 'walkable paths');
-                graphData.walkablePaths.forEach((path, index) => {
-                  if (path.pathPoints && path.pathPoints.length > 0) {
-                    console.log(`Drawing path ${index + 1}:`, path.id);
-                    drawWalkablePath(path);
-                  }
-                });
-              }
-              
-              // Draw door points for navigation
-              if (graphData.rooms) {
-                drawDoorPoints(graphData.rooms);
-              }
-            }, 200);
           } else {
             window.floorGraph = null;
             console.log(`Floor ${floorNumber} loaded without navigation graph (pathfinding disabled)`);
@@ -1163,28 +1394,19 @@ try {
             existingCustomControls.remove();
           }
           
-          // Initialize SVG with a short delay to ensure DOM is ready
-          setTimeout(() => {
-            initializeSVG(svg);
-            
-            // Force a proper resize after everything is loaded
-            setTimeout(() => {
-              if (window.svgPanZoomInstance) {
-                window.svgPanZoomInstance.resize();
-                window.svgPanZoomInstance.fit();
-                window.svgPanZoomInstance.center();
-              }
-            }, 200);
-            
-            // Initialize pathfinding system - graph data is already loaded above
-            console.log(`Pathfinding system ready for floor ${floorNumber}`);
-            
-            // Dispatch custom event for pathfinding initialization
-            window.dispatchEvent(new CustomEvent('floorMapLoaded', { 
-              detail: { floor: floorNumber, graphData: graphData } 
-            }));
-          }, 100);
+          // Store the graph data for later use when pan-zoom is ready
+          window.pendingGraphData = graphData;
+          window.currentFloorNumber = floorNumber;
           
+          // Initialize SVG interactivity (adds room handlers)
+          initializeSVG(svg);
+          
+          // Initialize pan-zoom, which will then trigger the panZoomReady event
+          initializePanZoom(svg);
+
+          // Drawing of paths and markers is now handled by the event listener for 'panZoomReady'
+          // which is triggered inside initializePanZoom.
+
           console.log(`Floor ${floorNumber} map and navigation graph loaded successfully`);
         })
         .catch(error => {
@@ -1287,43 +1509,41 @@ try {
             window.svgPanZoomInstance = null;
           }
           
-          // Ensure SVG has valid viewBox before initializing
+          // Ensure SVG has valid viewBox before initializing (matches floorPlan.php)
           if (!svg.getAttribute('viewBox')) {
-            try {
-              const bbox = svg.getBBox();
-              if (bbox && !isNaN(bbox.x) && !isNaN(bbox.y) && bbox.width > 0 && bbox.height > 0) {
-                svg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
-              } else {
-                // Fallback viewBox
-                svg.setAttribute('viewBox', '0 0 1000 800');
-              }
-            } catch (e) {
-              console.warn("Could not get SVG bbox, using fallback viewBox");
-              svg.setAttribute('viewBox', '0 0 1000 800');
-            }
+            // Use Capitol building SVG dimensions for proper initialization
+            svg.setAttribute('viewBox', '0 0 1917.8289 629.6413');
+            console.log('Set default viewBox for pan-zoom initialization');
           }
           
           const panZoomInstance = svgPanZoom(svg, {
             zoomEnabled: true,
-            controlIconsEnabled: true, // Always show zoom controls
+            controlIconsEnabled: true,
             fit: true,
             center: true,
-            minZoom: isMobile ? 0.2 : 0.3,
-            maxZoom: isMobile ? 8 : 10,
+            minZoom: 0.5,
+            maxZoom: 10,
             zoomScaleSensitivity: isMobile ? 0.3 : 0.5,
-            dblClickZoomEnabled: true,
+            dblClickZoomEnabled: false,
             preventMouseEventsDefault: true,
+            mouseWheelZoomEnabled: true,
+            panEnabled: true,
             touchEnabled: true,
             contain: false,
+            // Simple pan constraints
             beforePan: function(oldPan, newPan) {
-              // Simple validation to prevent NaN values
+              // Basic validation only
               if (isNaN(newPan.x) || isNaN(newPan.y)) {
-                console.warn("Prevented NaN pan values:", newPan);
                 return oldPan;
               }
               return newPan;
             },
-            customEventsHandler: {
+            // Simple zoom constraints
+            beforeZoom: function(oldZoom, newZoom) {
+              return Math.max(0.5, Math.min(10, newZoom));
+            },
+            // Custom events handler for smooth mobile gestures
+            customEventsHandler: isMobile ? {
               haltEventListeners: ['touchstart', 'touchend', 'touchmove', 'touchleave', 'touchcancel'],
               init: function(options) {
                 const instance = options.instance;
@@ -1371,7 +1591,7 @@ try {
                   });
                 });
 
-                // Handle pinch with improved scaling
+                // Handle pinch with improved scaling - THIS IS THE KEY FOR SMOOTH ZOOM
                 hammer.on('pinchstart', function(ev) {
                   initialScale = instance.getZoom();
                   ev.srcEvent.stopPropagation();
@@ -1382,7 +1602,7 @@ try {
                   ev.srcEvent.stopPropagation();
                   ev.srcEvent.preventDefault();
                   
-                  // Apply smooth scaling
+                  // Apply smooth scaling with requestAnimationFrame for real-time updates
                   requestAnimationFrame(() => {
                     const center = {
                       x: ev.center.x,
@@ -1398,7 +1618,7 @@ try {
                   hammer.destroy();
                 };
               }
-            }
+            } : undefined
           });
 
           console.log("svg-pan-zoom initialized successfully");
@@ -1429,61 +1649,74 @@ try {
             }
           }, 100);
 
-          // Force immediate resize and fit
-          setTimeout(() => {
+          // Force immediate resize and fit to match floorPlan.php behavior
+          // Use requestAnimationFrame to ensure DOM is fully rendered before positioning
+          requestAnimationFrame(() => {
+            // Ensure proper sizing first
             panZoomInstance.resize();
-            panZoomInstance.fit();
-            panZoomInstance.center();
             
-            // Always create custom zoom controls for better visibility and control
-            setTimeout(() => {
-              // First try to find built-in controls
-              const controls = document.querySelector('.svg-pan-zoom-control');
-              if (controls) {
-                controls.style.display = 'block';
-                controls.style.visibility = 'visible';
-                controls.style.opacity = '1';
-                controls.style.zIndex = '999';
-                console.log("Built-in zoom controls found and made visible");
-              }
+            // Wait for next frame to ensure resize has taken effect
+            requestAnimationFrame(() => {
+              // Reset to show entire SVG with proper fit and center
+              panZoomInstance.reset();
+              panZoomInstance.fit();
+              panZoomInstance.center();
               
-              // Always create custom zoom controls as backup/primary controls
-              console.log("Creating custom zoom controls for better reliability");
-              createCustomZoomControls(panZoomInstance);
-            }, 300); // Longer delay to ensure controls are rendered
-          }, 50);
+              console.log("SVG positioned and fitted to container");
+              
+              // Always create custom zoom controls for better visibility and control
+              setTimeout(() => {
+                // First try to find built-in controls
+                const controls = document.querySelector('.svg-pan-zoom-control');
+                if (controls) {
+                  controls.style.display = 'block';
+                  controls.style.visibility = 'visible';
+                  controls.style.opacity = '1';
+                  controls.style.zIndex = '999';
+                  console.log("Built-in zoom controls found and made visible");
+                }
+                
+                // Always create custom zoom controls as backup/primary controls
+                console.log("Creating custom zoom controls for better reliability");
+                createCustomZoomControls(panZoomInstance);
+                
+                // Emit event that pan-zoom is fully ready
+                console.log("Pan-zoom initialization complete, dispatching ready event");
+                
+                // Add a small delay to ensure the viewport is rendered, then dispatch the ready event
+                setTimeout(() => {
+                  document.dispatchEvent(new CustomEvent('panZoomReady'));
+                  console.log('panZoomReady event dispatched.');
+                }, 50); // A minimal delay is still helpful
+              }, 100); // Shorter delay for better performance
+            });
+          });
 
           // Remove any existing resize listener
           if (window.panZoomResizeHandler) {
             window.removeEventListener("resize", window.panZoomResizeHandler);
           }
 
-          // Create new resize handler
+          // Create resize handler that matches floorPlan.php behavior
           window.panZoomResizeHandler = () => {
-            if (window.svgPanZoomInstance) {
-              requestAnimationFrame(() => {
-                try {
-                  // Ensure container sizing is correct
-                  const svgContainer = document.getElementById('svg-container');
-                  const svg = document.querySelector('svg');
-                  
-                  if (svgContainer && svg) {
-                    // Force container to full size
-                    svgContainer.style.width = '100%';
-                    svgContainer.style.height = '100%';
-                    
-                    // Force SVG to full size
-                    svg.style.width = '100%';
-                    svg.style.height = '100%';
+            if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.resize === 'function') {
+              try {
+                // Use requestAnimationFrame for smooth resize handling
+                requestAnimationFrame(() => {
+                  if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.resize === 'function') {
+                    window.svgPanZoomInstance.resize();
+                    // Add small delay before fit and center to ensure resize has taken effect
+                    setTimeout(() => {
+                      if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.fit === 'function') {
+                        window.svgPanZoomInstance.fit();
+                        window.svgPanZoomInstance.center();
+                      }
+                    }, 10);
                   }
-                  
-                  window.svgPanZoomInstance.resize();
-                  window.svgPanZoomInstance.fit();
-                  window.svgPanZoomInstance.center();
-                } catch (e) {
-                  console.warn("Failed to resize SVG pan-zoom:", e);
-                }
-              });
+                });
+              } catch (e) {
+                console.warn("Failed to resize SVG pan-zoom:", e);
+              }
             }
           };
 
@@ -1501,12 +1734,28 @@ try {
           
           // Add mobile-specific touch optimization
           if (window.innerWidth <= 768) {
-            // Prevent bounce scrolling on iOS
-            document.addEventListener('touchmove', function(e) {
-              if (e.target.closest('.svg-container')) {
-                e.preventDefault();
+            console.log("Mobile device detected - SVG pinch-to-zoom enabled via Hammer.js");
+            
+            // Add periodic stability check for mobile
+            setInterval(() => {
+              if (window.svgPanZoomInstance) {
+                const currentZoom = window.svgPanZoomInstance.getZoom();
+                const currentPan = window.svgPanZoomInstance.getPan();
+                
+                // Check for invalid states and fix them
+                if (isNaN(currentZoom) || currentZoom <= 0 || currentZoom > 50) {
+                  console.warn("Invalid zoom detected, resetting...");
+                  window.svgPanZoomInstance.reset();
+                  window.svgPanZoomInstance.fit();
+                  window.svgPanZoomInstance.center();
+                }
+                
+                if (isNaN(currentPan.x) || isNaN(currentPan.y)) {
+                  console.warn("Invalid pan detected, centering...");
+                  window.svgPanZoomInstance.center();
+                }
               }
-            }, { passive: false });
+            }, 2000); // Check every 2 seconds
           }
         } catch (e) {
           console.error("Error initializing svg-pan-zoom:", e);
@@ -1642,8 +1891,12 @@ try {
         
         // Create reset button
         const resetBtn = createZoomButton('⌘', () => {
-          panZoomInstance.fit();
-          panZoomInstance.center();
+          // Reset to original view with proper fit and center
+          panZoomInstance.reset();
+          setTimeout(() => {
+            panZoomInstance.fit();
+            panZoomInstance.center();
+          }, 10); // Small delay to ensure reset takes effect
         }, 'Reset');
 
         // Add buttons to container
@@ -1668,36 +1921,12 @@ try {
             this.classList.add('active');
             // Load the selected floor map
             loadFloorMap(floor);
-            
-            // Trigger a resize after floor change
-            setTimeout(() => {
-              if (window.svgPanZoomInstance) {
-                refreshSvgContainer();
-              }
-            }, 300);
-            
-            // Additional mobile-specific resize for orientation changes
-            if (window.innerWidth <= 768) {
-              setTimeout(() => {
-                const svg = document.querySelector('svg');
-                const svgContainer = document.getElementById('svg-container');
-                
-                if (svg && svgContainer) {
-                  svg.style.width = '100vw';
-                  svg.style.height = `${window.innerHeight - 120}px`;
-                  svgContainer.style.width = '100vw';
-                  svgContainer.style.height = `${window.innerHeight - 120}px`;
-                  
-                  if (window.svgPanZoomInstance) {
-                    window.svgPanZoomInstance.resize();
-                    window.svgPanZoomInstance.fit();
-                    window.svgPanZoomInstance.center();
-                  }
-                }
-              }, 500);
-            }
           });
         });
+
+        // Add the event listener for drawing ONCE on DOM load.
+        // It will be triggered every time panZoomReady is dispatched.
+        document.addEventListener('panZoomReady', drawPathsAndDoorsWhenReady);
 
         // Load initial floor (1st floor)
         loadFloorMap(1);
@@ -1741,21 +1970,11 @@ try {
             }
           }, 200);
         }
-      });
-    </script>
-    <script>
-      document.addEventListener("DOMContentLoaded", function () {
+
         // Get references to elements
         const detailsDrawer = document.getElementById("details-drawer");
         const drawerHandle = document.getElementById("drawer-handle");
         const mainContent = document.querySelector("main.content"); // Get the main content element
-        const floorButtons = document.querySelectorAll('.floor-btn');
-
-        // Add click handlers for floor buttons
-        // (Floor button handlers are already set up above)
-
-        // Load initial floor (1st floor)
-        // (Initial floor loading is already handled above)
 
         // --- Basic Checks ---
         if (!detailsDrawer || !drawerHandle || !mainContent) {
@@ -2298,59 +2517,6 @@ try {
           document.getElementById('pathfinding-modal-overlay').style.display = 'none';
         };
       });
-    </script>
-    <script>
-      // Enhanced room click handler function
-      function setupRoomClickHandlers(svg) {
-        console.log("Setting up room click handlers...");
-        
-        // Delegate click events to the SVG container
-        svg.addEventListener('click', function(event) {
-          console.log("SVG click detected");
-          
-          // Find the clicked room element
-          let target = event.target;
-          while (target && target !== svg) {
-            if (target.matches('path[id^="room-"]')) {
-              console.log("Room path clicked:", target.id);
-              event.stopPropagation();
-              
-              // Match by exact room ID (floor-specific)
-              const office = officesData.find(o => o.location === target.id);
-              if (office) {
-                console.log("Found matching office:", office.name);
-                handleRoomClick(office);
-              }
-              break;
-            }
-            target = target.parentElement;
-          }
-        });
-
-        // Add touch event handling
-        const hammer = new Hammer(svg);
-        hammer.on('tap', function(ev) {
-          console.log("Tap detected");
-          const element = document.elementFromPoint(ev.center.x, ev.center.y);
-          if (element) {
-            const roomPath = element.closest('path[id^="room-"]') || 
-                           element.querySelector('path[id^="room-"]') ||
-                           (element.parentElement && element.parentElement.querySelector('path[id^="room-"]'));
-            
-            if (roomPath) {
-              console.log("Room path found on tap:", roomPath.id);
-              // Match by exact room ID (floor-specific)
-              const office = officesData.find(o => o.location === roomPath.id);
-              if (office) {
-                console.log("Found matching office on tap:", office.name);
-                handleRoomClick(office);
-              }
-            }
-          }
-        });
-      }
-
-      // Update the SVG initialization to use the new click handler
     </script>
   </body>
 </html>
