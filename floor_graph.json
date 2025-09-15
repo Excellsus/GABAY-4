@@ -1,286 +1,473 @@
 {
-  "rooms": {
-    "room-1-1": {
-      "doorPoints": [{"x": 130, "y": 90}],
-      "nearestPathId": "path1",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
+    "rooms": {
+        "room-1-1": {
+            "doorPoints": [
+                {
+                    "x": 130,
+                    "y": 90
+                }
+            ],
+            "nearestPathId": "path1",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-2-1": {
+            "doorPoints": [
+                {
+                    "x": 140,
+                    "y": 255
+                }
+            ],
+            "nearestPathId": "path1",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-3-1": {
+            "doorPoints": [
+                {
+                    "x": 185,
+                    "y": 370
+                }
+            ],
+            "nearestPathId": "path1",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-4-1": {
+            "doorPoints": [
+                {
+                    "x": 217,
+                    "y": 360
+                }
+            ],
+            "nearestPathId": "path1",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-5-1": {
+            "doorPoints": [
+                {
+                    "x": 235,
+                    "y": 345
+                }
+            ],
+            "nearestPathId": "path1",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-6-1": {
+            "doorPoints": [
+                {
+                    "x": 303,
+                    "y": 215
+                },
+                {
+                    "x": 190,
+                    "y": 215,
+                    "nearestPathId": "path1"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-7-1": {
+            "doorPoints": [
+                {
+                    "x": 615,
+                    "y": 255,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-8-1": {
+            "doorPoints": [
+                {
+                    "x": 770,
+                    "y": 185,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-9-1": {
+            "doorPoints": [
+                {
+                    "x": 829,
+                    "y": 130,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-11-1": {
+            "doorPoints": [
+                {
+                    "x": 1083,
+                    "y": 185,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-12-1": {
+            "doorPoints": [
+                {
+                    "x": 835,
+                    "y": 253,
+                    "nearestPathId": "path2"
+                },
+                {
+                    "x": 1027,
+                    "y": 218,
+                    "nearestPathId": "path2"
+                },
+                {
+                    "x": 1185,
+                    "y": 253,
+                    "nearestPathId": "path2"
+                },
+                {
+                    "x": 1419,
+                    "y": 250,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-13-1": {
+            "doorPoints": [
+                {
+                    "x": 1557,
+                    "y": 185,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-14-1": {
+            "doorPoints": [
+                {
+                    "x": 1778,
+                    "y": 253,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-15-1": {
+            "doorPoints": [
+                {
+                    "x": 1751,
+                    "y": 109,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-16-1": {
+            "doorPoints": [
+                {
+                    "x": 1780,
+                    "y": 89,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
         }
-      }
     },
-    "room-2-1": {
-      "doorPoints": [
-        {"x": 140, "y": 255}
-      ],
-      "nearestPathId": "path1",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
+    "walkablePaths": [
+        {
+            "id": "path1",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 130,
+                    "y": 110,
+                    "isPano": true
+                },
+                {
+                    "x": 130,
+                    "y": 175,
+                    "isPano": true
+                },
+                {
+                    "x": 165,
+                    "y": 175,
+                    "isPano": true
+                },
+                {
+                    "x": 165,
+                    "y": 215
+                },
+                {
+                    "x": 165,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 165,
+                    "y": 340,
+                    "isPano": true,
+                    "panoImage": "pano_path1_5_1757952260_68c83904dc6da.jpg",
+                    "panoTitle": "ICTD",
+                    "panoDescription": null
+                },
+                {
+                    "x": 185,
+                    "y": 340
+                },
+                {
+                    "x": 220,
+                    "y": 340,
+                    "isPano": true
+                }
+            ]
+        },
+        {
+            "id": "path2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 467,
+                    "y": 220,
+                    "isPano": true
+                },
+                {
+                    "x": 615,
+                    "y": 220,
+                    "isPano": true
+                },
+                {
+                    "x": 770,
+                    "y": 220,
+                    "isPano": true
+                },
+                {
+                    "x": 835,
+                    "y": 220
+                },
+                {
+                    "x": 850,
+                    "y": 220,
+                    "isPano": true
+                },
+                {
+                    "x": 851,
+                    "y": 130,
+                    "isPano": true
+                },
+                {
+                    "x": 880,
+                    "y": 130,
+                    "isPano": true
+                },
+                {
+                    "x": 950,
+                    "y": 130,
+                    "isPano": true
+                },
+                {
+                    "x": 1020,
+                    "y": 130,
+                    "isPano": true
+                },
+                {
+                    "x": 1045,
+                    "y": 130,
+                    "isPano": true
+                },
+                {
+                    "x": 1045,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1084,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1184,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1313,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1419,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1449,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1557,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1685,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1778,
+                    "y": 215,
+                    "isPano": true
+                },
+                {
+                    "x": 1778,
+                    "y": 170,
+                    "isPano": true
+                },
+                {
+                    "x": 1778,
+                    "y": 110,
+                    "isPano": true
+                }
+            ]
         }
-      }
-    },
-    "room-3-1": {
-      "doorPoints": [{"x": 185, "y": 370}],
-      "nearestPathId": "path1",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-4-1": {
-      "doorPoints": [{"x": 217, "y": 360}],
-      "nearestPathId": "path1",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-5-1": {
-      "doorPoints": [{"x": 235, "y": 345}],
-      "nearestPathId": "path1",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-6-1": {
-      "doorPoints": [
-        {"x": 303, "y": 215},
-        {"x": 190, "y": 215, "nearestPathId": "path1"}
-
-
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-7-1": {
-      "doorPoints": [
-        {"x": 615, "y": 255, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    
-    "room-8-1": {
-      "doorPoints": [
-        {"x": 770, "y": 185, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-9-1": {
-      "doorPoints": [
-        {"x": 829, "y": 130, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-11-1": {
-      "doorPoints": [
-        {"x": 1083, "y": 185, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    
-    "room-12-1": {
-      "doorPoints": [
-        {"x": 835, "y": 253, "nearestPathId": "path2"},
-        {"x": 1027, "y": 218, "nearestPathId": "path2"},
-        {"x": 1185, "y": 253, "nearestPathId": "path2"},
-        {"x": 1419, "y": 250, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-13-1": {
-      "doorPoints": [
-        {"x": 1557, "y": 185, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-14-1": {
-      "doorPoints": [
-        {"x": 1778, "y": 253, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-15-1": {
-      "doorPoints": [
-        {"x": 1751, "y": 109, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-16-1": {
-      "doorPoints": [
-        {"x": 1780, "y": 89, "nearestPathId": "path2"}
-      ],
-      "nearestPathId": "path2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    }
-  },
-  "walkablePaths": [
-    {
-      "id": "path1",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 130, "y": 110, "isPano": true, "panoImage": ""},
-        {"x": 130, "y": 175, "isPano": true, "panoImage": ""},   
-        {"x": 165, "y": 175, "isPano": true, "panoImage": ""},
-        {"x": 165, "y": 215},
-        {"x": 165, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 165, "y": 340, "isPano": true, "panoImage": ""},
-        {"x": 185, "y": 340},
-        {"x": 220, "y": 340, "isPano": true, "panoImage": ""}
-      ]
-    },
-    {
-      "id": "path2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 467, "y": 220, "isPano": true, "panoImage": ""},
-        {"x": 615, "y": 220, "isPano": true, "panoImage": ""},
-        {"x": 770, "y": 220, "isPano": true, "panoImage": ""},
-        {"x": 835, "y": 220},
-        {"x": 850, "y": 220, "isPano": true, "panoImage": ""},
-        {"x": 851, "y": 130, "isPano": true, "panoImage": ""},
-
-        {"x": 880, "y": 130, "isPano": true, "panoImage": ""},
-        {"x": 950, "y": 130, "isPano": true, "panoImage": ""},
-        {"x": 1020, "y": 130, "isPano": true, "panoImage": ""},
-        {"x": 1045, "y": 130, "isPano": true, "panoImage": ""},
-        {"x": 1045, "y": 215, "isPano": true, "panoImage": ""},
-
-        {"x": 1084, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1184, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1313, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1419, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1449, "y": 215, "isPano": true, "panoImage": ""},
-
-        {"x": 1557, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1685, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1778, "y": 215, "isPano": true, "panoImage": ""},
-        {"x": 1778, "y": 170, "isPano": true, "panoImage": ""},
-        {"x": 1778, "y": 110, "isPano": true, "panoImage": ""}
-      ]
-    }
-  ]
+    ]
 }

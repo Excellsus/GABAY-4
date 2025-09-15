@@ -1,804 +1,1291 @@
 {
-  "rooms": {
-    "room-1-2": {
-      "doorPoints": [{"x": 170, "y": 160}],
-      "nearestPathId": "path1_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
+    "rooms": {
+        "room-1-2": {
+            "doorPoints": [
+                {
+                    "x": 170,
+                    "y": 160
+                }
+            ],
+            "nearestPathId": "path1_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-2-2": {
+            "doorPoints": [
+                {
+                    "x": 164,
+                    "y": 205,
+                    "nearestPathId": "path1_floor2"
+                },
+                {
+                    "x": 235,
+                    "y": 315,
+                    "nearestPathId": "path4_floor2"
+                }
+            ],
+            "nearestPathId": "path1_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-3-2": {
+            "doorPoints": [
+                {
+                    "x": 280,
+                    "y": 200
+                }
+            ],
+            "nearestPathId": "path3_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-5-2": {
+            "doorPoints": [
+                {
+                    "x": 682,
+                    "y": 282
+                }
+            ],
+            "nearestPathId": "path3_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-6-2": {
+            "doorPoints": [
+                {
+                    "x": 740,
+                    "y": 235
+                }
+            ],
+            "nearestPathId": "path3_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-7-2": {
+            "doorPoints": [
+                {
+                    "x": 795,
+                    "y": 234,
+                    "nearestPathId": "path3_floor2"
+                },
+                {
+                    "x": 852,
+                    "y": 234,
+                    "nearestPathId": "path3_floor2"
+                }
+            ],
+            "nearestPathId": "path3_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-8-2": {
+            "doorPoints": [
+                {
+                    "x": 793,
+                    "y": 270,
+                    "nearestPathId": "path3_floor2"
+                }
+            ],
+            "nearestPathId": "path3_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-9-2": {
+            "doorPoints": [
+                {
+                    "x": 852,
+                    "y": 270,
+                    "nearestPathId": "path3_floor2"
+                }
+            ],
+            "nearestPathId": "path3_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-11-2": {
+            "doorPoints": [
+                {
+                    "x": 906,
+                    "y": 300,
+                    "nearestPathId": "lobby_horizontal_3"
+                }
+            ],
+            "nearestPathId": "connector_path3_to_lobby",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-12-2": {
+            "doorPoints": [
+                {
+                    "x": 1078,
+                    "y": 270,
+                    "nearestPathId": "path10_floor2"
+                }
+            ],
+            "nearestPathId": "path10_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-13-2": {
+            "doorPoints": [
+                {
+                    "x": 1078,
+                    "y": 234,
+                    "nearestPathId": "path10_floor2"
+                }
+            ],
+            "nearestPathId": "path10_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-14-2": {
+            "doorPoints": [
+                {
+                    "x": 1256,
+                    "y": 279,
+                    "nearestPathId": "path10_floor2"
+                }
+            ],
+            "nearestPathId": "path10_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-15-2": {
+            "doorPoints": [
+                {
+                    "x": 1397,
+                    "y": 279,
+                    "nearestPathId": "path10_floor2"
+                }
+            ],
+            "nearestPathId": "path10_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-16-2": {
+            "doorPoints": [
+                {
+                    "x": 1488,
+                    "y": 233,
+                    "nearestPathId": "path10_floor2"
+                },
+                {
+                    "x": 1603,
+                    "y": 221,
+                    "nearestPathId": "path13_floor2"
+                }
+            ],
+            "nearestPathId": "path10_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-17-2": {
+            "doorPoints": [
+                {
+                    "x": 1660,
+                    "y": 145,
+                    "nearestPathId": "path17_floor2"
+                }
+            ],
+            "nearestPathId": "path17_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-18-2": {
+            "doorPoints": [
+                {
+                    "x": 1660,
+                    "y": 271,
+                    "nearestPathId": "path15_floor2"
+                },
+                {
+                    "x": 1550,
+                    "y": 271,
+                    "nearestPathId": "path10_floor2"
+                }
+            ],
+            "nearestPathId": "path10_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-20-2": {
+            "doorPoints": [
+                {
+                    "x": 1703,
+                    "y": 221,
+                    "nearestPathId": "path16_floor2"
+                }
+            ],
+            "nearestPathId": "path16_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+        "room-21-2": {
+            "doorPoints": [
+                {
+                    "x": 1797,
+                    "y": 110,
+                    "nearestPathId": "path18_floor2"
+                }
+            ],
+            "nearestPathId": "path18_floor2",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
         }
-      }
     },
-    "room-2-2": {
-      "doorPoints": [
-        {"x": 164, "y": 205, "nearestPathId": "path1_floor2"},
-        {"x": 235, "y": 315, "nearestPathId": "path4_floor2"}
-      ],
-      "nearestPathId": "path1_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
+    "walkablePaths": [
+        {
+            "id": "path1_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 170,
+                    "y": 185,
+                    "isPano": true,
+                    "panoImage": "pano_path1_floor2_0_1757954203_68c8409bb4002.jpg",
+                    "panoTitle": null,
+                    "panoDescription": null
+                },
+                {
+                    "x": 205,
+                    "y": 185
+                },
+                {
+                    "x": 205,
+                    "y": 210,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path2_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 205,
+                    "y": 210,
+                    "isIntersection": true
+                },
+                {
+                    "x": 280,
+                    "y": 210,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path3_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 280,
+                    "y": 210,
+                    "isIntersection": true
+                },
+                {
+                    "x": 280,
+                    "y": 295,
+                    "isIntersection": true
+                },
+                {
+                    "x": 314,
+                    "y": 295,
+                    "isPano": true
+                },
+                {
+                    "x": 490,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 682,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 740,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 740,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 793,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 853,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                }
+            ]
+        },
+        {
+            "id": "path4_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 280,
+                    "y": 295,
+                    "isIntersection": true
+                },
+                {
+                    "x": 235,
+                    "y": 295
+                }
+            ]
+        },
+        {
+            "id": "path5_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 235,
+                    "y": 295,
+                    "isIntersection": true
+                },
+                {
+                    "x": 235,
+                    "y": 255,
+                    "isPano": true,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path6_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 235,
+                    "y": 295,
+                    "isIntersection": true
+                },
+                {
+                    "x": 205,
+                    "y": 210,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path7_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 205,
+                    "y": 210,
+                    "isIntersection": true
+                },
+                {
+                    "x": 235,
+                    "y": 255,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path8_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 280,
+                    "y": 210,
+                    "isIntersection": true
+                },
+                {
+                    "x": 235,
+                    "y": 255,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path9_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 280,
+                    "y": 295,
+                    "isIntersection": true
+                },
+                {
+                    "x": 235,
+                    "y": 255,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "lobby_horizontal_1",
+            "style": {
+                "color": "#4CAF50",
+                "width": 2,
+                "opacity": 0.7,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 4,
+                    "color": "#FF9800",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 906,
+                    "y": 220,
+                    "isIntersection": true
+                },
+                {
+                    "x": 970,
+                    "y": 220,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1036,
+                    "y": 220,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "lobby_horizontal_2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 2,
+                "opacity": 0.7,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 4,
+                    "color": "#FF9800",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 906,
+                    "y": 255,
+                    "isIntersection": true
+                },
+                {
+                    "x": 970,
+                    "y": 255,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1036,
+                    "y": 255,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "lobby_horizontal_3",
+            "style": {
+                "color": "#4CAF50",
+                "width": 2,
+                "opacity": 0.7,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 4,
+                    "color": "#FF9800",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 906,
+                    "y": 285,
+                    "isIntersection": true
+                },
+                {
+                    "x": 970,
+                    "y": 285,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1036,
+                    "y": 285,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "lobby_vertical_1",
+            "style": {
+                "color": "#4CAF50",
+                "width": 2,
+                "opacity": 0.7,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 4,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 906,
+                    "y": 285,
+                    "isIntersection": true
+                },
+                {
+                    "x": 906,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                },
+                {
+                    "x": 906,
+                    "y": 220,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "lobby_vertical_2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 2,
+                "opacity": 0.7,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 4,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 970,
+                    "y": 285,
+                    "isIntersection": true
+                },
+                {
+                    "x": 970,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                },
+                {
+                    "x": 970,
+                    "y": 220,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "lobby_vertical_3",
+            "style": {
+                "color": "#4CAF50",
+                "width": 2,
+                "opacity": 0.7,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 4,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1036,
+                    "y": 285,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1036,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                },
+                {
+                    "x": 1036,
+                    "y": 220,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "connector_path3_to_lobby",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 853,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                },
+                {
+                    "x": 906,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                }
+            ]
+        },
+        {
+            "id": "path10_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1036,
+                    "y": 255,
+                    "isIntersection": true,
+                    "isPano": true
+                },
+                {
+                    "x": 1078,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 1200,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 1200,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 1256,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 1397,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 1452,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 1490,
+                    "y": 310,
+                    "isPano": true
+                },
+                {
+                    "x": 1490,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 1550,
+                    "y": 255,
+                    "isPano": true
+                },
+                {
+                    "x": 1620,
+                    "y": 255,
+                    "isPano": true
+                }
+            ]
+        },
+        {
+            "id": "path13_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1620,
+                    "y": 255,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1620,
+                    "y": 221,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path14_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1660,
+                    "y": 221,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1620,
+                    "y": 221,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path15_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1660,
+                    "y": 255,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1620,
+                    "y": 255,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path16_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1660,
+                    "y": 255,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1660,
+                    "y": 221,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path17_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1660,
+                    "y": 180,
+                    "isIntersection": true,
+                    "isPano": true
+                },
+                {
+                    "x": 1660,
+                    "y": 221,
+                    "isIntersection": true
+                }
+            ]
+        },
+        {
+            "id": "path18_floor2",
+            "style": {
+                "color": "#4CAF50",
+                "width": 3,
+                "opacity": 0.8,
+                "highlight": true,
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 6,
+                    "color": "#4CAF50",
+                    "hoverColor": "#FF4444",
+                    "strokeColor": "#000",
+                    "strokeWidth": 1
+                }
+            },
+            "pathPoints": [
+                {
+                    "x": 1797,
+                    "y": 180,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1660,
+                    "y": 180,
+                    "isIntersection": true
+                }
+            ]
         }
-      }
-    },
-    "room-3-2": {
-      "doorPoints": [
-        {"x": 280, "y": 200}
-      ],
-      "nearestPathId": "path3_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
+    ],
+    "lobbyGrid": [
+        {
+            "x": 450,
+            "y": 220,
+            "id": "lobby_1"
+        },
+        {
+            "x": 500,
+            "y": 220,
+            "id": "lobby_2"
+        },
+        {
+            "x": 550,
+            "y": 220,
+            "id": "lobby_3"
+        },
+        {
+            "x": 600,
+            "y": 220,
+            "id": "lobby_4"
+        },
+        {
+            "x": 450,
+            "y": 260,
+            "id": "lobby_5"
+        },
+        {
+            "x": 500,
+            "y": 260,
+            "id": "lobby_6"
+        },
+        {
+            "x": 550,
+            "y": 260,
+            "id": "lobby_7"
+        },
+        {
+            "x": 600,
+            "y": 260,
+            "id": "lobby_8"
+        },
+        {
+            "x": 450,
+            "y": 300,
+            "id": "lobby_9"
+        },
+        {
+            "x": 500,
+            "y": 300,
+            "id": "lobby_10"
+        },
+        {
+            "x": 550,
+            "y": 300,
+            "id": "lobby_11"
+        },
+        {
+            "x": 600,
+            "y": 300,
+            "id": "lobby_12"
         }
-      }
-    },
-    "room-5-2": {
-      "doorPoints": [
-        {"x": 682, "y": 282}
-      ],
-      "nearestPathId": "path3_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-6-2": {
-      "doorPoints": [
-        {"x": 740, "y": 235}
-      ],
-      "nearestPathId": "path3_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-7-2": {
-      "doorPoints": [
-        {"x": 795, "y": 234, "nearestPathId": "path3_floor2"},
-        {"x": 852, "y": 234, "nearestPathId": "path3_floor2"}
-      ],
-      "nearestPathId": "path3_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-8-2": {
-      "doorPoints": [
-        {"x": 793, "y": 270, "nearestPathId": "path3_floor2"}
-      ],
-      "nearestPathId": "path3_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-9-2": {
-      "doorPoints": [
-        {"x": 852, "y": 270, "nearestPathId": "path3_floor2"}
-      ],
-      "nearestPathId": "path3_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-11-2": {
-      "doorPoints": [
-        {"x": 906, "y": 300, "nearestPathId": "lobby_horizontal_3"}
-      ],
-      "nearestPathId": "connector_path3_to_lobby",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    
-    "room-12-2": {
-      "doorPoints": [
-        {"x": 1078, "y": 270, "nearestPathId": "path10_floor2"}
-      ],
-      "nearestPathId": "path10_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-13-2": {
-      "doorPoints": [
-        {"x": 1078, "y": 234, "nearestPathId": "path10_floor2"}
-      ],
-      "nearestPathId": "path10_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-14-2": {
-      "doorPoints": [
-        {"x": 1256, "y": 279, "nearestPathId": "path10_floor2"}
-      ],
-      "nearestPathId": "path10_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-15-2": {
-      "doorPoints": [
-        {"x": 1397, "y": 279, "nearestPathId": "path10_floor2"}
-      ],
-      "nearestPathId": "path10_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-16-2": {
-      "doorPoints": [
-        {"x": 1488, "y": 233, "nearestPathId": "path10_floor2"},
-        {"x": 1603, "y": 221, "nearestPathId": "path13_floor2"}
-      ],
-      "nearestPathId": "path10_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-17-2": {
-      "doorPoints": [
-        {"x": 1660, "y": 145, "nearestPathId": "path17_floor2"}
-      ],
-      "nearestPathId": "path17_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-18-2": {
-      "doorPoints": [
-        {"x": 1660, "y": 271, "nearestPathId": "path15_floor2"},
-        {"x": 1550, "y": 271, "nearestPathId": "path10_floor2"}
-      ],
-      "nearestPathId": "path10_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-20-2": {
-      "doorPoints": [
-        {"x": 1703, "y": 221, "nearestPathId": "path16_floor2"}
-      ],
-      "nearestPathId": "path16_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
-    },
-    "room-21-2": {
-      "doorPoints": [
-        {"x": 1797, "y": 110, "nearestPathId": "path18_floor2"}
-      ],
-      "nearestPathId": "path18_floor2",
-      "style": {
-        "pointMarker": {
-          "type": "circle",
-          "radius": 8,
-          "color": "blue",
-          "hoverColor": "#FF4444"
-        }
-      }
+    ],
+    "pathConnections": {
+        "205,210": [
+            "path1_floor2",
+            "path2_floor2",
+            "path6_floor2",
+            "path7_floor2"
+        ],
+        "280,210": [
+            "path2_floor2",
+            "path3_floor2"
+        ],
+        "280,295": [
+            "path3_floor2",
+            "path4_floor2"
+        ],
+        "235,295": [
+            "path4_floor2",
+            "path5_floor2",
+            "path6_floor2"
+        ],
+        "235,255": [
+            "path5_floor2",
+            "path7_floor2",
+            "path8_floor2",
+            "path9_floor2"
+        ],
+        "853,255": [
+            "path3_floor2",
+            "connector_path3_to_lobby"
+        ],
+        "906,255": [
+            "connector_path3_to_lobby",
+            "lobby_horizontal_2",
+            "lobby_vertical_1"
+        ],
+        "970,255": [
+            "lobby_horizontal_2",
+            "lobby_vertical_2"
+        ],
+        "1036,255": [
+            "lobby_horizontal_2",
+            "lobby_vertical_3",
+            "path10_floor2"
+        ],
+        "906,220": [
+            "lobby_horizontal_1",
+            "lobby_vertical_1"
+        ],
+        "970,220": [
+            "lobby_horizontal_1",
+            "lobby_vertical_2"
+        ],
+        "1036,220": [
+            "lobby_horizontal_1",
+            "lobby_vertical_3"
+        ],
+        "906,285": [
+            "lobby_horizontal_3",
+            "lobby_vertical_1"
+        ],
+        "970,285": [
+            "lobby_horizontal_3",
+            "lobby_vertical_2"
+        ],
+        "1036,285": [
+            "lobby_horizontal_3",
+            "lobby_vertical_3"
+        ],
+        "1620,255": [
+            "path10_floor2",
+            "path13_floor2",
+            "path15_floor2"
+        ],
+        "1620,221": [
+            "path13_floor2",
+            "path14_floor2"
+        ],
+        "1660,255": [
+            "path15_floor2",
+            "path16_floor2"
+        ],
+        "1660,221": [
+            "path14_floor2",
+            "path16_floor2",
+            "path17_floor2"
+        ],
+        "1660,180": [
+            "path17_floor2",
+            "path18_floor2"
+        ]
     }
-
-  },
-  "walkablePaths": [
-    {
-      "id": "path1_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 170, "y": 185, "isPano": true, "panoImage": ""},
-        {"x": 205, "y": 185},
-        {"x": 205, "y": 210, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path2_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 205, "y": 210, "isIntersection": true},
-        {"x": 280, "y": 210, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path3_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 280, "y": 210, "isIntersection": true},
-        {"x": 280, "y": 295, "isIntersection": true},
-        {"x": 314, "y": 295, "isPano": true, "panoImage": ""},
-        {"x": 490, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 682, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 740, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 740, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 793, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 853, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""}
-      ]
-    },
-    {
-      "id": "path4_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 280, "y": 295, "isIntersection": true},
-        {"x": 235, "y": 295}
-      ]
-    },
-    {
-      "id": "path5_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 235, "y": 295, "isIntersection": true},
-        {"x": 235, "y": 255, "isPano": true, "panoImage": "", "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path6_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 235, "y": 295, "isIntersection": true},
-        {"x": 205, "y": 210, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path7_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 205, "y": 210, "isIntersection": true},
-        {"x": 235, "y": 255, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path8_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 280, "y": 210, "isIntersection": true},
-        {"x": 235, "y": 255, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path9_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 280, "y": 295, "isIntersection": true},
-        {"x": 235, "y": 255, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "lobby_horizontal_1",
-      "style": {
-        "color": "#4CAF50",
-        "width": 2,
-        "opacity": 0.7,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 4,
-          "color": "#FF9800",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 906, "y": 220, "isIntersection": true},
-        {"x": 970, "y": 220, "isIntersection": true},
-        {"x": 1036, "y": 220, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "lobby_horizontal_2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 2,
-        "opacity": 0.7,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 4,
-          "color": "#FF9800",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 906, "y": 255, "isIntersection": true},
-        {"x": 970, "y": 255, "isIntersection": true},
-        {"x": 1036, "y": 255, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "lobby_horizontal_3",
-      "style": {
-        "color": "#4CAF50",
-        "width": 2,
-        "opacity": 0.7,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 4,
-          "color": "#FF9800",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 906, "y": 285, "isIntersection": true},
-        {"x": 970, "y": 285, "isIntersection": true},
-        {"x": 1036, "y": 285, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "lobby_vertical_1",
-      "style": {
-        "color": "#4CAF50",
-        "width": 2,
-        "opacity": 0.7,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 4,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 906, "y": 285, "isIntersection": true},
-        {"x": 906, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""},
-        {"x": 906, "y": 220, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "lobby_vertical_2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 2,
-        "opacity": 0.7,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 4,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 970, "y": 285, "isIntersection": true},
-        {"x": 970, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""},
-        {"x": 970, "y": 220, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "lobby_vertical_3",
-      "style": {
-        "color": "#4CAF50",
-        "width": 2,
-        "opacity": 0.7,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 4,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 1036, "y": 285, "isIntersection": true},
-        {"x": 1036, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""},
-        {"x": 1036, "y": 220, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "connector_path3_to_lobby",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 853, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""},
-        {"x": 906, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""}
-      ]
-    },
-    {
-      "id": "path10_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1
-        }
-      },
-      "pathPoints": [
-        {"x": 1036, "y": 255, "isIntersection": true, "isPano": true, "panoImage": ""},
-        {"x": 1078, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 1200, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 1200, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 1256, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 1397, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 1452, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 1490, "y": 310, "isPano": true, "panoImage": ""},
-        {"x": 1490, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 1550, "y": 255, "isPano": true, "panoImage": ""},
-        {"x": 1620, "y": 255, "isPano": true, "panoImage": ""}    
-      ]
-    },
-    {
-      "id": "path13_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1 
-        }
-      },
-      "pathPoints": [
-        {"x": 1620, "y": 255, "isIntersection": true},
-        {"x": 1620, "y": 221, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path14_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1 
-        }
-      },
-      "pathPoints": [
-        {"x": 1660, "y": 221, "isIntersection": true},
-        {"x": 1620, "y": 221, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path15_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1 
-        }
-      },
-      "pathPoints": [
-        {"x": 1660, "y": 255, "isIntersection": true},
-        {"x": 1620, "y": 255, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path16_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1 
-        }
-      },
-      "pathPoints": [
-        {"x": 1660, "y": 255, "isIntersection": true},
-        {"x": 1660, "y": 221, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path17_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1 
-        }
-      },
-      "pathPoints": [
-        {"x": 1660, "y": 180, "isIntersection": true, "isPano": true, "panoImage": ""},
-        {"x": 1660, "y": 221, "isIntersection": true}
-      ]
-    },
-    {
-      "id": "path18_floor2",
-      "style": {
-        "color": "#4CAF50",
-        "width": 3,
-        "opacity": 0.8,
-        "highlight": true,
-        "pointMarker": {
-          "type": "circle",
-          "radius": 6,
-          "color": "#4CAF50",
-          "hoverColor": "#FF4444",
-          "strokeColor": "#000",
-          "strokeWidth": 1 
-        }
-      },
-      "pathPoints": [
-        {"x": 1797, "y": 180, "isIntersection": true},
-        {"x": 1660, "y": 180, "isIntersection": true}
-      ]
-    }
-  ],
-  "lobbyGrid": [
-    {"x": 450, "y": 220, "id": "lobby_1"},
-    {"x": 500, "y": 220, "id": "lobby_2"},
-    {"x": 550, "y": 220, "id": "lobby_3"},
-    {"x": 600, "y": 220, "id": "lobby_4"},
-    {"x": 450, "y": 260, "id": "lobby_5"},
-    {"x": 500, "y": 260, "id": "lobby_6"},
-    {"x": 550, "y": 260, "id": "lobby_7"},
-    {"x": 600, "y": 260, "id": "lobby_8"},
-    {"x": 450, "y": 300, "id": "lobby_9"},
-    {"x": 500, "y": 300, "id": "lobby_10"},
-    {"x": 550, "y": 300, "id": "lobby_11"},
-    {"x": 600, "y": 300, "id": "lobby_12"}
-  ],
-  "pathConnections": {
-    "205,210": ["path1_floor2", "path2_floor2", "path6_floor2", "path7_floor2"],
-    "280,210": ["path2_floor2", "path3_floor2"],
-    "280,295": ["path3_floor2", "path4_floor2"],
-    "235,295": ["path4_floor2", "path5_floor2", "path6_floor2"],
-    "235,255": ["path5_floor2", "path7_floor2", "path8_floor2", "path9_floor2"],
-    "853,255": ["path3_floor2", "connector_path3_to_lobby"],
-    "906,255": ["connector_path3_to_lobby", "lobby_horizontal_2", "lobby_vertical_1"],
-    "970,255": ["lobby_horizontal_2", "lobby_vertical_2"],
-    "1036,255": ["lobby_horizontal_2", "lobby_vertical_3", "path10_floor2"],
-    "906,220": ["lobby_horizontal_1", "lobby_vertical_1"],
-    "970,220": ["lobby_horizontal_1", "lobby_vertical_2"],
-    "1036,220": ["lobby_horizontal_1", "lobby_vertical_3"],
-    "906,285": ["lobby_horizontal_3", "lobby_vertical_1"],
-    "970,285": ["lobby_horizontal_3", "lobby_vertical_2"],
-    "1036,285": ["lobby_horizontal_3", "lobby_vertical_3"],
-    "1620,255": ["path10_floor2", "path13_floor2", "path15_floor2"],
-    "1620,221": ["path13_floor2", "path14_floor2"],
-    "1660,255": ["path15_floor2", "path16_floor2"],
-    "1660,221": ["path14_floor2", "path16_floor2", "path17_floor2"],
-    "1660,180": ["path17_floor2", "path18_floor2"]
-  }
 }

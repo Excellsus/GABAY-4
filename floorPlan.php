@@ -813,6 +813,8 @@ if (isset($_GET['selectRoom'])) {
 
             // Keep track of current floor
             let currentFloor = '1';
+            // Expose current floor globally for other scripts (panorama, pathfinding, etc.)
+            window.getCurrentFloor = function() { return parseInt(currentFloor, 10); };
 
             floorButtons.forEach(button => {
                 button.addEventListener('click', function() {
@@ -832,7 +834,9 @@ if (isset($_GET['selectRoom'])) {
                     this.style.color = 'white';
 
                     // Load the corresponding floor map
-                    currentFloor = floor;
+          currentFloor = floor;
+          // Update global accessor immediately
+          window.currentFloor = parseInt(currentFloor, 10);
                     loadFloorMap(floor);
                 });
             });
@@ -854,21 +858,60 @@ if (isset($_GET['selectRoom'])) {
 
     let currentPanoData = {};
 
-    function openPanoramaEditor(pathId, pointIndex, currentImage) {
-        currentPanoData = { pathId, pointIndex, currentImage };
+  function openPanoramaEditor(pathId, pointIndex, currentImage) {
+    // Determine current floor via helper or fallback to 1
+    const floorNum = (typeof window.getCurrentFloor === 'function') ? window.getCurrentFloor() : 1;
+
+    // Attempt to locate coordinates from loaded floorGraph data
+    let pointX = 0, pointY = 0;
+    try {
+      const graph = floorGraph && floorGraph.walkablePaths ? floorGraph : (window.floorGraph || {});
+      if (graph.walkablePaths) {
+        const pathObj = graph.walkablePaths.find(p => p.id === pathId);
+        if (pathObj && pathObj.pathPoints && pathObj.pathPoints[pointIndex]) {
+          pointX = pathObj.pathPoints[pointIndex].x || 0;
+          pointY = pathObj.pathPoints[pointIndex].y || 0;
+        }
+      }
+    } catch(e) { console.warn('Could not derive panorama point coordinates:', e); }
+
+    currentPanoData = { pathId, pointIndex, currentImage, pointX, pointY, floor: floorNum };
         
         panoramaPointInfo.innerHTML = `
             <strong>Path ID:</strong> ${pathId}<br>
-            <strong>Point Index:</strong> ${pointIndex}
+      <strong>Point Index:</strong> ${pointIndex}<br>
+      <strong>Floor:</strong> ${floorNum}
         `;
 
-        if (currentImage) {
-            previewContainer.innerHTML = `<img src="Pano/${currentImage}" class="max-w-full max-h-48 object-contain">`;
+    if (currentImage) {
+      previewContainer.innerHTML = `<img src="Pano/${currentImage}" class="max-w-full max-h-48 object-contain">`;
+      removeBtn.style.display = 'inline-block';
+    } else {
+      // Attempt a just-in-time fetch in case JSON not yet refreshed (multi-floor timing)
+      previewContainer.innerHTML = '<span class="text-gray-400">Checking for existing panorama...</span>';
+      removeBtn.style.display = 'none';
+      const params = new URLSearchParams({
+        action: 'get',
+        path_id: pathId,
+        point_index: pointIndex,
+        floor_number: floorNum
+      });
+      fetch('panorama_api.php?' + params.toString())
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.panorama && data.panorama.image_filename) {
+            currentPanoData.currentImage = data.panorama.image_filename;
+            previewContainer.innerHTML = `<img src="Pano/${data.panorama.image_filename}" class="max-w-full max-h-48 object-contain">`;
             removeBtn.style.display = 'inline-block';
-        } else {
+          } else {
             previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
-            removeBtn.style.display = 'none';
-        }
+          }
+        })
+        .catch(err => {
+          console.warn('Fallback pano fetch failed:', err);
+          previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
+        });
+    }
 
         fileInput.value = ''; // Clear previous selection
         panoramaModal.classList.add('active');
@@ -893,16 +936,129 @@ if (isset($_GET['selectRoom'])) {
     cancelPanoramaBtn.addEventListener('click', closePanoramaModal);
     fileInput.addEventListener('change', previewFile);
 
-    // Placeholder for upload functionality
+    // Panorama upload functionality
     uploadBtn.addEventListener('click', () => {
-        alert('Upload functionality not yet implemented.');
-        // Later: implement fetch to a PHP script to handle upload
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('Please select a file to upload.');
+            return;
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Invalid file type. Please select a JPEG, PNG, or WebP image.');
+            return;
+        }
+
+        // Validate file size (10MB max)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size too large. Maximum size is 10MB.');
+            return;
+        }
+
+        // Create FormData for upload
+        const formData = new FormData();
+        formData.append('action', 'upload');
+        formData.append('panorama_file', file);
+        formData.append('path_id', currentPanoData.pathId);
+  formData.append('point_index', currentPanoData.pointIndex);
+  // Use captured coordinates
+  formData.append('point_x', currentPanoData.pointX || 0);
+  formData.append('point_y', currentPanoData.pointY || 0);
+  formData.append('floor_number', currentPanoData.floor || 1);
+        
+        // Optional fields
+        const title = prompt('Enter a title for this panorama (optional):');
+        const description = prompt('Enter a description for this panorama (optional):');
+        if (title) formData.append('title', title);
+        if (description) formData.append('description', description);
+
+        // Show loading state
+        uploadBtn.textContent = 'Uploading...';
+        uploadBtn.disabled = true;
+
+        // Upload to server
+        fetch('panorama_api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+        alert('Panorama uploaded successfully!');
+        // Update preview immediately
+        if (data.filename) {
+          previewContainer.innerHTML = `<img src="Pano/${data.filename}" class="max-w-full max-h-48 object-contain">`;
+          removeBtn.style.display = 'inline-block';
+          currentPanoData.currentImage = data.filename;
+        }
+        // Refresh graph in-memory to reflect pano assignment without full page reload
+        const floorReload = currentPanoData.floor || 1;
+        if (typeof initPathfinding === 'function') {
+          // Re-run initPathfinding only after slight delay so server has updated JSON
+          setTimeout(() => { initPathfinding(floorReload); }, 500);
+        }
+            } else {
+                alert('Upload failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Upload error:', error);
+            alert('Upload failed: ' + error.message);
+        })
+        .finally(() => {
+            uploadBtn.textContent = 'Upload Panorama';
+            uploadBtn.disabled = false;
+        });
     });
 
-    // Placeholder for remove functionality
+    // Panorama removal functionality
     removeBtn.addEventListener('click', () => {
-        alert('Remove functionality not yet implemented.');
-        // Later: implement fetch to a PHP script to handle removal
+        if (!confirm('Are you sure you want to remove this panorama image?')) {
+            return;
+        }
+
+        // Create FormData for deletion
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('path_id', currentPanoData.pathId);
+  formData.append('point_index', currentPanoData.pointIndex);
+  formData.append('floor_number', currentPanoData.floor || 1);
+
+        // Show loading state
+        removeBtn.textContent = 'Removing...';
+        removeBtn.disabled = true;
+
+        // Send delete request to server
+        fetch('panorama_api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+        alert('Panorama removed successfully!');
+        previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
+        removeBtn.style.display = 'none';
+        currentPanoData.currentImage = '';
+        // Reload floor graph to update markers
+        const floorReload = currentPanoData.floor || 1;
+        if (typeof initPathfinding === 'function') {
+          setTimeout(() => { initPathfinding(floorReload); }, 500);
+        }
+            } else {
+                alert('Removal failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Removal error:', error);
+            alert('Removal failed: ' + error.message);
+        })
+        .finally(() => {
+            removeBtn.textContent = 'Remove Panorama';
+            removeBtn.disabled = false;
+        });
     });
 
    </script>
