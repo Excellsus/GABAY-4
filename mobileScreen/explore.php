@@ -674,26 +674,19 @@ try {
         return currentTimeInMinutes >= openTimeInMinutes && currentTimeInMinutes <= closeTimeInMinutes;
       }
 
-      // Simple function to show panorama split screen
+      // Simple function to show panorama split screen (move original SVG so pan/zoom stays functional)
       function showPanoramaSplitScreen() {
-        console.log('🚀 SHOWING PANORAMA SPLIT SCREEN');
-        
+        console.log('🚀 SHOWING PANORAMA SPLIT SCREEN (move SVG, preserve pan/zoom)');
+
         const splitScreen = document.getElementById('panorama-split-screen');
         if (!splitScreen) {
-          console.error('❌ Split screen container not found! Looking for #panorama-split-screen');
-          // List all elements with 'panorama' in their ID
-          const panoramaElements = document.querySelectorAll('[id*="panorama"]');
-          console.log('Found panorama elements:', panoramaElements.length);
-          panoramaElements.forEach(el => console.log('- ' + el.id, el.tagName));
+          console.error('❌ Split screen container not found!');
           return;
         }
-        
-        console.log('✅ Split screen container found:', splitScreen);
-        
+
         // Update the panorama viewer to use an iframe of pano.html
         const panoramaViewer = splitScreen.querySelector('.panorama-viewer');
         if (panoramaViewer) {
-          console.log('✅ Panorama viewer found, setting iframe...');
           panoramaViewer.innerHTML = `
             <iframe 
               src="../Pano/pano.html" 
@@ -702,53 +695,116 @@ try {
             </iframe>
           `;
         } else {
-          console.error('❌ Panorama viewer not found! Looking for .panorama-viewer');
+          console.error('❌ Panorama viewer element (.panorama-viewer) not found');
         }
-        
-        // Move the current map to the bottom panel
+
+        // Move the real SVG element into the split-screen map container so svgPanZoom instance remains attached
         const mapContainer = document.getElementById('split-map-container');
         const svgContainer = document.getElementById('svg-container');
         const svg = svgContainer?.querySelector('svg');
-        
-        console.log('Map elements:', {
-          mapContainer: mapContainer ? '✅ found' : '❌ not found',
-          svgContainer: svgContainer ? '✅ found' : '❌ not found', 
-          svg: svg ? '✅ found' : '❌ not found'
-        });
-        
-        if (svg && mapContainer) {
-          console.log('✅ Cloning SVG to split screen map panel...');
-          // Clone the SVG to the split screen
-          const svgClone = svg.cloneNode(true);
+
+        if (svg && mapContainer && svgContainer) {
+          // Store original container for restore
+          window.__originalSvgContainerForPanorama = svgContainer;
+
+          // Save current pan/zoom state so we can restore it after move
+          if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.getPan === 'function') {
+            try {
+              window.__svgPanZoomStateBeforePanorama = {
+                zoom: window.svgPanZoomInstance.getZoom(),
+                pan: window.svgPanZoomInstance.getPan()
+              };
+              console.log('Saved svgPanZoom state before panorama:', window.__svgPanZoomStateBeforePanorama);
+            } catch (e) {
+              console.warn('Could not read svgPanZoom state before panorama:', e);
+            }
+          }
+
+          console.log('✅ Moving original SVG into split-screen map container');
           mapContainer.innerHTML = '';
-          mapContainer.appendChild(svgClone);
-        }
-        
-        // Show the split screen
-        console.log('✅ Removing hidden class and showing split screen...');
-        splitScreen.classList.remove('hidden');
-        
-        // Hide the original container
-        if (svgContainer) {
-          console.log('✅ Hiding original SVG container...');
+          mapContainer.appendChild(svg);
+
+          // Hide the original container (it no longer contains the svg)
           svgContainer.style.display = 'none';
+
+          // Resize svg-pan-zoom and reapply saved pan/zoom (avoid fit/center to prevent jumps)
+          setTimeout(() => {
+            if (window.svgPanZoomInstance) {
+              try {
+                window.svgPanZoomInstance.resize();
+                window.svgPanZoomInstance.center(); // Recenter after resize
+                setTimeout(() => {
+                  const saved = window.__svgPanZoomStateBeforePanorama;
+                  if (saved) {
+                    try {
+                      // We only restore zoom, not pan, to keep it centered
+                      if (typeof window.svgPanZoomInstance.zoom === 'function') window.svgPanZoomInstance.zoom(saved.zoom);
+                      console.log('Reapplied svgPanZoom zoom after move');
+                    } catch (err) {
+                      console.warn('Failed to reapply svgPanZoom zoom after move:', err);
+                    }
+                  }
+                }, 20);
+              } catch (e) {
+                console.warn('Failed to resize/center svgPanZoomInstance after moving SVG:', e);
+              }
+            }
+          }, 50);
+        } else {
+          console.warn('SVG or containers missing, cannot move SVG. svg:', !!svg, 'mapContainer:', !!mapContainer, 'svgContainer:', !!svgContainer);
         }
-        
-        console.log('🎉 PANORAMA SPLIT SCREEN SHOULD NOW BE VISIBLE!');
+
+        // Show the split screen overlay
+        splitScreen.classList.remove('hidden');
+
+        console.log('🎉 PANORAMA SPLIT SCREEN VISIBLE — map should remain interactive');
       }
 
       // Function to hide panorama split screen
       function hidePanoramaSplitScreen() {
-        console.log('Hiding panorama split screen');
-        
+        console.log('Hiding panorama split screen and restoring SVG');
+
         const splitScreen = document.getElementById('panorama-split-screen');
         const svgContainer = document.getElementById('svg-container');
-        
+        const mapContainer = document.getElementById('split-map-container');
+
         if (splitScreen) {
           splitScreen.classList.add('hidden');
         }
-        
-        if (svgContainer) {
+
+        // If we moved the SVG earlier, move it back to its original container
+        const svg = mapContainer?.querySelector('svg');
+        const original = window.__originalSvgContainerForPanorama || svgContainer;
+          if (svg && original) {
+          console.log('✅ Restoring SVG back to original container');
+          original.appendChild(svg);
+          // Show the original container
+          original.style.display = 'block';
+
+          // Restore svg-pan-zoom state (resize then reapply saved zoom/pan)
+          setTimeout(() => {
+            if (window.svgPanZoomInstance) {
+              try {
+                window.svgPanZoomInstance.resize();
+                setTimeout(() => {
+                  const saved = window.__svgPanZoomStateBeforePanorama;
+                  if (saved) {
+                    try {
+                      if (typeof window.svgPanZoomInstance.zoom === 'function') window.svgPanZoomInstance.zoom(saved.zoom);
+                      if (typeof window.svgPanZoomInstance.pan === 'function') window.svgPanZoomInstance.pan(saved.pan);
+                      console.log('Reapplied svgPanZoom state after restore');
+                    } catch (err) {
+                      console.warn('Failed to reapply svgPanZoom state after restore:', err);
+                    }
+                  }
+                }, 20);
+              } catch (e) {
+                console.warn('Failed to refresh svgPanZoomInstance after restoring SVG:', e);
+              }
+            }
+          }, 50);
+        } else if (svgContainer) {
+          // Fallback: ensure original container is visible
           svgContainer.style.display = 'block';
         }
       }
@@ -784,17 +840,10 @@ try {
               }
             }
             
-            // Refresh SVG view with proper sequencing
+            // Refresh SVG view with proper sequencing (resize only; do not auto-fit to preserve user zoom/pan)
             if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.resize === 'function') {
               try {
                 window.svgPanZoomInstance.resize();
-                // Add small delay to ensure resize takes effect before fit/center
-                setTimeout(() => {
-                  if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.fit === 'function') {
-                    window.svgPanZoomInstance.fit();
-                    window.svgPanZoomInstance.center();
-                  }
-                }, 10);
               } catch (e) {
                 console.warn("Failed to refresh SVG container:", e);
               }
@@ -902,16 +951,10 @@ try {
             svg.style.width = '100%';
             svg.style.height = '100%';
             
-            // Refresh pan-zoom instance
+            // Refresh pan-zoom instance (resize only to preserve user pan/zoom)
             try {
               if (typeof window.svgPanZoomInstance.resize === 'function') {
                 window.svgPanZoomInstance.resize();
-                setTimeout(() => {
-                  if (typeof window.svgPanZoomInstance.fit === 'function') {
-                    window.svgPanZoomInstance.fit();
-                    window.svgPanZoomInstance.center();
-                  }
-                }, 10);
               }
             } catch (e) {
               console.warn("Failed to refresh SVG in split-screen:", e);
@@ -2098,15 +2141,40 @@ try {
                 hammer.on('pinch', function(ev) {
                   ev.srcEvent.stopPropagation();
                   ev.srcEvent.preventDefault();
-                  
+
                   // Apply smooth scaling with requestAnimationFrame for real-time updates
                   requestAnimationFrame(() => {
-                    const center = {
-                      x: ev.center.x,
-                      y: ev.center.y
-                    };
                     const newScale = initialScale * ev.scale;
-                    instance.zoomAtPoint(newScale, center);
+
+                    // Convert screen/client coordinates (ev.center) to SVG coordinates
+                    // so svg-pan-zoom zoomAtPoint receives the correct anchor and
+                    // does not translate the viewport unexpectedly.
+                    let svgPoint;
+                    try {
+                      const svgEl = options.svgElement;
+                      // Create an SVGPoint and transform by the inverse screen CTM
+                      const pt = svgEl.createSVGPoint();
+                      pt.x = ev.center.x;
+                      pt.y = ev.center.y;
+                      const ctm = svgEl.getScreenCTM();
+                      if (ctm && typeof ctm.inverse === 'function') {
+                        svgPoint = pt.matrixTransform(ctm.inverse());
+                      } else if (ctm) {
+                        // Older browsers: compute inverse manually
+                        const inv = ctm.inverse();
+                        svgPoint = pt.matrixTransform(inv);
+                      } else {
+                        // Fallback to using bounding rect offsets
+                        const rect = svgEl.getBoundingClientRect();
+                        svgPoint = { x: ev.center.x - rect.left, y: ev.center.y - rect.top };
+                      }
+                    } catch (err) {
+                      // Fallback: use bounding rect offsets if anything goes wrong
+                      const rect = options.svgElement.getBoundingClientRect();
+                      svgPoint = { x: ev.center.x - rect.left, y: ev.center.y - rect.top };
+                    }
+
+                    instance.zoomAtPoint(newScale, svgPoint);
                   });
                 });
 

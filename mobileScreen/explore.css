@@ -88,6 +88,9 @@ body {
   touch-action: none;
   background-color: #f8f9fa;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Mobile-specific adjustments */
