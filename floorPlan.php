@@ -891,7 +891,7 @@ if (isset($_GET['selectRoom'])) {
       previewContainer.innerHTML = '<span class="text-gray-400">Checking for existing panorama...</span>';
       removeBtn.style.display = 'none';
       const params = new URLSearchParams({
-        action: 'get',
+        action: 'get',  
         path_id: pathId,
         point_index: pointIndex,
         floor_number: floorNum

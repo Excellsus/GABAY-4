@@ -124,7 +124,7 @@ try {
         
         <!-- DEBUG: Test Panorama Button -->
         <div style="position: absolute; top: 80px; right: 10px; z-index: 1001;">
-          <button onclick="showPanoramaSplitScreen()" style="padding: 8px 12px; background: #ff4444; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          <button onclick="showPanoramaSplitScreen('path1', 5, 1)" style="padding: 8px 12px; background: #ff4444; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
             TEST PANORAMA
           </button>
         </div>
@@ -611,8 +611,8 @@ try {
           return;
         };
         
-        // Show split screen immediately with a sample panorama
-        showPanoramaSplitScreen();
+        // Show split screen immediately with default test values
+        showPanoramaSplitScreen('path1', 5, 1);
         
         return false; // Prevent any further event handling
       };
@@ -675,8 +675,8 @@ try {
       }
 
       // Simple function to show panorama split screen (move original SVG so pan/zoom stays functional)
-      function showPanoramaSplitScreen() {
-        console.log('🚀 SHOWING PANORAMA SPLIT SCREEN (move SVG, preserve pan/zoom)');
+      function showPanoramaSplitScreen(pathId = 'path1', pointIndex = 5, floorNumber = 1) {
+        console.log(`🚀 SHOWING PANORAMA SPLIT SCREEN for path:${pathId}, point:${pointIndex}, floor:${floorNumber}`);
 
         const splitScreen = document.getElementById('panorama-split-screen');
         if (!splitScreen) {
@@ -684,16 +684,18 @@ try {
           return;
         }
 
-        // Update the panorama viewer to use an iframe of pano.html
+        // Update the panorama viewer to use an iframe of pano.html with dynamic parameters
         const panoramaViewer = splitScreen.querySelector('.panorama-viewer');
         if (panoramaViewer) {
+          const panoUrl = `../Pano/pano.html?path_id=${encodeURIComponent(pathId)}&point_index=${encodeURIComponent(pointIndex)}&floor_number=${encodeURIComponent(floorNumber)}`;
           panoramaViewer.innerHTML = `
             <iframe 
-              src="../Pano/pano.html" 
+              src="${panoUrl}" 
               style="width: 100%; height: 100%; border: none;"
               allowfullscreen>
             </iframe>
           `;
+          console.log('✅ Panorama iframe loaded with URL:', panoUrl);
         } else {
           console.error('❌ Panorama viewer element (.panorama-viewer) not found');
         }
@@ -1190,7 +1192,10 @@ try {
               };
               
               // Show split screen immediately
-              showPanoramaSplitScreen();
+              const pathId = newMarker.getAttribute('data-path-id') || 'path1';
+              const pointIndex = newMarker.getAttribute('data-point-index') || 5;
+              const floorNumber = newMarker.getAttribute('data-floor-number') || 1;
+              showPanoramaSplitScreen(pathId, pointIndex, floorNumber);
             });
             
             // Also add touch event for mobile
@@ -1205,7 +1210,10 @@ try {
               };
               
               // Show split screen immediately
-              showPanoramaSplitScreen();
+              const pathId = newMarker.getAttribute('data-path-id') || 'path1';
+              const pointIndex = newMarker.getAttribute('data-point-index') || 5;
+              const floorNumber = newMarker.getAttribute('data-floor-number') || 1;
+              showPanoramaSplitScreen(pathId, pointIndex, floorNumber);
             });
             
             // Add visual feedback to make sure markers are clickable
@@ -1518,6 +1526,13 @@ try {
               marker.setAttribute('opacity', '0.9');
               marker.style.cursor = 'pointer';
               marker.classList.add('panorama-marker');
+              marker.classList.add('path-marker');
+              marker.classList.add('point-marker');
+              
+              // Add data attributes for panorama identification
+              marker.setAttribute('data-path-id', path.id);
+              marker.setAttribute('data-point-index', index);
+              marker.setAttribute('data-floor-number', window.currentFloorNumber || 1);
               
               // Add click event for panorama marker
               marker.addEventListener('click', function(event) {
@@ -1525,10 +1540,8 @@ try {
                 event.stopPropagation();
                 console.log(`Mobile panorama marker clicked: Path ${path.id}, Point ${index}`);
                 
-                // Call mobile panorama handler (to be implemented later)
-                if (typeof openMobilePanoramaViewer === 'function') {
-                  openMobilePanoramaViewer(path.id, index, point.panoImage || '');
-                } 
+                // Call the dynamic panorama function with the correct parameters
+                showPanoramaSplitScreen(path.id, index, window.currentFloorNumber || 1);
               });
 
               // Add hover effects

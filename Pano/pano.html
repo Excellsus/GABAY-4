@@ -11,29 +11,96 @@
       <a-entity camera look-controls>
         <a-entity cursor="rayOrigin: mouse"></a-entity>
       </a-entity>
-      <a-sky src="62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg"></a-sky>
-      <!-- Hotspot to go to Sulod_balay.jpg (visible in Gwa_balay.jpg) -->
-      <a-entity class="hotspot"
-                data-image="62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg"
-                geometry="primitive: cone; radiusBottom: 0.2; radiusTop: 0; height: 0.5"
-                material="color: red"
-                position="0 0 -4"
-                visible="true"
-                event-set__enter="_event: mouseenter; material.color: yellow"
-                event-set__leave="_event: mouseleave; material.color: red"
-                hotspot-listener="target: f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg">
-      </a-entity>
-      <!-- Hotspot to go back to Gwa_balay.jpg (visible in Sulod_balay.jpg) -->
-      <a-entity class="hotspot"
-                data-image="f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg"
-                geometry="primitive: sphere; radius: 1"
-                material="color: blue"
-                position="-3 -2 9"
-                visible="false"
-                event-set__enter="_event: mouseenter; material.color: cyan"
-                event-set__leave="_event: mouseleave; material.color: blue"
-                hotspot-listener="target: 62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg">
-      </a-entity>
+      <!-- Sky will be set dynamically -->
+      <a-sky id="panorama-sky" src=""></a-sky>
+      <!-- Hotspots will be added dynamically -->
     </a-scene>
+    
+    <script>
+      // Get URL parameters
+      function getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          pathId: params.get('path_id') || 'path1',
+          pointIndex: params.get('point_index') || '5',
+          floorNumber: params.get('floor_number') || '1'
+        };
+      }
+      
+      // Load panorama data and set up scene
+      async function loadPanoramaData() {
+        const params = getUrlParams();
+        
+        try {
+          const response = await fetch(`../panorama_api.php?action=get_for_point&path_id=${params.pathId}&point_index=${params.pointIndex}&floor_number=${params.floorNumber}`);
+          const data = await response.json();
+          
+          if (data.success && data.panorama) {
+            // Set the main panorama image
+            const sky = document.getElementById('panorama-sky');
+            sky.setAttribute('src', '../' + data.image_url);
+            
+            // Load related panoramas for hotspots
+            await loadHotspots(params.floorNumber);
+            
+            console.log('Panorama loaded:', data.panorama.title || 'Unnamed');
+          } else {
+            console.error('Failed to load panorama:', data.error);
+            // Fallback to default image
+            document.getElementById('panorama-sky').setAttribute('src', '62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg');
+          }
+        } catch (error) {
+          console.error('Error loading panorama:', error);
+          // Fallback to default image
+          document.getElementById('panorama-sky').setAttribute('src', '62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg');
+        }
+      }
+      
+      // Load hotspots for navigation between panoramas
+      async function loadHotspots(floorNumber) {
+        try {
+          const response = await fetch(`../panorama_api.php?action=list&floor_number=${floorNumber}`);
+          const data = await response.json();
+          
+          if (data.success && data.panoramas) {
+            const scene = document.querySelector('a-scene');
+            
+            // Create hotspots for each available panorama (limit to avoid clutter)
+            data.panoramas.slice(0, 3).forEach((panorama, index) => {
+              const hotspot = document.createElement('a-entity');
+              hotspot.setAttribute('class', 'hotspot');
+              hotspot.setAttribute('geometry', 'primitive: sphere; radius: 0.3');
+              hotspot.setAttribute('material', 'color: #ff6b35; opacity: 0.8');
+              
+              // Position hotspots around the scene
+              const angle = (index * 120) * (Math.PI / 180); // 120 degrees apart
+              const radius = 4;
+              const x = Math.cos(angle) * radius;
+              const z = Math.sin(angle) * radius;
+              hotspot.setAttribute('position', `${x} 0 ${z}`);
+              
+              // Add hover effects
+              hotspot.setAttribute('event-set__enter', '_event: mouseenter; material.color: yellow; scale: 1.2 1.2 1.2');
+              hotspot.setAttribute('event-set__leave', '_event: mouseleave; material.color: #ff6b35; scale: 1 1 1');
+              
+              // Add click listener to navigate to panorama
+              hotspot.addEventListener('click', () => {
+                const newUrl = `pano.html?path_id=${panorama.path_id}&point_index=${panorama.point_index}&floor_number=${panorama.floor_number}`;
+                window.location.href = newUrl;
+              });
+              
+              scene.appendChild(hotspot);
+            });
+          }
+        } catch (error) {
+          console.error('Error loading hotspots:', error);
+        }
+      }
+      
+      // Initialize when DOM is loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        loadPanoramaData();
+      });
+    </script>
   </body>
 </html>

@@ -325,14 +325,17 @@
                 {
                     "x": 165,
                     "y": 255,
-                    "isPano": true
+                    "isPano": true,
+                    "panoImage": "pano_path1_4_1758031979_68c9706b4f9ff.jpg",
+                    "panoTitle": "Inner",
+                    "panoDescription": null
                 },
                 {
                     "x": 165,
                     "y": 340,
                     "isPano": true,
-                    "panoImage": "pano_path1_5_1757952260_68c83904dc6da.jpg",
-                    "panoTitle": "ICTD",
+                    "panoImage": "pano_path1_5_1758031418_68c96e3a1d147.jpg",
+                    "panoTitle": "Exit",
                     "panoDescription": null
                 },
                 {
@@ -342,7 +345,10 @@
                 {
                     "x": 220,
                     "y": 340,
-                    "isPano": true
+                    "isPano": true,
+                    "panoImage": "pano_path1_7_1758031559_68c96ec7edf30.jpg",
+                    "panoTitle": "Security",
+                    "panoDescription": null
                 }
             ]
         },
