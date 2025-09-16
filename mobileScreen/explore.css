@@ -643,6 +643,46 @@ svg path {
   opacity: 0.8;
 }
 
+/* Path marker styles for panorama points from pathfinding.js */
+.path-marker.point-marker {
+  fill: #ff6b35 !important;
+  stroke: #fff !important;
+  stroke-width: 2 !important;
+  cursor: pointer !important;
+  pointer-events: all !important;
+  opacity: 1 !important;
+  r: 8 !important;
+  z-index: 1000 !important;
+}
+
+.path-marker.point-marker:hover {
+  fill: #ff4500 !important;
+  r: 12 !important;
+}
+
+/* Mobile touch-friendly panorama markers */
+@media (max-width: 768px) {
+  .path-marker.point-marker {
+    r: 12 !important; /* Larger touch targets on mobile */
+    stroke-width: 3 !important;
+  }
+  
+  .path-marker.point-marker:hover,
+  .path-marker.point-marker:active {
+    r: 16 !important;
+    fill: #ff4500 !important;
+  }
+}
+
+/* Ensure panorama markers are always on top */
+#marker-group {
+  z-index: 100 !important;
+}
+
+#marker-group .path-marker {
+  z-index: 101 !important;
+}
+
 .path-line {
   pointer-events: none;
   animation: pathFlow 2s linear infinite;
@@ -688,6 +728,208 @@ svg path {
   .path-step-label {
     font-size: 14px;
   }
+}
+
+/* Panorama Split-Screen Layout */
+.panorama-split-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panorama-split-screen.hidden {
+  display: none;
+}
+
+/* Top Panel: Panorama Viewer */
+.panorama-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  position: relative;
+}
+
+.panorama-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  color: white;
+}
+
+.close-panorama-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.close-panorama-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.panorama-title {
+  flex: 1;
+  margin-left: 15px;
+}
+
+.panorama-title h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.panorama-title p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.panorama-viewer {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Bottom Panel: Map View */
+.map-panel {
+  height: 40vh;
+  min-height: 200px;
+  background: white;
+  border-top: 2px solid #04aa6d;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.map-header {
+  height: 50px;
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.btn-sm {
+  background: #04aa6d;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.2s ease;
+}
+
+.btn-sm:hover {
+  background: #038a5a;
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.map-container svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Responsive adjustments for split-screen */
+@media (max-width: 768px) {
+  .panorama-panel {
+    flex: 1.2;
+  }
+  
+  .map-panel {
+    height: 35vh;
+    min-height: 180px;
+  }
+  
+  .panorama-header {
+    height: 50px;
+    padding: 8px 12px;
+  }
+  
+  .panorama-title h3 {
+    font-size: 14px;
+  }
+  
+  .panorama-title p {
+    font-size: 11px;
+  }
+  
+  .map-header {
+    height: 40px;
+    padding: 8px 12px;
+  }
+  
+  .map-header h4 {
+    font-size: 14px;
+  }
+  
+  .close-panorama-btn {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .panorama-panel {
+    flex: 1.5;
+  }
+  
+  .map-panel {
+    height: 180px;
+  }
+}
+
+/* A-Frame scene adjustments for embedded mode */
+.panorama-viewer a-scene {
+  border: none !important;
+}
+
+/* Hide A-Frame VR button and fullscreen in split-screen mode */
+.panorama-split-screen .a-enter-vr,
+.panorama-split-screen .a-fullscreen {
+  display: none !important;
 }
 
 /* Office Details Modal Styles */

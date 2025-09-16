@@ -91,6 +91,10 @@ try {
        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
       />
+    <!-- A-Frame VR Scripts for Panorama Viewer -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-mouse-wheel-component/dist/aframe-mouse-wheel-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-touch-zoom-component/dist/aframe-touch-zoom-component.min.js"></script>
     <body>
       <header class="header">
         <div class="header-content">
@@ -116,6 +120,13 @@ try {
           <button class="floor-btn active" data-floor="1">1F</button>
           <button class="floor-btn" data-floor="2">2F</button>
           <button class="floor-btn" data-floor="3">3F</button>
+        </div>
+        
+        <!-- DEBUG: Test Panorama Button -->
+        <div style="position: absolute; top: 80px; right: 10px; z-index: 1001;">
+          <button onclick="showPanoramaSplitScreen()" style="padding: 8px 12px; background: #ff4444; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+            TEST PANORAMA
+          </button>
         </div>
 
         <!-- SVG Container -->
@@ -193,7 +204,7 @@ try {
         -khtml-user-drag: none !important;
         -moz-user-drag: none !important;
         -o-user-drag: none !important;
-        user-drag: none !important;
+        
       }
       
       .svg-container * {
@@ -510,6 +521,52 @@ try {
         </div>
     </div>
 
+    <!-- Panorama Split-Screen Container -->
+    <div id="panorama-split-screen" class="panorama-split-screen hidden">
+        <!-- Top Panel: Panorama Viewer -->
+        <div class="panorama-panel">
+            <div class="panorama-header">
+                <button id="close-panorama" class="close-panorama-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="panorama-title">
+                    <h3 id="panorama-location-title">Panorama View</h3>
+                    <p id="panorama-description">360° view of the location</p>
+                </div>
+            </div>
+            
+            <!-- A-Frame Panorama Viewer -->
+            <div class="panorama-viewer">
+                <a-scene 
+                    id="panorama-scene"
+                    mouse-wheel="fovMin: 30; fovMax: 100;" 
+                    touch-zoom
+                    embedded
+                    style="height: 100%; width: 100%;">
+                    <!-- Camera with look controls -->
+                    <a-entity camera look-controls wasd-controls-enabled="false">
+                        <a-entity cursor="rayOrigin: mouse"></a-entity>
+                    </a-entity>
+                    <!-- Sky element for panorama image -->
+                    <a-sky id="panorama-sky" src=""></a-sky>
+                </a-scene>
+            </div>
+        </div>
+        
+        <!-- Bottom Panel: Map View -->
+        <div class="map-panel">
+            <div class="map-header">
+                <h4>Floor Plan</h4>
+                <button id="exit-panorama-mode" class="btn-sm">
+                    <i class="fas fa-expand"></i> Full Map
+                </button>
+            </div>
+            <div class="map-container" id="split-map-container">
+                <!-- Map will be moved here in split-screen mode -->
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom Navigation Section -->
     <nav class="bottom-nav" role="navigation" aria-label="Visitor navigation">
       <!-- Explore Link -->
@@ -539,6 +596,26 @@ try {
     <script>
       // Set the correct path for floor_graph.json for mobile subdirectory
       window.FLOOR_GRAPH_BASE_PATH = '../';
+      
+      // ========================================
+      // MOBILE PANORAMA INTEGRATION OVERRIDE
+      // ========================================
+      
+      // Override the desktop panorama editor function for mobile BEFORE pathfinding.js loads
+      window.openPanoramaEditor = function(pathId, pointIndex, currentImage) {
+        console.log('Mobile panorama click detected - SUPPRESSING ALL ALERTS');
+        
+        // Completely disable alert for this session
+        window.alert = function() { 
+          console.log('Alert completely disabled for mobile panorama mode'); 
+          return;
+        };
+        
+        // Show split screen immediately with a sample panorama
+        showPanoramaSplitScreen();
+        
+        return false; // Prevent any further event handling
+      };
     </script>
     <script src="../pathfinding.js"></script>
     
@@ -597,6 +674,85 @@ try {
         return currentTimeInMinutes >= openTimeInMinutes && currentTimeInMinutes <= closeTimeInMinutes;
       }
 
+      // Simple function to show panorama split screen
+      function showPanoramaSplitScreen() {
+        console.log('🚀 SHOWING PANORAMA SPLIT SCREEN');
+        
+        const splitScreen = document.getElementById('panorama-split-screen');
+        if (!splitScreen) {
+          console.error('❌ Split screen container not found! Looking for #panorama-split-screen');
+          // List all elements with 'panorama' in their ID
+          const panoramaElements = document.querySelectorAll('[id*="panorama"]');
+          console.log('Found panorama elements:', panoramaElements.length);
+          panoramaElements.forEach(el => console.log('- ' + el.id, el.tagName));
+          return;
+        }
+        
+        console.log('✅ Split screen container found:', splitScreen);
+        
+        // Update the panorama viewer to use an iframe of pano.html
+        const panoramaViewer = splitScreen.querySelector('.panorama-viewer');
+        if (panoramaViewer) {
+          console.log('✅ Panorama viewer found, setting iframe...');
+          panoramaViewer.innerHTML = `
+            <iframe 
+              src="../Pano/pano.html" 
+              style="width: 100%; height: 100%; border: none;"
+              allowfullscreen>
+            </iframe>
+          `;
+        } else {
+          console.error('❌ Panorama viewer not found! Looking for .panorama-viewer');
+        }
+        
+        // Move the current map to the bottom panel
+        const mapContainer = document.getElementById('split-map-container');
+        const svgContainer = document.getElementById('svg-container');
+        const svg = svgContainer?.querySelector('svg');
+        
+        console.log('Map elements:', {
+          mapContainer: mapContainer ? '✅ found' : '❌ not found',
+          svgContainer: svgContainer ? '✅ found' : '❌ not found', 
+          svg: svg ? '✅ found' : '❌ not found'
+        });
+        
+        if (svg && mapContainer) {
+          console.log('✅ Cloning SVG to split screen map panel...');
+          // Clone the SVG to the split screen
+          const svgClone = svg.cloneNode(true);
+          mapContainer.innerHTML = '';
+          mapContainer.appendChild(svgClone);
+        }
+        
+        // Show the split screen
+        console.log('✅ Removing hidden class and showing split screen...');
+        splitScreen.classList.remove('hidden');
+        
+        // Hide the original container
+        if (svgContainer) {
+          console.log('✅ Hiding original SVG container...');
+          svgContainer.style.display = 'none';
+        }
+        
+        console.log('🎉 PANORAMA SPLIT SCREEN SHOULD NOW BE VISIBLE!');
+      }
+
+      // Function to hide panorama split screen
+      function hidePanoramaSplitScreen() {
+        console.log('Hiding panorama split screen');
+        
+        const splitScreen = document.getElementById('panorama-split-screen');
+        const svgContainer = document.getElementById('svg-container');
+        
+        if (splitScreen) {
+          splitScreen.classList.add('hidden');
+        }
+        
+        if (svgContainer) {
+          svgContainer.style.display = 'block';
+        }
+      }
+
       // Global function to refresh SVG container
       function refreshSvgContainer() {
         if (window.svgPanZoomInstance) {
@@ -646,6 +802,192 @@ try {
           });
         }
       }
+
+      // ========================================
+      // PANORAMA SPLIT-SCREEN FUNCTIONALITY
+      // ========================================
+      
+      // Global panorama state
+      window.panoramaMode = false;
+      let originalSvgContainer = null;
+      
+      // Function to enter split-screen panorama mode
+      function enterPanoramaMode(panoramaData) {
+        console.log('Entering panorama mode with data:', panoramaData);
+        
+        const splitScreen = document.getElementById('panorama-split-screen');
+        const mapContainer = document.getElementById('split-map-container');
+        const svgContainer = document.getElementById('svg-container');
+        const panoramaSky = document.getElementById('panorama-sky');
+        const panoramaTitle = document.getElementById('panorama-location-title');
+        const panoramaDescription = document.getElementById('panorama-description');
+        
+        if (!splitScreen || !mapContainer || !svgContainer || !panoramaSky) {
+          console.error('Split-screen elements not found');
+          return;
+        }
+        
+        // Store reference to original container
+        originalSvgContainer = svgContainer;
+        
+        // Set panorama image
+        const imagePath = `../Pano/${panoramaData.image_filename}`;
+        panoramaSky.setAttribute('src', imagePath);
+        
+        // Update panorama info
+        panoramaTitle.textContent = panoramaData.title || 'Panorama View';
+        panoramaDescription.textContent = panoramaData.description || '360° view of the location';
+        
+        // Move SVG to split-screen map container
+        const svg = svgContainer.querySelector('svg');
+        if (svg) {
+          mapContainer.appendChild(svg);
+        }
+        
+        // Show split-screen and hide original container
+        splitScreen.classList.remove('hidden');
+        svgContainer.style.display = 'none';
+        
+        // Update global state
+        window.panoramaMode = true;
+        
+        // Refresh SVG view in new container
+        setTimeout(() => {
+          refreshSvgInSplitScreen();
+        }, 100);
+      }
+      
+      // Function to exit panorama mode
+      function exitPanoramaMode() {
+        console.log('Exiting panorama mode');
+        
+        const splitScreen = document.getElementById('panorama-split-screen');
+        const mapContainer = document.getElementById('split-map-container');
+        const svgContainer = document.getElementById('svg-container');
+        
+        if (!splitScreen || !mapContainer || !svgContainer || !originalSvgContainer) {
+          console.error('Cannot exit panorama mode - elements not found');
+          return;
+        }
+        
+        // Move SVG back to original container
+        const svg = mapContainer.querySelector('svg');
+        if (svg) {
+          originalSvgContainer.appendChild(svg);
+        }
+        
+        // Hide split-screen and show original container
+        splitScreen.classList.add('hidden');
+        svgContainer.style.display = 'block';
+        
+        // Update global state
+        window.panoramaMode = false;
+        
+        // Refresh SVG view in original container
+        setTimeout(() => {
+          refreshSvgContainer();
+        }, 100);
+      }
+      
+      // Function to refresh SVG in split-screen mode
+      function refreshSvgInSplitScreen() {
+        if (!window.panoramaMode || !window.svgPanZoomInstance) return;
+        
+        requestAnimationFrame(() => {
+          const mapContainer = document.getElementById('split-map-container');
+          const svg = mapContainer?.querySelector('svg');
+          
+          if (svg && mapContainer) {
+            // Set appropriate dimensions for split-screen
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            
+            // Refresh pan-zoom instance
+            try {
+              if (typeof window.svgPanZoomInstance.resize === 'function') {
+                window.svgPanZoomInstance.resize();
+                setTimeout(() => {
+                  if (typeof window.svgPanZoomInstance.fit === 'function') {
+                    window.svgPanZoomInstance.fit();
+                    window.svgPanZoomInstance.center();
+                  }
+                }, 10);
+              }
+            } catch (e) {
+              console.warn("Failed to refresh SVG in split-screen:", e);
+            }
+          }
+        });
+      }
+      
+      // Function to fetch panorama data from API
+      async function fetchPanoramaData(pathId, pointIndex, floorNumber) {
+        try {
+          const response = await fetch(`../panorama_api.php?action=get&path_id=${pathId}&point_index=${pointIndex}&floor_number=${floorNumber}`);
+          const data = await response.json();
+          
+          if (data.success && data.panorama) {
+            return data.panorama;
+          }
+          return null;
+        } catch (error) {
+          console.error('Error fetching panorama data:', error);
+          return null;
+        }
+      }
+      
+      // Function to handle panorama point clicks
+      window.handlePanoramaClick = async function(pathId, pointIndex, floorNumber = 1) {
+        console.log(`Panorama point clicked: path=${pathId}, point=${pointIndex}, floor=${floorNumber}`);
+        
+        try {
+          const panoramaData = await fetchPanoramaData(pathId, pointIndex, floorNumber);
+          
+          if (panoramaData) {
+            console.log('Panorama data received:', panoramaData);
+            enterPanoramaMode(panoramaData);
+          } else {
+            console.warn('No panorama data found for this point');
+            alert('No panorama available for this location.');
+          }
+        } catch (error) {
+          console.error('Error handling panorama click:', error);
+          alert('Error loading panorama. Please try again.');
+        }
+      };
+      
+      // Event listeners for panorama controls
+      document.addEventListener('DOMContentLoaded', () => {
+        // Handle any pending panorama clicks
+        if (window.pendingPanoramaClick && window.handlePanoramaClick) {
+          console.log('Processing pending panorama click:', window.pendingPanoramaClick);
+          const { pathId, pointIndex, floorNumber } = window.pendingPanoramaClick;
+          window.handlePanoramaClick(pathId, pointIndex, floorNumber);
+          window.pendingPanoramaClick = null;
+        }
+        
+        // Close panorama button
+        const closePanoramaBtn = document.getElementById('close-panorama');
+        if (closePanoramaBtn) {
+          closePanoramaBtn.addEventListener('click', hidePanoramaSplitScreen);
+        }
+        
+        // Exit panorama mode button
+        const exitPanoramaModeBtn = document.getElementById('exit-panorama-mode');
+        if (exitPanoramaModeBtn) {
+          exitPanoramaModeBtn.addEventListener('click', hidePanoramaSplitScreen);
+        }
+        
+        // Handle escape key to exit panorama mode
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            const splitScreen = document.getElementById('panorama-split-screen');
+            if (splitScreen && !splitScreen.classList.contains('hidden')) {
+              hidePanoramaSplitScreen();
+            }
+          }
+        });
+      });
 
       // Safe function to draw paths and doors only when everything is ready
       function drawPathsAndDoorsWhenReady() {
@@ -720,6 +1062,114 @@ try {
         window.pendingGraphData = null;
 
         console.log('Path and door drawing completed');
+        
+        // Debug: Check if panorama markers were created
+        setTimeout(() => {
+          const markers = document.querySelectorAll('.path-marker.point-marker');
+          console.log('Panorama markers created:', markers.length);
+          markers.forEach((marker, index) => {
+            console.log(`Marker ${index}:`, {
+              pathId: marker.getAttribute('data-path-id'),
+              pointIndex: marker.getAttribute('data-point-index'),
+              position: { x: marker.getAttribute('cx'), y: marker.getAttribute('cy') },
+              radius: marker.getAttribute('r'),
+              fill: marker.getAttribute('fill')
+            });
+          });
+          
+          if (markers.length === 0) {
+            console.warn('No panorama markers found! Checking floor graph data...');
+            if (window.floorGraph && window.floorGraph.walkablePaths) {
+              window.floorGraph.walkablePaths.forEach(path => {
+                const panoPoints = path.pathPoints.filter(point => point.isPano);
+                console.log(`Path ${path.id} has ${panoPoints.length} panorama points:`, panoPoints);
+              });
+            }
+          }
+        }, 1000);
+        
+        // Override panorama marker click handlers for mobile
+        setTimeout(() => {
+          // Look for panorama markers with multiple possible selectors
+          let markers = document.querySelectorAll('.path-marker.point-marker');
+          console.log('Found', markers.length, 'markers with .path-marker.point-marker');
+          
+          if (markers.length === 0) {
+            markers = document.querySelectorAll('.point-marker');
+            console.log('Found', markers.length, 'markers with .point-marker');
+          }
+          
+          if (markers.length === 0) {
+            markers = document.querySelectorAll('[class*="point-marker"]');
+            console.log('Found', markers.length, 'markers with class containing point-marker');
+          }
+          
+          // Also check for any elements with onclick handlers that call openPanoramaEditor
+          const elementsWithPanoramaClick = document.querySelectorAll('[onclick*="openPanoramaEditor"]');
+          console.log('Found', elementsWithPanoramaClick.length, 'elements with openPanoramaEditor onclick');
+          
+          if (markers.length === 0 && elementsWithPanoramaClick.length === 0) {
+            console.warn('No panorama markers found! Retrying in 2 seconds...');
+            setTimeout(() => {
+              const retryMarkers = document.querySelectorAll('.path-marker.point-marker, .point-marker, [onclick*="openPanoramaEditor"]');
+              console.log('Retry found', retryMarkers.length, 'panorama markers');
+              if (retryMarkers.length > 0) {
+                setupPanoramaMarkerHandlers(retryMarkers);
+              }
+            }, 2000);
+            return;
+          }
+          
+          // Combine all found markers
+          const allMarkers = [...markers, ...elementsWithPanoramaClick];
+          setupPanoramaMarkerHandlers(allMarkers);
+        }, 1500); // Give extra time for pathfinding to complete
+        
+        function setupPanoramaMarkerHandlers(markers) {
+          console.log('Setting up click handlers for', markers.length, 'panorama markers');
+          
+          markers.forEach((marker, index) => {
+            console.log('Setting up marker', index, 'with classes:', marker.className);
+            
+            // Remove existing event listeners by cloning the element
+            const newMarker = marker.cloneNode(true);
+            marker.parentNode.replaceChild(newMarker, marker);
+            
+            // Add new mobile-specific click handler
+            newMarker.addEventListener('click', (e) => {
+              console.log('🎯 PANORAMA MARKER CLICKED! Marker index:', index);
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // Disable alerts completely
+              window.alert = function() { 
+                console.log('Alert disabled for panorama mode'); 
+              };
+              
+              // Show split screen immediately
+              showPanoramaSplitScreen();
+            });
+            
+            // Also add touch event for mobile
+            newMarker.addEventListener('touchend', (e) => {
+              console.log('🎯 PANORAMA MARKER TOUCHED! Marker index:', index);
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // Disable alerts completely
+              window.alert = function() { 
+                console.log('Alert disabled for panorama mode'); 
+              };
+              
+              // Show split screen immediately
+              showPanoramaSplitScreen();
+            });
+            
+            // Add visual feedback to make sure markers are clickable
+            newMarker.style.cursor = 'pointer';
+            newMarker.style.filter = 'drop-shadow(0 0 3px rgba(255, 68, 68, 0.8))';
+          });
+        }
       }
 
       // Global function to populate and show drawer
@@ -1035,11 +1485,7 @@ try {
                 // Call mobile panorama handler (to be implemented later)
                 if (typeof openMobilePanoramaViewer === 'function') {
                   openMobilePanoramaViewer(path.id, index, point.panoImage || '');
-                } else {
-                  console.log('Mobile panorama viewer not yet implemented');
-                  // Placeholder alert for now
-                  alert(`Panorama point clicked! Path: ${path.id}, Point Index: ${index}`);
-                }
+                } 
               });
 
               // Add hover effects
