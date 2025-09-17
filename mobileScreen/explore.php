@@ -347,15 +347,23 @@ try {
         cursor: pointer !important;
       }
       
-      .panorama-marker:hover {
-        filter: drop-shadow(0 0 8px rgba(255, 68, 68, 0.6));
+      .panorama-marker .camera-bg {
+        transition: all 0.3s ease;
+      }
+      
+      .panorama-marker:hover .camera-bg {
+        /* Removed glow effect */
+      }
+      
+      .panorama-marker.active .camera-bg {
+        /* Removed glow effect */
       }
       
       /* Touch-friendly sizing for mobile panorama markers */
       @media (max-width: 768px) {
         .panorama-marker {
           /* Markers will be slightly larger on mobile for easier touch interaction */
-          r: 8 !important;
+          touch-action: manipulation;
         }
       }
     </style>
@@ -1516,18 +1524,30 @@ try {
           // Add markers for each point that has isPano property
           path.pathPoints.forEach((point, index) => {
             if (point.isPano) {
-              const marker = document.createElementNS(svgNS, 'circle');
-              marker.setAttribute('cx', point.x);
-              marker.setAttribute('cy', point.y);
-              marker.setAttribute('r', path.style.pointMarker.radius || 6);
-              marker.setAttribute('fill', path.style.pointMarker.color || '#4CAF50');
-              marker.setAttribute('stroke', path.style.pointMarker.strokeColor || '#000');
-              marker.setAttribute('stroke-width', path.style.pointMarker.strokeWidth || 1);
-              marker.setAttribute('opacity', '0.9');
-              marker.style.cursor = 'pointer';
+              // Create camera icon group
+              const marker = document.createElementNS(svgNS, 'g');
               marker.classList.add('panorama-marker');
-              marker.classList.add('path-marker');
-              marker.classList.add('point-marker');
+              marker.style.cursor = 'pointer';
+              
+              // Create background circle
+              const bgCircle = document.createElementNS(svgNS, 'circle');
+              bgCircle.setAttribute('cx', point.x);
+              bgCircle.setAttribute('cy', point.y);
+              bgCircle.setAttribute('r', '12');
+              bgCircle.setAttribute('fill', '#2563eb');
+              bgCircle.setAttribute('stroke', '#ffffff');
+              bgCircle.setAttribute('stroke-width', '2');
+              bgCircle.setAttribute('class', 'camera-bg');
+              
+              // Create camera icon
+              const cameraIcon = document.createElementNS(svgNS, 'path');
+              cameraIcon.setAttribute('d', 'M14 4h-1l-2-2h-2l-2 2h-1c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-8c0-1.1-.9-2-2-2zm-4 7c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z');
+              cameraIcon.setAttribute('fill', '#ffffff');
+              cameraIcon.setAttribute('transform', `translate(${point.x - 8}, ${point.y - 8}) scale(0.8)`);
+              cameraIcon.setAttribute('class', 'camera-icon');
+              
+              marker.appendChild(bgCircle);
+              marker.appendChild(cameraIcon);
               
               // Add data attributes for panorama identification
               marker.setAttribute('data-path-id', path.id);
@@ -1540,19 +1560,47 @@ try {
                 event.stopPropagation();
                 console.log(`Mobile panorama marker clicked: Path ${path.id}, Point ${index}`);
                 
+                // Reset all other panorama markers
+                document.querySelectorAll('.panorama-marker').forEach(m => {
+                  m.classList.remove('active');
+                  const bg = m.querySelector('.camera-bg');
+                  if (bg) {
+                    bg.setAttribute('r', '12');
+                    // Removed glow reset
+                  }
+                });
+                
+                // Highlight this marker as active
+                this.classList.add('active');
+                const bg = this.querySelector('.camera-bg');
+                if (bg) {
+                  bg.setAttribute('r', '15');
+                  // Removed glow effect
+                }
+                
                 // Call the dynamic panorama function with the correct parameters
                 showPanoramaSplitScreen(path.id, index, window.currentFloorNumber || 1);
               });
 
               // Add hover effects
               marker.addEventListener('mouseenter', function() {
-                this.setAttribute('fill', path.style.pointMarker.hoverColor || '#FF4444');
-                this.setAttribute('r', (path.style.pointMarker.radius || 6) + 2);
+                if (!this.classList.contains('active')) {
+                  const bg = this.querySelector('.camera-bg');
+                  if (bg) {
+                    bg.setAttribute('fill', '#3b82f6');
+                    // Removed glow effect
+                  }
+                }
               });
 
               marker.addEventListener('mouseleave', function() {
-                this.setAttribute('fill', path.style.pointMarker.color || '#4CAF50');
-                this.setAttribute('r', path.style.pointMarker.radius || 6);
+                if (!this.classList.contains('active')) {
+                  const bg = this.querySelector('.camera-bg');
+                  if (bg) {
+                    bg.setAttribute('fill', '#2563eb');
+                    // Removed glow reset
+                  }
+                }
               });
 
               markerGroup.appendChild(marker);

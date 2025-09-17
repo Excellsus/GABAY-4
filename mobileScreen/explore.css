@@ -646,36 +646,7 @@ svg path {
   opacity: 0.8;
 }
 
-/* Path marker styles for panorama points from pathfinding.js */
-.path-marker.point-marker {
-  fill: #ff6b35 !important;
-  stroke: #fff !important;
-  stroke-width: 2 !important;
-  cursor: pointer !important;
-  pointer-events: all !important;
-  opacity: 1 !important;
-  r: 8 !important;
-  z-index: 1000 !important;
-}
-
-.path-marker.point-marker:hover {
-  fill: #ff4500 !important;
-  r: 12 !important;
-}
-
-/* Mobile touch-friendly panorama markers */
-@media (max-width: 768px) {
-  .path-marker.point-marker {
-    r: 12 !important; /* Larger touch targets on mobile */
-    stroke-width: 3 !important;
-  }
-  
-  .path-marker.point-marker:hover,
-  .path-marker.point-marker:active {
-    r: 16 !important;
-    fill: #ff4500 !important;
-  }
-}
+/* Camera icons handle their own hover effects */
 
 /* Ensure panorama markers are always on top */
 #marker-group {
