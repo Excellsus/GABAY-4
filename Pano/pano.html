@@ -70,8 +70,15 @@
           }
         } catch (error) {
           console.error('Error loading panorama:', error);
-          // Fallback to default image
-          document.getElementById('panorama-sky').setAttribute('src', '62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg');
+          // Show fallback overlay for network/API errors
+          const fallbackOverlay = document.getElementById('pano-fallback-overlay');
+          if (fallbackOverlay) {
+            fallbackOverlay.style.display = 'flex';
+          } else {
+            // As a safety, set sky to a solid black texture
+            const sky = document.getElementById('panorama-sky');
+            sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
+          }
         }
       }
       
@@ -86,10 +93,27 @@
             
             // Create hotspots for each available panorama (limit to avoid clutter)
             data.panoramas.slice(0, 3).forEach((panorama, index) => {
+              // Create a camera-shaped hotspot using basic shapes
               const hotspot = document.createElement('a-entity');
-              hotspot.setAttribute('class', 'hotspot');
-              hotspot.setAttribute('geometry', 'primitive: sphere; radius: 0.3');
-              hotspot.setAttribute('material', 'color: #ff6b35; opacity: 0.8');
+              hotspot.setAttribute('class', 'hotspot camera-hotspot');
+              
+              // Create camera body (main rectangle)
+              const cameraBody = document.createElement('a-box');
+              cameraBody.setAttribute('width', '0.4');
+              cameraBody.setAttribute('height', '0.3');
+              cameraBody.setAttribute('depth', '0.2');
+              cameraBody.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+              
+              // Create camera lens (cylinder)
+              const cameraLens = document.createElement('a-cylinder');
+              cameraLens.setAttribute('radius', '0.1');
+              cameraLens.setAttribute('height', '0.1');
+              cameraLens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+              cameraLens.setAttribute('position', '0 0 0.15');
+              cameraLens.setAttribute('rotation', '90 0 0');
+              
+              hotspot.appendChild(cameraBody);
+              hotspot.appendChild(cameraLens);
               
               // Position hotspots around the scene
               const angle = (index * 120) * (Math.PI / 180); // 120 degrees apart
@@ -98,12 +122,49 @@
               const z = Math.sin(angle) * radius;
               hotspot.setAttribute('position', `${x} 0 ${z}`);
               
+              // Make hotspot face the center
+              hotspot.setAttribute('look-at', '0 0 0');
+              
+              // Add hover and active state management
+              let isActive = false;
+              
               // Add hover effects
-              hotspot.setAttribute('event-set__enter', '_event: mouseenter; material.color: yellow; scale: 1.2 1.2 1.2');
-              hotspot.setAttribute('event-set__leave', '_event: mouseleave; material.color: #ff6b35; scale: 1 1 1');
+              hotspot.addEventListener('mouseenter', () => {
+                if (!isActive) {
+                  cameraBody.setAttribute('material', 'color: #3b82f6; opacity: 0.9');
+                  cameraLens.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+                  hotspot.setAttribute('scale', '1.2 1.2 1.2');
+                }
+              });
+              
+              hotspot.addEventListener('mouseleave', () => {
+                if (!isActive) {
+                  cameraBody.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+                  cameraLens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+                  hotspot.setAttribute('scale', '1 1 1');
+                }
+              });
               
               // Add click listener to navigate to panorama
               hotspot.addEventListener('click', () => {
+                // Reset all other hotspots
+                document.querySelectorAll('.camera-hotspot').forEach(h => {
+                  const body = h.querySelector('a-box');
+                  const lens = h.querySelector('a-cylinder');
+                  if (body && lens) {
+                    body.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+                    lens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+                    h.setAttribute('scale', '1 1 1');
+                  }
+                });
+                
+                // Highlight this hotspot as active
+                isActive = true;
+                cameraBody.setAttribute('material', 'color: #fbbf24; opacity: 1');
+                cameraLens.setAttribute('material', 'color: #f59e0b; opacity: 1');
+                hotspot.setAttribute('scale', '1.3 1.3 1.3');
+                
+                // Navigate to the new panorama
                 const newUrl = `pano.html?path_id=${panorama.path_id}&point_index=${panorama.point_index}&floor_number=${panorama.floor_number}`;
                 window.location.href = newUrl;
               });

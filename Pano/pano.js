@@ -1,24 +1,33 @@
-// This component changes the sky image when the hotspot is clicked
-AFRAME.registerComponent('hotspot-listener', {
-  schema: {target: {type: 'string'}},
+// Camera hotspot component for panorama navigation
+AFRAME.registerComponent('camera-hotspot', {
+  schema: {
+    pathId: {type: 'string'},
+    pointIndex: {type: 'number'},
+    floorNumber: {type: 'number'}
+  },
   init: function () {
     this.el.addEventListener('click', () => {
-      console.log('Red hotspot clicked!');
-      document.querySelector('a-sky').setAttribute('src', this.data.target);
-      updateHotspots(this.data.target);
+      console.log('Camera hotspot clicked!');
+      const newUrl = `pano.html?path_id=${this.data.pathId}&point_index=${this.data.pointIndex}&floor_number=${this.data.floorNumber}`;
+      window.location.href = newUrl;
     });
   }
 });
 
-// Function to show only the hotspot(s) for the current image
-function updateHotspots(currentImage) {
-  document.querySelectorAll('.hotspot').forEach(h => {
-    h.setAttribute('visible', h.getAttribute('data-image') === currentImage);
+// Function to reset all camera hotspots to default state
+function resetCameraHotspots() {
+  document.querySelectorAll('.camera-hotspot').forEach(h => {
+    const body = h.querySelector('a-box');
+    const lens = h.querySelector('a-cylinder');
+    if (body && lens) {
+      body.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+      lens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+      h.setAttribute('scale', '1 1 1');
+    }
   });
 }
 
-// On scene load, show only hotspots for the initial image
+// Initialize camera hotspots when DOM is ready
 document.addEventListener('DOMContentLoaded', function () {
-  const initialImage = document.querySelector('a-sky').getAttribute('src');
-  updateHotspots(initialImage);
+  console.log('Camera hotspot system initialized');
 }); 
