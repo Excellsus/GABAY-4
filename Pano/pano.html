@@ -16,6 +16,13 @@
       <!-- Hotspots will be added dynamically -->
     </a-scene>
     
+    <!-- Fallback overlay when no panorama is available -->
+    <div id="pano-fallback-overlay" style="display:none; position:fixed; inset:0; z-index:1000; background:#000; color:#fff; align-items:center; justify-content:center; text-align:center;">
+      <div style="padding:20px; max-width:90vw;">
+        <h2 style="font-family:Arial, Helvetica, sans-serif; font-size:18px; margin:0;">No available panorama for this section :(</h2>
+      </div>
+    </div>
+    
     <script>
       // Get URL parameters
       function getUrlParams() {
@@ -35,19 +42,31 @@
           const response = await fetch(`../panorama_api.php?action=get_for_point&path_id=${params.pathId}&point_index=${params.pointIndex}&floor_number=${params.floorNumber}`);
           const data = await response.json();
           
+          const sky = document.getElementById('panorama-sky');
+          const fallbackOverlay = document.getElementById('pano-fallback-overlay');
+
           if (data.success && data.panorama) {
+            // Hide fallback overlay if it was showing
+            if (fallbackOverlay) {
+              fallbackOverlay.style.display = 'none';
+            }
+
             // Set the main panorama image
-            const sky = document.getElementById('panorama-sky');
             sky.setAttribute('src', '../' + data.image_url);
-            
+
             // Load related panoramas for hotspots
             await loadHotspots(params.floorNumber);
-            
+
             console.log('Panorama loaded:', data.panorama.title || 'Unnamed');
           } else {
             console.error('Failed to load panorama:', data.error);
-            // Fallback to default image
-            document.getElementById('panorama-sky').setAttribute('src', '62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg');
+            // No panorama available for this point: show black-screen overlay with message
+            if (fallbackOverlay) {
+              fallbackOverlay.style.display = 'flex';
+            } else {
+              // As a safety, set sky to a solid black texture by using a tiny 1x1 black data URI
+              sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
+            }
           }
         } catch (error) {
           console.error('Error loading panorama:', error);
