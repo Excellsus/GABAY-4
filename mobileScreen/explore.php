@@ -817,6 +817,8 @@ try {
           // Fallback: ensure original container is visible
           svgContainer.style.display = 'block';
         }
+        // Reset panorama marker visuals when exiting panorama mode
+        try { resetPanoramaMarkers(); } catch (e) { console.warn('resetPanoramaMarkers not available on hide', e); }
       }
 
       // Global function to refresh SVG container
@@ -1019,6 +1021,9 @@ try {
           window.pendingPanoramaClick = null;
         }
         
+        // Ensure panorama markers are reset on load (no panorama open)
+        try { resetPanoramaMarkers(); } catch (e) { console.warn('resetPanoramaMarkers not available on load', e); }
+
         // Close panorama button
         const closePanoramaBtn = document.getElementById('close-panorama');
         if (closePanoramaBtn) {
@@ -1455,14 +1460,42 @@ try {
           z-index: 10000;
         `;
 
-        closeBtn.onclick = () => modal.remove();
+        // Close and reset active panorama marker state
+        closeBtn.onclick = () => {
+          modal.remove();
+          try { resetPanoramaMarkers(); } catch (e) { console.warn('resetPanoramaMarkers failed', e); }
+        };
+
         modal.onclick = (e) => {
-          if (e.target === modal) modal.remove();
+          if (e.target === modal) {
+            modal.remove();
+            try { resetPanoramaMarkers(); } catch (e) { console.warn('resetPanoramaMarkers failed', e); }
+          }
         };
 
         modal.appendChild(img);
         modal.appendChild(closeBtn);
         document.body.appendChild(modal);
+      }
+
+      // Helper to reset all panorama markers to inactive (blue) state
+      function resetPanoramaMarkers() {
+        try {
+          document.querySelectorAll('.panorama-marker').forEach(m => {
+            m.classList.remove('active');
+            const bg = m.querySelector('.camera-bg') || m.querySelector('circle');
+            if (bg) {
+              bg.setAttribute('fill', '#2563eb');
+              bg.setAttribute('r', '12');
+            }
+            const icon = m.querySelector('.camera-icon');
+            if (icon) {
+              icon.setAttribute('fill', '#ffffff');
+            }
+          });
+        } catch (e) {
+          console.warn('Error resetting panorama markers:', e);
+        }
       }
 
       // Function to draw walkable paths on the SVG (simplified version)
@@ -1559,25 +1592,30 @@ try {
                 event.preventDefault();
                 event.stopPropagation();
                 console.log(`Mobile panorama marker clicked: Path ${path.id}, Point ${index}`);
-                
-                // Reset all other panorama markers
+
+                // Reset all other panorama markers to default (blue)
                 document.querySelectorAll('.panorama-marker').forEach(m => {
                   m.classList.remove('active');
                   const bg = m.querySelector('.camera-bg');
                   if (bg) {
                     bg.setAttribute('r', '12');
-                    // Removed glow reset
+                    bg.setAttribute('fill', '#2563eb'); // default blue
+                    bg.setAttribute('stroke', '#ffffff');
+                    bg.removeAttribute('filter');
                   }
                 });
-                
-                // Highlight this marker as active
+
+                // Highlight this marker as active (yellow + larger)
                 this.classList.add('active');
                 const bg = this.querySelector('.camera-bg');
                 if (bg) {
                   bg.setAttribute('r', '15');
-                  // Removed glow effect
+                  bg.setAttribute('fill', '#fbbf24'); // yellow active color
+                  bg.setAttribute('stroke', '#ffffff');
+                  // Optionally add a subtle glow/filter via inline filter reference if defined in CSS
+                  // bg.setAttribute('filter', 'url(#panorama-active-glow)');
                 }
-                
+
                 // Call the dynamic panorama function with the correct parameters
                 showPanoramaSplitScreen(path.id, index, window.currentFloorNumber || 1);
               });
@@ -1588,7 +1626,7 @@ try {
                   const bg = this.querySelector('.camera-bg');
                   if (bg) {
                     bg.setAttribute('fill', '#3b82f6');
-                    // Removed glow effect
+                    // Do not add glow here to avoid movement side-effects
                   }
                 }
               });
@@ -1598,7 +1636,7 @@ try {
                   const bg = this.querySelector('.camera-bg');
                   if (bg) {
                     bg.setAttribute('fill', '#2563eb');
-                    // Removed glow reset
+                    // Keep radius unchanged here; active state handles size
                   }
                 }
               });
