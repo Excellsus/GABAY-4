@@ -209,40 +209,74 @@ function drawWalkablePath(walkablePath) {
         points.forEach((point, index) => {
             // Only create a clickable marker if the point is a panorama point
             if (point.isPano) {
-                const marker = document.createElementNS(svgNS, 'circle');
-                marker.setAttribute('cx', point.x);
-                marker.setAttribute('cy', point.y);
-                marker.setAttribute('r', walkablePath.style.pointMarker.radius);
-                marker.setAttribute('fill', walkablePath.style.pointMarker.color);
-                marker.setAttribute('stroke', walkablePath.style.pointMarker.strokeColor);
-                marker.setAttribute('stroke-width', walkablePath.style.pointMarker.strokeWidth);
-                marker.setAttribute('vector-effect', 'non-scaling-stroke');
-                marker.setAttribute('class', `path-marker point-marker point-${index}`);
+                // Create camera icon group
+                const marker = document.createElementNS(svgNS, 'g');
+                marker.classList.add('panorama-marker');
                 marker.setAttribute('data-path-id', walkablePath.id);
                 marker.setAttribute('data-point-index', index);
-                
-                // Make markers interactive
-                marker.style.cursor = 'pointer';
-                marker.style.pointerEvents = 'all';
-                
-                // Add hover effect
-                marker.addEventListener('mouseenter', () => {
-                    marker.setAttribute('fill', walkablePath.style.pointMarker.hoverColor);
-                    marker.setAttribute('r', walkablePath.style.pointMarker.radius * 1.5);
-                });
-                
-                marker.addEventListener('mouseleave', () => {
-                    marker.setAttribute('fill', walkablePath.style.pointMarker.color);
-                    marker.setAttribute('r', walkablePath.style.pointMarker.radius);
-                });
+
+                // Create background circle
+                const bgCircle = document.createElementNS(svgNS, 'circle');
+                bgCircle.setAttribute('cx', point.x);
+                bgCircle.setAttribute('cy', point.y);
+                bgCircle.setAttribute('r', '12'); // Match explore.php marker radius
+                bgCircle.setAttribute('fill', '#2563eb'); // Blue background
+                bgCircle.setAttribute('stroke', '#ffffff');
+                bgCircle.setAttribute('stroke-width', '1.5');
+                bgCircle.setAttribute('class', 'camera-bg');
+                bgCircle.setAttribute('vector-effect', 'non-scaling-stroke');
+
+                // Create camera icon path
+                const cameraIcon = document.createElementNS(svgNS, 'path');
+                cameraIcon.setAttribute('d', 'M14 4h-1l-2-2h-2l-2 2h-1c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-8c0-1.1-.9-2-2-2zm-4 7c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z');
+                cameraIcon.setAttribute('fill', '#ffffff');
+                // Adjust transform to match explore.php marker sizing
+                cameraIcon.setAttribute('transform', `translate(${point.x - 8}, ${point.y - 8}) scale(0.8)`);
+                cameraIcon.setAttribute('class', 'camera-icon');
+                cameraIcon.style.pointerEvents = 'none'; // Make icon non-interactive
+
+                marker.appendChild(bgCircle);
+                marker.appendChild(cameraIcon);
 
                 // Add a click listener for the admin to edit the panorama
-                marker.addEventListener('click', () => {
+                marker.addEventListener('click', (event) => {
+                    event.stopPropagation(); // Prevent room click handler from firing
                     console.log('Clicked panorama point:', point);
-                    // You can add your logic here to open a modal to upload/change the equirectangular image
-                                        // NEW: Call function to open the editor modal
-                    openPanoramaEditor(walkablePath.id, index, point.panoImage || '');
 
+                    // Deactivate any other active markers
+                    document.querySelectorAll('.panorama-marker.active').forEach(activeMarker => {
+                        activeMarker.classList.remove('active');
+                        const activeBg = activeMarker.querySelector('.camera-bg');
+                        if (activeBg) {
+                            activeBg.setAttribute('fill', '#2563eb');
+                            activeBg.setAttribute('r', '12');
+                        }
+                    });
+
+                    // Activate the clicked marker and style it as active (yellow + larger)
+                    marker.classList.add('active');
+                    const thisBg = marker.querySelector('.camera-bg');
+                    if (thisBg) {
+                        thisBg.setAttribute('fill', '#fbbf24'); // Yellow active color
+                        thisBg.setAttribute('r', '15');
+                    }
+                    
+                    // Call function to open the editor modal
+                    openPanoramaEditor(walkablePath.id, index, point.panoImage || '');
+                });
+
+                // Hover effects - change to lighter blue but do not animate
+                marker.addEventListener('mouseenter', () => {
+                    if (!marker.classList.contains('active')) {
+                        const bg = marker.querySelector('.camera-bg');
+                        if (bg) bg.setAttribute('fill', '#3b82f6');
+                    }
+                });
+                marker.addEventListener('mouseleave', () => {
+                    if (!marker.classList.contains('active')) {
+                        const bg = marker.querySelector('.camera-bg');
+                        if (bg) bg.setAttribute('fill', '#2563eb');
+                    }
                 });
                 
                 markerGroup.appendChild(marker);

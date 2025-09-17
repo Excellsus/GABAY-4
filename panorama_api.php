@@ -40,6 +40,10 @@ try {
             handleListPanoramas();
             break;
             
+        case 'get_for_point':
+            handleGetPanoramaForPoint();
+            break;
+            
         default:
             throw new Exception('Invalid action specified');
     }
@@ -261,6 +265,40 @@ function handleListPanoramas() {
         'panoramas' => $panoramas,
         'count' => count($panoramas)
     ]);
+}
+
+/**
+ * Get panorama data for a specific floor graph point (for mobile explore.php)
+ */
+function handleGetPanoramaForPoint() {
+    global $connect;
+    
+    $pathId = $_GET['path_id'] ?? '';
+    $pointIndex = $_GET['point_index'] ?? '';
+    $floorNumber = $_GET['floor_number'] ?? 1;
+    
+    if (empty($pathId) || $pointIndex === '') {
+        echo json_encode([
+            'success' => false,
+            'error' => 'path_id and point_index are required'
+        ]);
+        return;
+    }
+    
+    $panorama = getPanoramaByPoint($connect, $pathId, (int)$pointIndex, (int)$floorNumber);
+    
+    if ($panorama) {
+        echo json_encode([
+            'success' => true,
+            'panorama' => $panorama,
+            'image_url' => 'Pano/' . $panorama['image_filename']
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'error' => 'No panorama found for the specified point'
+        ]);
+    }
 }
 
 ?>

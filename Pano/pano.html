@@ -11,29 +11,176 @@
       <a-entity camera look-controls>
         <a-entity cursor="rayOrigin: mouse"></a-entity>
       </a-entity>
-      <a-sky src="62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg"></a-sky>
-      <!-- Hotspot to go to Sulod_balay.jpg (visible in Gwa_balay.jpg) -->
-      <a-entity class="hotspot"
-                data-image="62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg"
-                geometry="primitive: cone; radiusBottom: 0.2; radiusTop: 0; height: 0.5"
-                material="color: red"
-                position="0 0 -4"
-                visible="true"
-                event-set__enter="_event: mouseenter; material.color: yellow"
-                event-set__leave="_event: mouseleave; material.color: red"
-                hotspot-listener="target: f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg">
-      </a-entity>
-      <!-- Hotspot to go back to Gwa_balay.jpg (visible in Sulod_balay.jpg) -->
-      <a-entity class="hotspot"
-                data-image="f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg"
-                geometry="primitive: sphere; radius: 1"
-                material="color: blue"
-                position="-3 -2 9"
-                visible="false"
-                event-set__enter="_event: mouseenter; material.color: cyan"
-                event-set__leave="_event: mouseleave; material.color: blue"
-                hotspot-listener="target: 62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg">
-      </a-entity>
+      <!-- Sky will be set dynamically -->
+      <a-sky id="panorama-sky" src=""></a-sky>
+      <!-- Hotspots will be added dynamically -->
     </a-scene>
+    
+    <!-- Fallback overlay when no panorama is available -->
+    <div id="pano-fallback-overlay" style="display:none; position:fixed; inset:0; z-index:1000; background:#000; color:#fff; align-items:center; justify-content:center; text-align:center;">
+      <div style="padding:20px; max-width:90vw;">
+        <h2 style="font-family:Arial, Helvetica, sans-serif; font-size:18px; margin:0;">No available panorama for this section :(</h2>
+      </div>
+    </div>
+    
+    <script>
+      // Get URL parameters
+      function getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          pathId: params.get('path_id') || 'path1',
+          pointIndex: params.get('point_index') || '5',
+          floorNumber: params.get('floor_number') || '1'
+        };
+      }
+      
+      // Load panorama data and set up scene
+      async function loadPanoramaData() {
+        const params = getUrlParams();
+        
+        try {
+          const response = await fetch(`../panorama_api.php?action=get_for_point&path_id=${params.pathId}&point_index=${params.pointIndex}&floor_number=${params.floorNumber}`);
+          const data = await response.json();
+          
+          const sky = document.getElementById('panorama-sky');
+          const fallbackOverlay = document.getElementById('pano-fallback-overlay');
+
+          if (data.success && data.panorama) {
+            // Hide fallback overlay if it was showing
+            if (fallbackOverlay) {
+              fallbackOverlay.style.display = 'none';
+            }
+
+            // Set the main panorama image
+            sky.setAttribute('src', '../' + data.image_url);
+
+            // Load related panoramas for hotspots
+            await loadHotspots(params.floorNumber);
+
+            console.log('Panorama loaded:', data.panorama.title || 'Unnamed');
+          } else {
+            console.error('Failed to load panorama:', data.error);
+            // No panorama available for this point: show black-screen overlay with message
+            if (fallbackOverlay) {
+              fallbackOverlay.style.display = 'flex';
+            } else {
+              // As a safety, set sky to a solid black texture by using a tiny 1x1 black data URI
+              sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
+            }
+          }
+        } catch (error) {
+          console.error('Error loading panorama:', error);
+          // Show fallback overlay for network/API errors
+          const fallbackOverlay = document.getElementById('pano-fallback-overlay');
+          if (fallbackOverlay) {
+            fallbackOverlay.style.display = 'flex';
+          } else {
+            // As a safety, set sky to a solid black texture
+            const sky = document.getElementById('panorama-sky');
+            sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
+          }
+        }
+      }
+      
+      // Load hotspots for navigation between panoramas
+      async function loadHotspots(floorNumber) {
+        try {
+          const response = await fetch(`../panorama_api.php?action=list&floor_number=${floorNumber}`);
+          const data = await response.json();
+          
+          if (data.success && data.panoramas) {
+            const scene = document.querySelector('a-scene');
+            
+            // Create hotspots for each available panorama (limit to avoid clutter)
+            data.panoramas.slice(0, 3).forEach((panorama, index) => {
+              // Create a camera-shaped hotspot using basic shapes
+              const hotspot = document.createElement('a-entity');
+              hotspot.setAttribute('class', 'hotspot camera-hotspot');
+              
+              // Create camera body (main rectangle)
+              const cameraBody = document.createElement('a-box');
+              cameraBody.setAttribute('width', '0.4');
+              cameraBody.setAttribute('height', '0.3');
+              cameraBody.setAttribute('depth', '0.2');
+              cameraBody.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+              
+              // Create camera lens (cylinder)
+              const cameraLens = document.createElement('a-cylinder');
+              cameraLens.setAttribute('radius', '0.1');
+              cameraLens.setAttribute('height', '0.1');
+              cameraLens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+              cameraLens.setAttribute('position', '0 0 0.15');
+              cameraLens.setAttribute('rotation', '90 0 0');
+              
+              hotspot.appendChild(cameraBody);
+              hotspot.appendChild(cameraLens);
+              
+              // Position hotspots around the scene
+              const angle = (index * 120) * (Math.PI / 180); // 120 degrees apart
+              const radius = 4;
+              const x = Math.cos(angle) * radius;
+              const z = Math.sin(angle) * radius;
+              hotspot.setAttribute('position', `${x} 0 ${z}`);
+              
+              // Make hotspot face the center
+              hotspot.setAttribute('look-at', '0 0 0');
+              
+              // Add hover and active state management
+              let isActive = false;
+              
+              // Add hover effects
+              hotspot.addEventListener('mouseenter', () => {
+                if (!isActive) {
+                  cameraBody.setAttribute('material', 'color: #3b82f6; opacity: 0.9');
+                  cameraLens.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+                  hotspot.setAttribute('scale', '1.2 1.2 1.2');
+                }
+              });
+              
+              hotspot.addEventListener('mouseleave', () => {
+                if (!isActive) {
+                  cameraBody.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+                  cameraLens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+                  hotspot.setAttribute('scale', '1 1 1');
+                }
+              });
+              
+              // Add click listener to navigate to panorama
+              hotspot.addEventListener('click', () => {
+                // Reset all other hotspots
+                document.querySelectorAll('.camera-hotspot').forEach(h => {
+                  const body = h.querySelector('a-box');
+                  const lens = h.querySelector('a-cylinder');
+                  if (body && lens) {
+                    body.setAttribute('material', 'color: #2563eb; opacity: 0.9');
+                    lens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+                    h.setAttribute('scale', '1 1 1');
+                  }
+                });
+                
+                // Highlight this hotspot as active
+                isActive = true;
+                cameraBody.setAttribute('material', 'color: #fbbf24; opacity: 1');
+                cameraLens.setAttribute('material', 'color: #f59e0b; opacity: 1');
+                hotspot.setAttribute('scale', '1.3 1.3 1.3');
+                
+                // Navigate to the new panorama
+                const newUrl = `pano.html?path_id=${panorama.path_id}&point_index=${panorama.point_index}&floor_number=${panorama.floor_number}`;
+                window.location.href = newUrl;
+              });
+              
+              scene.appendChild(hotspot);
+            });
+          }
+        } catch (error) {
+          console.error('Error loading hotspots:', error);
+        }
+      }
+      
+      // Initialize when DOM is loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        loadPanoramaData();
+      });
+    </script>
   </body>
 </html>

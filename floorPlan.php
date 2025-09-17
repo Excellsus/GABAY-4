@@ -891,7 +891,7 @@ if (isset($_GET['selectRoom'])) {
       previewContainer.innerHTML = '<span class="text-gray-400">Checking for existing panorama...</span>';
       removeBtn.style.display = 'none';
       const params = new URLSearchParams({
-        action: 'get',
+        action: 'get',  
         path_id: pathId,
         point_index: pointIndex,
         floor_number: floorNum
@@ -918,7 +918,20 @@ if (isset($_GET['selectRoom'])) {
     }
 
     function closePanoramaModal() {
-        panoramaModal.classList.remove('active');
+    panoramaModal.classList.remove('active');
+    // Reset all panorama markers to inactive (blue) when modal closes
+    try {
+      document.querySelectorAll('.panorama-marker').forEach(m => {
+        m.classList.remove('active');
+        const bg = m.querySelector('.camera-bg');
+        if (bg) {
+          bg.setAttribute('fill', '#2563eb');
+          bg.setAttribute('r', '12');
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to reset panorama markers on modal close:', e);
+    }
     }
 
     function previewFile() {
