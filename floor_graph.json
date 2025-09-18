@@ -355,8 +355,17 @@
                     "panoImage": "pano_path1_7_1758031559_68c96ec7edf30.jpg",
                     "panoTitle": "Security",
                     "panoDescription": null
+                },
+                {
+                    "x": 100,
+                    "y": 340,
+                    "isPano": true,
+                    "isIntersection":true,
+                    "panoImage": "pano_path1_8_1758031559_68c96ec7edf30.jpg",
+                    "panoTitle": "Exit",
+                    "panoDescription": null
                 }
-            ]
+             ]
         },
         {
             "id": "path2",

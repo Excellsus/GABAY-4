@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 16, 2025 at 09:09 AM
+-- Generation Time: Sep 18, 2025 at 05:32 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -563,7 +563,30 @@ CREATE TABLE `panorama_image` (
 INSERT INTO `panorama_image` (`id`, `path_id`, `point_index`, `point_x`, `point_y`, `floor_number`, `image_filename`, `original_filename`, `title`, `description`, `file_size`, `mime_type`, `is_active`, `uploaded_by`, `uploaded_at`, `updated_at`) VALUES
 (12, 'path1_floor2', 0, 170.00, 185.00, 2, 'pano_path1_floor2_0_1757954203_68c8409bb4002.jpg', 'f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg', NULL, NULL, 361505, 'image/jpeg', 1, NULL, '2025-09-15 16:36:43', '2025-09-15 16:36:43'),
 (13, 'lobby_vertical_1_floor3', 1, 845.00, 233.00, 3, 'pano_lobby_vertical_1_floor3_1_1757954235_68c840bbdbdd1.jpg', '62b5213f-4e9b-4c20-938d-cd121e77fa68.jpg', NULL, NULL, 897235, 'image/jpeg', 1, NULL, '2025-09-15 16:37:15', '2025-09-15 16:37:15'),
-(14, 'path1', 5, 165.00, 340.00, 1, 'pano_path1_5_1758001784_68c8fa782ed50.jpg', 'f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg', 'ICTD/Security Guard', 'none', 361505, 'image/jpeg', 1, NULL, '2025-09-16 05:49:44', '2025-09-16 05:49:44');
+(15, 'path1', 5, 165.00, 340.00, 1, 'pano_path1_5_1758031418_68c96e3a1d147.jpg', 'd4963c2e-827e-4474-8cae-1cae1732e237.jpg', 'Exit', NULL, 379578, 'image/jpeg', 1, NULL, '2025-09-16 14:03:38', '2025-09-16 14:03:38'),
+(17, 'path1', 7, 220.00, 340.00, 1, 'pano_path1_7_1758031559_68c96ec7edf30.jpg', 'f7602a28-730b-4f04-bb2e-e2b76b329a17.jpg', 'Security', NULL, 361505, 'image/jpeg', 1, NULL, '2025-09-16 14:05:59', '2025-09-16 14:05:59'),
+(19, 'path1', 4, 165.00, 255.00, 1, 'pano_path1_4_1758031979_68c9706b4f9ff.jpg', '3c4c94e6-ec09-4ede-8078-1af34e00975d.jpg', 'Inner', NULL, 342147, 'image/jpeg', 1, NULL, '2025-09-16 14:12:59', '2025-09-16 14:12:59'),
+(20, 'path1', 2, 165.00, 175.00, 1, 'pano_path1_2_1758097274_68ca6f7a1ee01.jpg', '86ed8c30-b083-4981-b9a1-159f09d0bebc.jpg', 'Procurement', NULL, 335786, 'image/jpeg', 1, NULL, '2025-09-17 08:21:14', '2025-09-17 08:21:14'),
+(21, 'path1', 1, 130.00, 175.00, 1, 'pano_path1_1_1758098248_68ca73482277c.jpg', 'f9bf2021-a541-444f-b272-af81929147b1.jpg', '1st Floor CR to Stairs', NULL, 304593, 'image/jpeg', 1, NULL, '2025-09-17 08:37:28', '2025-09-17 08:37:28'),
+(24, 'path2', 0, 467.00, 220.00, 1, 'pano_path2_0_1758099304_68ca7768c0d44.jpg', 'cdf2ffa4-4532-4903-948c-9dc82b483efd.jpg', 'Me and the bois', NULL, 359876, 'image/jpeg', 1, NULL, '2025-09-17 08:55:04', '2025-09-17 08:55:04'),
+(25, 'path2', 7, 950.00, 130.00, 1, 'pano_path2_7_1758099716_68ca7904c9c49.jpg', '077b71e3-79c7-42ba-99bf-9c0dafb9d405.jpg', NULL, NULL, 317898, 'image/jpeg', 1, NULL, '2025-09-17 09:01:56', '2025-09-17 09:01:56'),
+(26, 'path2', 6, 880.00, 130.00, 1, 'pano_path2_6_1758100210_68ca7af233fb9.jpg', '70364a1c-f6d5-4c5f-8f8b-7c846190f3db.jpg', NULL, NULL, 258188, 'image/jpeg', 1, NULL, '2025-09-17 09:10:10', '2025-09-17 09:10:10'),
+(27, 'path2', 5, 851.00, 130.00, 1, 'pano_path2_5_1758100261_68ca7b25392f7.jpg', 'd3c163d5-4fce-4a1c-bd99-fe8cba293789.jpg', NULL, NULL, 337021, 'image/jpeg', 1, NULL, '2025-09-17 09:11:01', '2025-09-17 09:11:01'),
+(28, 'path2', 4, 850.00, 220.00, 1, 'pano_path2_4_1758100366_68ca7b8eb4e92.jpg', '9163cc42-9f68-4122-9b6f-2fd01a330797.jpg', NULL, NULL, 392133, 'image/jpeg', 1, NULL, '2025-09-17 09:12:46', '2025-09-17 09:12:46'),
+(29, 'path2', 2, 770.00, 220.00, 1, 'pano_path2_2_1758100404_68ca7bb431344.jpg', '6c3da21e-cd73-4b29-b05c-8481c1520c8c.jpg', NULL, NULL, 354986, 'image/jpeg', 1, NULL, '2025-09-17 09:13:24', '2025-09-17 09:13:24'),
+(30, 'path2', 8, 1020.00, 130.00, 1, 'pano_path2_8_1758100471_68ca7bf7c3f32.jpg', '7c7c9b80-3cc9-47ac-813d-fb9ec8d60902.jpg', NULL, NULL, 264176, 'image/jpeg', 1, NULL, '2025-09-17 09:14:31', '2025-09-17 09:14:31'),
+(31, 'path2', 9, 1045.00, 130.00, 1, 'pano_path2_9_1758100513_68ca7c21b7356.jpg', '8c161297-ffa7-4293-91bf-18d9ab188112.jpg', NULL, NULL, 268616, 'image/jpeg', 1, NULL, '2025-09-17 09:15:13', '2025-09-17 09:15:13'),
+(32, 'path2', 10, 1045.00, 215.00, 1, 'pano_path2_10_1758100552_68ca7c48f0090.jpg', 'df890e54-913b-4549-a6b9-d6be9a2c79e2.jpg', NULL, NULL, 327894, 'image/jpeg', 1, NULL, '2025-09-17 09:15:52', '2025-09-17 09:15:52'),
+(34, 'path2', 12, 1184.00, 215.00, 1, 'pano_path2_12_1758100718_68ca7cee279fa.jpg', 'fbda1e1e-03c7-4e36-826b-8eaaf9507571 (1).jpg', NULL, NULL, 380276, 'image/jpeg', 1, NULL, '2025-09-17 09:18:38', '2025-09-17 09:18:38'),
+(35, 'path2', 13, 1313.00, 215.00, 1, 'pano_path2_13_1758100802_68ca7d421801d.jpg', 'f804d8d7-9523-4c2c-87ff-752ebd2278a7.jpg', NULL, NULL, 314432, 'image/jpeg', 1, NULL, '2025-09-17 09:20:02', '2025-09-17 09:20:02'),
+(36, 'path2', 14, 1419.00, 215.00, 1, 'pano_path2_14_1758100835_68ca7d63de0a0.jpg', 'fa882327-d331-444b-aec5-a29070fa7057.jpg', NULL, NULL, 293210, 'image/jpeg', 1, NULL, '2025-09-17 09:20:35', '2025-09-17 09:20:35'),
+(37, 'path2', 15, 1449.00, 215.00, 1, 'pano_path2_15_1758100884_68ca7d94d802f.jpg', 'dde9f348-482a-4320-b93b-cc18460db76f.jpg', NULL, NULL, 323785, 'image/jpeg', 1, NULL, '2025-09-17 09:21:24', '2025-09-17 09:21:24'),
+(38, 'path2', 16, 1557.00, 215.00, 1, 'pano_path2_16_1758100944_68ca7dd0130bb.jpg', '4c5facfe-f7fa-47d9-89d5-082fb715e1c3.jpg', NULL, NULL, 372607, 'image/jpeg', 1, NULL, '2025-09-17 09:22:24', '2025-09-17 09:22:24'),
+(39, 'path2', 17, 1685.00, 215.00, 1, 'pano_path2_17_1758100999_68ca7e07e34dd.jpg', '11bcd465-2e75-4ca7-9e74-4a963502e329.jpg', NULL, NULL, 364000, 'image/jpeg', 1, NULL, '2025-09-17 09:23:19', '2025-09-17 09:23:19'),
+(40, 'path2', 18, 1778.00, 215.00, 1, 'pano_path2_18_1758101042_68ca7e32c761b.jpg', '8788b7ad-110a-4ba4-8c58-6c5e8125c737.jpg', NULL, NULL, 337180, 'image/jpeg', 1, NULL, '2025-09-17 09:24:02', '2025-09-17 09:24:02'),
+(41, 'path2', 19, 1778.00, 170.00, 1, 'pano_path2_19_1758101166_68ca7eae74cf7.jpg', '39951a4d-65c9-4d33-9157-dcdf9b998501.jpg', NULL, NULL, 351486, 'image/jpeg', 1, NULL, '2025-09-17 09:26:06', '2025-09-17 09:26:06'),
+(42, 'path2', 20, 1778.00, 110.00, 1, 'pano_path2_20_1758101227_68ca7eeb063b4.jpg', '5e4539a1-eb64-4fc5-91da-0ea07fb944a8.jpg', NULL, NULL, 408836, 'image/jpeg', 1, NULL, '2025-09-17 09:27:07', '2025-09-17 09:27:07'),
+(45, 'path5_floor2', 1, 235.00, 255.00, 2, 'pano_path5_floor2_1_1758206405_68cc19c5e754f.jpg', '4eb298d5-a1d4-4642-a1b4-4bd9757e1ab4.jpg', 'Gwa Capitol', 'Kami sa gwa', 502632, 'image/jpeg', 1, NULL, '2025-09-18 14:40:05', '2025-09-18 14:40:05');
 
 -- --------------------------------------------------------
 
@@ -1395,7 +1418,7 @@ ALTER TABLE `office_image`
 -- AUTO_INCREMENT for table `panorama_image`
 --
 ALTER TABLE `panorama_image`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT for table `qrcode_info`
