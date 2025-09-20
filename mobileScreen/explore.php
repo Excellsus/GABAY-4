@@ -683,7 +683,7 @@ try {
       }
 
       // Simple function to show panorama split screen (move original SVG so pan/zoom stays functional)
-      function showPanoramaSplitScreen(pathId = 'path1', pointIndex = 5, floorNumber = 1) {
+      async function showPanoramaSplitScreen(pathId = 'path1', pointIndex = 5, floorNumber = 1) {
         console.log(`🚀 SHOWING PANORAMA SPLIT SCREEN for path:${pathId}, point:${pointIndex}, floor:${floorNumber}`);
 
         const splitScreen = document.getElementById('panorama-split-screen');
@@ -706,6 +706,28 @@ try {
           console.log('✅ Panorama iframe loaded with URL:', panoUrl);
         } else {
           console.error('❌ Panorama viewer element (.panorama-viewer) not found');
+        }
+
+        // Populate panorama title and description in the split-screen header (use API and fallbacks)
+        try {
+          const panoramaTitleEl = splitScreen.querySelector('#panorama-location-title') || document.getElementById('panorama-location-title');
+          const panoramaDescEl = splitScreen.querySelector('#panorama-description') || document.getElementById('panorama-description');
+
+          // Default placeholders
+          const TITLE_FALLBACK = 'Untitled Panorama';
+          const DESC_FALLBACK = 'No description available.';
+
+          // Attempt to fetch metadata via existing helper (non-blocking if API fails)
+          const meta = await fetchPanoramaData(pathId, pointIndex, floorNumber);
+
+          if (panoramaTitleEl) panoramaTitleEl.textContent = (meta && meta.title) ? meta.title : TITLE_FALLBACK;
+          if (panoramaDescEl) panoramaDescEl.textContent = (meta && meta.description) ? meta.description : DESC_FALLBACK;
+        } catch (err) {
+          console.warn('Failed to populate panorama metadata, applying placeholders.', err);
+          const panoramaTitleEl = splitScreen.querySelector('#panorama-location-title') || document.getElementById('panorama-location-title');
+          const panoramaDescEl = splitScreen.querySelector('#panorama-description') || document.getElementById('panorama-description');
+          if (panoramaTitleEl) panoramaTitleEl.textContent = 'Untitled Panorama';
+          if (panoramaDescEl) panoramaDescEl.textContent = 'No description available.';
         }
 
         // Move the real SVG element into the split-screen map container so svgPanZoom instance remains attached
