@@ -164,8 +164,8 @@
         "room-11-1": {
             "doorPoints": [
                 {
-                    "x": 1083,
-                    "y": 185,
+                    "x": 1068,
+                    "y": 130,
                     "nearestPathId": "path2"
                 }
             ],
@@ -360,12 +360,12 @@
                     "x": 100,
                     "y": 340,
                     "isPano": true,
-                    "isIntersection": true,
-                    "panoImage": "pano_path1_8_1758350771_68ce4db3ddb85.jpg",
+                    "isIntersection":true,
+                    "panoImage": "pano_path1_8_1758031559_68c96ec7edf30.jpg",
                     "panoTitle": "Exit",
-                    "panoDescription": "Exit na ni lods"
+                    "panoDescription": null
                 }
-            ]
+             ]
         },
         {
             "id": "path2",
