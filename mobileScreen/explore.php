@@ -122,10 +122,10 @@ try {
           <button class="floor-btn" data-floor="3">3F</button>
         </div>
         
-        <!-- DEBUG: Test Panorama Button -->
+        <!-- Placeholder: Switch to 3D View -->
         <div style="position: absolute; top: 80px; right: 10px; z-index: 1001;">
-          <button onclick="showPanoramaSplitScreen('path1', 5, 1)" style="padding: 8px 12px; background: #ff4444; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-            TEST PANORAMA
+          <button id="switch-3d-view-btn" style="padding: 8px 12px; background: #ff8c00; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+            Switch to 3D View
           </button>
         </div>
 
