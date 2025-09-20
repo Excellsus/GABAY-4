@@ -526,7 +526,10 @@
                     "x": 235,
                     "y": 255,
                     "isPano": true,
-                    "isIntersection": true
+                    "isIntersection": true,
+                    "panoImage": "pano_path5_floor2_1_1758206405_68cc19c5e754f.jpg",
+                    "panoTitle": "Gwa Capitol",
+                    "panoDescription": "Kami sa gwa"
                 }
             ]
         },

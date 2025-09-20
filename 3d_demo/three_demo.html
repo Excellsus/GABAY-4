@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>three.js GLB Demo</title>
+    <style>body,html{height:100%;margin:0;background:#111} #canvas-container{width:95vw;height:90vh;margin:2.5vh auto;background:#222;border-radius:8px;overflow:hidden;position:relative}</style>
+  </head>
+  <body>
+    <div id="canvas-container">
+      <div id="loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-size:24px;">
+        Loading 3D viewer...
+      </div>
+    </div>
+    
+    <!-- Load libraries with proper ES6 modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+    
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      
+      // Make THREE available globally for our script
+      window.THREE = THREE;
+      window.OrbitControls = OrbitControls;
+      window.GLTFLoader = GLTFLoader;
+      
+      // Load our app script after libraries are ready
+      const script = document.createElement('script');
+      script.src = './three_demo.js';
+      script.onload = function() {
+        console.log('three_demo.js loaded successfully');
+      };
+      script.onerror = function() {
+        document.getElementById('loading').innerHTML = 'Error loading three_demo.js';
+        console.error('Failed to load three_demo.js');
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
