@@ -1,20 +1,158 @@
 <html>
   <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Panorama Viewer</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-mouse-wheel-component/dist/aframe-mouse-wheel-component.min.js"></script>
     <script src="https://unpkg.com/aframe-touch-zoom-component/dist/aframe-touch-zoom-component.min.js"></script>
     <script src="pano.js"></script>
+    
+    <!-- Ground Navigation Arrow Styles -->
+    <style>
+      /* Ensure full screen mobile experience */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        touch-action: pan-x pan-y;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      /* Prevent iOS Safari bounce */
+      body {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+      }
+      
+      /* Ensure A-Frame canvas accepts touch input */
+      a-scene, a-scene canvas {
+        touch-action: pan-x pan-y !important;
+        user-select: none !important;
+      }
+      
+      .navigation-arrow-ui {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+      }
+      
+      .navigation-arrow-ui.visible {
+        opacity: 1;
+      }
+      
+      .arrow-hint {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(59, 130, 246, 0.9);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1001;
+      }
+      
+      .arrow-hint.show {
+        opacity: 1;
+      }
+      
+      /* Loading spinner for panorama transitions */
+      .panorama-loader {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        z-index: 1002;
+        display: none;
+      }
+      
+      @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+    </style>
   </head>
   <body>
-    <a-scene mouse-wheel="fovMin: 30; fovMax: 100;" touch-zoom>
-      <!-- Camera and mouse cursor for desktop/mobile interaction -->
-      <a-entity camera look-controls>
-        <a-entity cursor="rayOrigin: mouse"></a-entity>
+    <!-- Touch-optimized A-Frame scene without VR dependencies -->
+    <a-scene 
+      mouse-wheel="fovMin: 30; fovMax: 100;" 
+      touch-zoom
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable-arrow"
+      vr-mode-ui="enabled: false"
+      loading-screen="enabled: false"
+      background="color: #000000"
+      embedded
+      device-orientation-permission-ui="enabled: false"
+      style="height: 100vh; width: 100vw;">
+      
+      <!-- Touch-optimized camera for mobile navigation -->
+      <a-entity 
+        camera 
+        look-controls="
+          enabled: true;
+          touchEnabled: true;
+          mouseEnabled: true;
+          pointerLockEnabled: false;
+          magicWindowTrackingEnabled: false;
+          reverseMouseDrag: false;
+          reverseTouchDrag: false;
+        "
+        mobile-look-controls
+        wasd-controls="enabled: false">
+        <a-entity 
+          cursor="rayOrigin: mouse" 
+          raycaster="objects: .clickable-arrow; showLine: false"
+          position="0 0 -1">
+        </a-entity>
       </a-entity>
+      
       <!-- Sky will be set dynamically -->
       <a-sky id="panorama-sky" src=""></a-sky>
+      
       <!-- Hotspots will be added dynamically -->
     </a-scene>
+    
+    <!-- Navigation UI Elements -->
+    <div id="navigation-ui" class="navigation-arrow-ui">
+      <span id="navigation-text">Click arrows to navigate</span>
+    </div>
+    
+    <div id="arrow-hint" class="arrow-hint">
+      <span id="hint-text">Loading next panorama...</span>
+    </div>
+    
+    <div id="panorama-loader" class="panorama-loader"></div>
     
     <!-- Fallback overlay when no panorama is available -->
     <div id="pano-fallback-overlay" style="display:none; position:fixed; inset:0; z-index:1000; background:#000; color:#fff; align-items:center; justify-content:center; text-align:center;">
@@ -24,6 +162,103 @@
     </div>
     
     <script>
+      // Custom A-Frame component to enable full vertical movement
+      AFRAME.registerComponent('mobile-look-controls', {
+        init: function () {
+          const el = this.el;
+          
+          // Override the look-controls component to allow full vertical movement
+          setTimeout(() => {
+            const lookControls = el.components['look-controls'];
+            if (lookControls) {
+              // Remove any pitch constraints
+              lookControls.pitchObject = el.object3D;
+              lookControls.yawObject = el.object3D;
+              
+              // Enable full vertical range
+              if (lookControls.data) {
+                lookControls.data.enabled = true;
+                lookControls.data.touchEnabled = true;
+                lookControls.data.mouseEnabled = true;
+              }
+              
+              console.log('✅ Mobile look controls configured for full 360° movement');
+            }
+          }, 100);
+        }
+      });
+      
+      // Disable VR and sensor-related features completely
+      document.addEventListener('DOMContentLoaded', function() {
+        // Override A-Frame VR manager to prevent sensor access attempts
+        if (typeof AFRAME !== 'undefined') {
+          // Disable device orientation tracking globally
+          AFRAME.utils.device.isMobile = function() { return false; };
+          AFRAME.utils.device.isTablet = function() { return false; };
+          
+          // Override VR display detection
+          if (navigator.getVRDisplays) {
+            navigator.getVRDisplays = function() {
+              return Promise.resolve([]);
+            };
+          }
+          
+          // Disable device orientation events with passive listeners
+          window.addEventListener('deviceorientation', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }, { passive: false, capture: true });
+          
+          window.addEventListener('devicemotion', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }, { passive: false, capture: true });
+        }
+        
+        // Enhanced touch controls for mobile panorama navigation
+        setTimeout(() => {
+          const camera = document.querySelector('[camera]');
+          if (camera) {
+            // Force enable look-controls and verify configuration
+            const lookControls = camera.components['look-controls'];
+            if (lookControls) {
+              lookControls.data.enabled = true;
+              lookControls.data.touchEnabled = true;
+              lookControls.data.magicWindowTrackingEnabled = false;
+              
+              // Force remove any pitch constraints in A-Frame 1.5.0
+              if (lookControls.pitchObject) {
+                lookControls.pitchObject = camera.object3D;
+              }
+              if (lookControls.yawObject) {
+                lookControls.yawObject = camera.object3D;
+              }
+              
+              // Remove any pitch constraints that might be set internally
+              lookControls.minPitch = -Math.PI / 2; // -90 degrees
+              lookControls.maxPitch = Math.PI / 2;  // +90 degrees
+              
+              console.log('✅ Enhanced touch controls configured:', lookControls.data);
+              console.log('✅ Pitch range set to:', lookControls.minPitch, 'to', lookControls.maxPitch);
+            }
+            
+            // Add custom touch event debugging with passive listeners
+            const scene = document.querySelector('a-scene');
+            if (scene && scene.canvas) {
+              scene.canvas.addEventListener('touchstart', function(e) {
+                console.log('📱 Touch start detected:', e.touches.length);
+              }, { passive: true });
+              
+              scene.canvas.addEventListener('touchmove', function(e) {
+                console.log('📱 Touch move detected - X:', e.touches[0].clientX, 'Y:', e.touches[0].clientY);
+              }, { passive: true });
+            }
+          }
+        }, 1000);
+        
+        console.log('🚀 Touch-only panorama viewer initialized (VR/sensor features disabled)');
+      });
+      
       // Get URL parameters
       function getUrlParams() {
         const params = new URLSearchParams(window.location.search);
@@ -34,14 +269,31 @@
         };
       }
       
-      // Load panorama data and set up scene
+      // Enhanced panorama data loading with performance optimizations
       async function loadPanoramaData() {
         const params = getUrlParams();
+        const loader = document.getElementById('panorama-loader');
         
         try {
-          const response = await fetch(`../panorama_api.php?action=get_for_point&path_id=${params.pathId}&point_index=${params.pointIndex}&floor_number=${params.floorNumber}`);
-          const data = await response.json();
+          // Show loading indicator
+          if (loader) loader.style.display = 'block';
           
+          // Add timeout for API calls
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          
+          const response = await fetch(
+            `../panorama_api.php?action=get_for_point&path_id=${params.pathId}&point_index=${params.pointIndex}&floor_number=${params.floorNumber}`,
+            { signal: controller.signal }
+          );
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
           const sky = document.getElementById('panorama-sky');
           const fallbackOverlay = document.getElementById('pano-fallback-overlay');
 
@@ -51,135 +303,455 @@
               fallbackOverlay.style.display = 'none';
             }
 
-            // Set the main panorama image
-            sky.setAttribute('src', '../' + data.image_url);
+            // Preload image for smoother transitions
+            const img = new Image();
+            img.onload = () => {
+              sky.setAttribute('src', '../' + data.image_url);
+              if (loader) loader.style.display = 'none';
+              showNavigationHint(`📍 ${data.panorama.title || 'Panorama Loaded'}`);
+            };
+            img.onerror = () => {
+              console.error('Failed to load panorama image');
+              showFallback();
+            };
+            img.src = '../' + data.image_url;
 
-            // Load related panoramas for hotspots
+            // Load navigation arrows
             await loadHotspots(params.floorNumber);
 
-            console.log('Panorama loaded:', data.panorama.title || 'Unnamed');
+            console.log('🌄 Panorama loaded:', data.panorama.title || 'Unnamed');
           } else {
-            console.error('Failed to load panorama:', data.error);
-            // No panorama available for this point: show black-screen overlay with message
-            if (fallbackOverlay) {
-              fallbackOverlay.style.display = 'flex';
-            } else {
-              // As a safety, set sky to a solid black texture by using a tiny 1x1 black data URI
-              sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
-            }
+            console.error('Failed to load panorama:', data.error || 'Unknown error');
+            showFallback();
           }
         } catch (error) {
           console.error('Error loading panorama:', error);
-          // Show fallback overlay for network/API errors
-          const fallbackOverlay = document.getElementById('pano-fallback-overlay');
-          if (fallbackOverlay) {
-            fallbackOverlay.style.display = 'flex';
+          if (error.name === 'AbortError') {
+            showTemporaryMessage('Request timed out. Please check your connection.');
           } else {
-            // As a safety, set sky to a solid black texture
-            const sky = document.getElementById('panorama-sky');
-            sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
+            showTemporaryMessage('Failed to load panorama. Please try again.');
           }
+          showFallback();
         }
       }
       
+      // Show fallback when panorama fails to load
+      function showFallback() {
+        const fallbackOverlay = document.getElementById('pano-fallback-overlay');
+        const loader = document.getElementById('panorama-loader');
+        const sky = document.getElementById('panorama-sky');
+        
+        if (loader) loader.style.display = 'none';
+        
+        if (fallbackOverlay) {
+          fallbackOverlay.style.display = 'flex';
+        } else {
+          // Fallback: solid black background
+          sky.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3Crect width="1" height="1" fill="%23000"/%3E%3C/svg%3E');
+        }
+      }
+      
+      // Show navigation hints
+      function showNavigationHint(message) {
+        const hint = document.getElementById('arrow-hint');
+        const hintText = document.getElementById('hint-text');
+        
+        if (hint && hintText) {
+          hintText.textContent = message;
+          hint.classList.add('show');
+          
+          setTimeout(() => {
+            hint.classList.remove('show');
+          }, 3000);
+        }
+      }
+      
+      // Camera configuration for flexible positioning
+      let CAMERA_CONFIGS = [
+        {
+          path_id: 'path1',
+          point_index: 5,
+          position: { x: 4, y: 0, z: 0 },
+          label: 'Main Entrance'
+        },
+        {
+          path_id: 'path1', 
+          point_index: 8,
+          position: { x: -2, y: 0, z: 3.5 },
+          label: 'Lobby Area'
+        },
+        {
+          path_id: 'path5_floor2',
+          point_index: 1, 
+          position: { x: -4, y: 0, z: -1 },
+          label: 'Second Floor'
+        }
+      ];
+
+      // Load camera configuration from external file (optional)
+      async function loadCameraConfig(floorNumber) {
+        try {
+          const response = await fetch('camera_config.json');
+          const config = await response.json();
+          
+          // Store config settings for later use
+          window.cameraSettings = config.config?.camera_settings || {};
+          window.navigationRules = config.navigation_rules || {};
+          
+          console.log(`Loaded navigation rules for floor ${floorNumber}`);
+          
+        } catch (error) {
+          console.log('Could not load camera_config.json, using default configuration:', error.message);
+          window.navigationRules = {};
+        }
+      }
+
       // Load hotspots for navigation between panoramas
       async function loadHotspots(floorNumber) {
         try {
-          const response = await fetch(`../panorama_api.php?action=list&floor_number=${floorNumber}`);
-          const data = await response.json();
+          // Load camera configuration first
+          await loadCameraConfig(floorNumber);
           
-          if (data.success && data.panoramas) {
-            const scene = document.querySelector('a-scene');
-            
-            // Create hotspots for each available panorama (limit to avoid clutter)
-            data.panoramas.slice(0, 3).forEach((panorama, index) => {
-              // Create a camera-shaped hotspot using basic shapes
-              const hotspot = document.createElement('a-entity');
-              hotspot.setAttribute('class', 'hotspot camera-hotspot');
-              
-              // Create camera body (main rectangle)
-              const cameraBody = document.createElement('a-box');
-              cameraBody.setAttribute('width', '0.4');
-              cameraBody.setAttribute('height', '0.3');
-              cameraBody.setAttribute('depth', '0.2');
-              cameraBody.setAttribute('material', 'color: #2563eb; opacity: 0.9');
-              
-              // Create camera lens (cylinder)
-              const cameraLens = document.createElement('a-cylinder');
-              cameraLens.setAttribute('radius', '0.1');
-              cameraLens.setAttribute('height', '0.1');
-              cameraLens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
-              cameraLens.setAttribute('position', '0 0 0.15');
-              cameraLens.setAttribute('rotation', '90 0 0');
-              
-              hotspot.appendChild(cameraBody);
-              hotspot.appendChild(cameraLens);
-              
-              // Position hotspots around the scene
-              const angle = (index * 120) * (Math.PI / 180); // 120 degrees apart
-              const radius = 4;
-              const x = Math.cos(angle) * radius;
-              const z = Math.sin(angle) * radius;
-              hotspot.setAttribute('position', `${x} 0 ${z}`);
-              
-              // Make hotspot face the center
-              hotspot.setAttribute('look-at', '0 0 0');
-              
-              // Add hover and active state management
-              let isActive = false;
-              
-              // Add hover effects
-              hotspot.addEventListener('mouseenter', () => {
-                if (!isActive) {
-                  cameraBody.setAttribute('material', 'color: #3b82f6; opacity: 0.9');
-                  cameraLens.setAttribute('material', 'color: #2563eb; opacity: 0.9');
-                  hotspot.setAttribute('scale', '1.2 1.2 1.2');
-                }
-              });
-              
-              hotspot.addEventListener('mouseleave', () => {
-                if (!isActive) {
-                  cameraBody.setAttribute('material', 'color: #2563eb; opacity: 0.9');
-                  cameraLens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
-                  hotspot.setAttribute('scale', '1 1 1');
-                }
-              });
-              
-              // Add click listener to navigate to panorama
-              hotspot.addEventListener('click', () => {
-                // Reset all other hotspots
-                document.querySelectorAll('.camera-hotspot').forEach(h => {
-                  const body = h.querySelector('a-box');
-                  const lens = h.querySelector('a-cylinder');
-                  if (body && lens) {
-                    body.setAttribute('material', 'color: #2563eb; opacity: 0.9');
-                    lens.setAttribute('material', 'color: #1e40af; opacity: 0.9');
-                    h.setAttribute('scale', '1 1 1');
-                  }
-                });
-                
-                // Highlight this hotspot as active
-                isActive = true;
-                cameraBody.setAttribute('material', 'color: #fbbf24; opacity: 1');
-                cameraLens.setAttribute('material', 'color: #f59e0b; opacity: 1');
-                hotspot.setAttribute('scale', '1.3 1.3 1.3');
-                
-                // Navigate to the new panorama
-                const newUrl = `pano.html?path_id=${panorama.path_id}&point_index=${panorama.point_index}&floor_number=${panorama.floor_number}`;
-                window.location.href = newUrl;
-              });
-              
-              scene.appendChild(hotspot);
-            });
+          const scene = document.querySelector('a-scene');
+          const currentParams = getUrlParams();
+          
+          // Get accessible cameras for current location using navigation rules
+          const currentLocationKey = `${currentParams.pathId}_index_${currentParams.pointIndex}`;
+          const floorKey = `floor_${floorNumber}`;
+          
+          console.log(`🔍 Current URL params:`, currentParams);
+          console.log(`🔍 Looking for navigation rules: ${floorKey} -> ${currentLocationKey}`);
+          console.log(`🔍 Available navigation rules:`, Object.keys(window.navigationRules[floorKey] || {}));
+          
+          const accessibleCameras = window.navigationRules[floorKey]?.[currentLocationKey]?.accessible_cameras || [];
+          
+          if (accessibleCameras.length === 0) {
+            console.log(`❌ No accessible cameras found for ${currentLocationKey} on ${floorKey}`);
+            console.log(`📋 Available locations on ${floorKey}:`, Object.keys(window.navigationRules[floorKey] || {}));
+            return;
           }
+          
+          console.log(`✅ Found ${accessibleCameras.length} accessible cameras for ${currentLocationKey}:`, accessibleCameras);
+          
+          // Create camera hotspots for accessible cameras only
+          for (let i = 0; i < accessibleCameras.length; i++) {
+            const config = accessibleCameras[i];
+            await createCameraHotspot(scene, config, floorNumber, i);
+          }
+          
         } catch (error) {
           console.error('Error loading hotspots:', error);
         }
       }
+
+      // Create individual camera hotspot with its own panorama data
+      async function createCameraHotspot(scene, config, floorNumber, index) {
+        try {
+          // Fetch panorama data for this specific camera
+          const response = await fetch(`../panorama_api.php?action=get_for_point&path_id=${config.path_id}&point_index=${config.point_index}&floor_number=${floorNumber}`);
+          const data = await response.json();
+          
+          // Create camera hotspot regardless of data availability
+          const hotspot = document.createElement('a-entity');
+          hotspot.setAttribute('class', 'hotspot camera-hotspot');
+          hotspot.setAttribute('data-path-id', config.path_id);
+          hotspot.setAttribute('data-point-index', config.point_index);
+          hotspot.setAttribute('data-floor-number', floorNumber);
+          
+          // Store panorama data on the hotspot for easy access
+          if (data.success && data.panorama) {
+            hotspot.panoramaData = {
+              ...data.panorama,
+              image_url: data.image_url,
+              hasData: true
+            };
+          } else {
+            hotspot.panoramaData = {
+              title: config.label || `Camera ${index + 1}`,
+              description: 'No panorama available',
+              hasData: false
+            };
+          }
+          
+          // Create ground-based navigation arrow (Street View style)
+          const arrowContainer = document.createElement('a-entity');
+          arrowContainer.setAttribute('class', 'navigation-arrow clickable-arrow');
+          arrowContainer.setAttribute('geometry', 'primitive: cylinder; height: 0.02; radius: 0.5');
+          arrowContainer.setAttribute('material', 'transparent: true; opacity: 0');
+          arrowContainer.setAttribute('position', '0 -1.5 0');
+          
+          // Create arrow base (circular platform on ground)
+          const arrowBase = document.createElement('a-circle');
+          arrowBase.setAttribute('radius', '0.5');
+          arrowBase.setAttribute('position', '0 0 0');
+          arrowBase.setAttribute('rotation', '-90 0 0');
+          
+          // Create arrow pointer (flat triangle on ground)
+          const arrowPointer = document.createElement('a-triangle');
+          arrowPointer.setAttribute('scale', '0.4 0.4 0.4');
+          
+          // Calculate triangle position and rotation based on config
+          let triangleDirection = config.triangleDirection || 0; // Default points north
+          let triangleDistance = config.triangleDistance || 0.2; // Distance from center
+          
+          // Convert direction to radians for position calculation
+          const radians = triangleDirection * Math.PI / 180;
+          const triangleX = Math.sin(radians) * triangleDistance;
+          const triangleZ = Math.cos(radians) * triangleDistance;
+          
+          arrowPointer.setAttribute('position', `${triangleX} 0.01 ${triangleZ}`);
+          // Add 180 degrees to make triangle point outward instead of inward
+          arrowPointer.setAttribute('rotation', `-90 ${triangleDirection + 180} 0`);
+          
+          // Create arrow outline for better visibility
+          const arrowOutline = document.createElement('a-circle');
+          arrowOutline.setAttribute('radius', '0.52');
+          arrowOutline.setAttribute('position', '0 -0.01 0');
+          arrowOutline.setAttribute('rotation', '-90 0 0');
+          arrowOutline.setAttribute('material', 'color: white; opacity: 0.3');
+          
+          // Set colors based on data availability
+          if (hotspot.panoramaData.hasData) {
+            arrowBase.setAttribute('material', 'color: #3b82f6; opacity: 0.8');
+            arrowPointer.setAttribute('material', 'color: #1e40af; opacity: 0.9');
+          } else {
+            arrowBase.setAttribute('material', 'color: #6b7280; opacity: 0.6');
+            arrowPointer.setAttribute('material', 'color: #4b5563; opacity: 0.7');
+          }
+          
+          arrowContainer.appendChild(arrowOutline);
+          arrowContainer.appendChild(arrowBase);
+          arrowContainer.appendChild(arrowPointer);
+          hotspot.appendChild(arrowContainer);
+          
+          // Position arrow at ground level
+          hotspot.setAttribute('position', `${config.position.x} -1 ${config.position.z}`);
+          
+          // Calculate arrow direction - use config direction if specified, otherwise calculate from position
+          let directionAngle;
+          if (config.direction !== undefined) {
+            // Use explicit direction from config (0° = North, 90° = East, 180° = South, 270° = West)
+            directionAngle = config.direction;
+          } else {
+            // Calculate direction toward next panorama location (legacy method)
+            directionAngle = Math.atan2(config.position.z, config.position.x) * 180 / Math.PI - 90;
+          }
+          hotspot.setAttribute('rotation', `0 ${directionAngle} 0`);
+          
+          // Add A-Frame interaction components for proper click handling
+          arrowContainer.setAttribute('animation__mouseenter', 'property: scale; to: 1.1 1.1 1.1; startEvents: mouseenter; dur: 200');
+          arrowContainer.setAttribute('animation__mouseleave', 'property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200');
+          arrowContainer.setAttribute('animation__click', 'property: scale; to: 1.2 1.2 1.2; startEvents: click; dur: 100');
+          
+          // Store navigation data on the arrow container
+          arrowContainer.setAttribute('data-path-id', config.path_id);
+          arrowContainer.setAttribute('data-point-index', config.point_index);
+          arrowContainer.setAttribute('data-floor-number', floorNumber);
+          arrowContainer.setAttribute('data-label', config.label);
+          arrowContainer.setAttribute('data-has-data', hotspot.panoramaData.hasData);
+          
+          // Add interaction handlers
+          setupGroundArrowInteractions(arrowContainer, hotspot.panoramaData);
+          
+          scene.appendChild(hotspot);
+          
+          console.log(`Created camera ${index + 1}: ${config.label}`, hotspot.panoramaData);
+          
+        } catch (error) {
+          console.error(`Error creating camera hotspot ${index}:`, error);
+        }
+      }
+
+      // Setup ground arrow interaction handlers (Street View style) - Enhanced for A-Frame
+      function setupGroundArrowInteractions(arrowContainer, panoramaData) {
+        const hasData = panoramaData.hasData;
+        
+        const arrowBase = arrowContainer.querySelector('a-circle');
+        const arrowPointer = arrowContainer.querySelector('a-triangle');
+        const arrowOutline = arrowContainer.querySelectorAll('a-circle')[0]; // Get outline
+        
+        // Store original colors
+        const originalBaseColor = hasData ? '#3b82f6' : '#6b7280';
+        const originalPointerColor = hasData ? '#1e40af' : '#4b5563';
+        const hoverBaseColor = hasData ? '#60a5fa' : '#9ca3af';
+        const hoverPointerColor = hasData ? '#3b82f6' : '#6b7280';
+        
+        // A-Frame event handlers for proper interaction
+        arrowContainer.addEventListener('mouseenter', function(evt) {
+          console.log('🖱️ Arrow hover entered:', panoramaData.title);
+          if (arrowBase && arrowPointer) {
+            arrowBase.setAttribute('material', `color: ${hoverBaseColor}; opacity: 0.9`);
+            arrowPointer.setAttribute('material', `color: ${hoverPointerColor}; opacity: 1`);
+            if (arrowOutline) arrowOutline.setAttribute('material', 'color: white; opacity: 0.5');
+          }
+          
+          // Show navigation UI
+          const navUI = document.getElementById('navigation-ui');
+          const navText = document.getElementById('navigation-text');
+          if (navUI && navText) {
+            navText.textContent = hasData ? `Click to go to ${panoramaData.title}` : 'No panorama available';
+            navUI.classList.add('visible');
+          }
+        });
+        
+        arrowContainer.addEventListener('mouseleave', function(evt) {
+          console.log('🖱️ Arrow hover left');
+          if (arrowBase && arrowPointer) {
+            arrowBase.setAttribute('material', `color: ${originalBaseColor}; opacity: ${hasData ? 0.8 : 0.6}`);
+            arrowPointer.setAttribute('material', `color: ${originalPointerColor}; opacity: ${hasData ? 0.9 : 0.7}`);
+            if (arrowOutline) arrowOutline.setAttribute('material', 'color: white; opacity: 0.3');
+          }
+          
+          // Hide navigation UI
+          const navUI = document.getElementById('navigation-ui');
+          if (navUI) {
+            navUI.classList.remove('visible');
+          }
+        });
+        
+        arrowContainer.addEventListener('click', function(evt) {
+          evt.stopPropagation();
+          console.log('🎯 Arrow clicked:', panoramaData.title, 'Has data:', hasData);
+          
+          if (!hasData) {
+            showTemporaryMessage('No panorama available in this direction');
+            return;
+          }
+          
+          // Visual feedback for click
+          if (arrowBase && arrowPointer) {
+            arrowBase.setAttribute('material', 'color: #fbbf24; opacity: 1');
+            arrowPointer.setAttribute('material', 'color: #f59e0b; opacity: 1');
+            if (arrowOutline) arrowOutline.setAttribute('material', 'color: #fbbf24; opacity: 0.8');
+          }
+          
+          // Get navigation data from attributes
+          const pathId = arrowContainer.getAttribute('data-path-id');
+          const pointIndex = arrowContainer.getAttribute('data-point-index');
+          const floorNumber = arrowContainer.getAttribute('data-floor-number');
+          
+          console.log(`🧭 Navigating to: path=${pathId}, point=${pointIndex}, floor=${floorNumber}`);
+          
+          // Show loading hint
+          showNavigationHint(`Loading ${panoramaData.title}...`);
+          
+          // Navigate after brief delay for visual feedback
+          setTimeout(() => {
+            const newUrl = `pano.html?path_id=${pathId}&point_index=${pointIndex}&floor_number=${floorNumber}`;
+            console.log(`🔗 Redirecting to: ${newUrl}`);
+            
+            // Add fade transition
+            document.body.style.transition = 'opacity 0.3s ease-in-out';
+            document.body.style.opacity = '0.7';
+            
+            setTimeout(() => {
+              window.location.href = newUrl;
+            }, 150);
+          }, 200);
+        });
+        
+        // Touch support for mobile devices
+        arrowContainer.addEventListener('touchstart', function(evt) {
+          evt.preventDefault();
+          console.log('📱 Touch start on arrow:', panoramaData.title);
+          // Trigger hover effect on touch
+          arrowContainer.emit('mouseenter');
+        });
+        
+        arrowContainer.addEventListener('touchend', function(evt) {
+          evt.preventDefault();
+          console.log('📱 Touch end on arrow, triggering click');
+          // Trigger click after touch
+          setTimeout(() => {
+            arrowContainer.emit('click');
+          }, 100);
+        });
+        
+        // Ensure raycasting works
+        arrowContainer.classList.add('raycastable');
+        
+        console.log(`✅ Interaction handlers set up for arrow: ${panoramaData.title}`, {
+          hasData,
+          pathId: arrowContainer.getAttribute('data-path-id'),
+          pointIndex: arrowContainer.getAttribute('data-point-index')
+        });
+      }
+
+      // Reset all ground navigation arrows to default state
+      function resetAllArrows() {
+        document.querySelectorAll('.camera-hotspot').forEach(h => {
+          const arrowContainer = h.querySelector('.navigation-arrow');
+          const hasData = h.panoramaData?.hasData || false;
+          
+          if (arrowContainer) {
+            const arrowBase = arrowContainer.querySelector('a-circle');
+            const arrowPointer = arrowContainer.querySelector('a-triangle');
+            const arrowOutline = arrowContainer.querySelectorAll('a-circle')[0];
+            
+            if (arrowBase && arrowPointer) {
+              const baseColor = hasData ? '#3b82f6' : '#6b7280';
+              const pointerColor = hasData ? '#1e40af' : '#4b5563';
+              const opacity = hasData ? 0.8 : 0.6;
+              
+              arrowBase.setAttribute('material', `color: ${baseColor}; opacity: ${opacity}`);
+              arrowPointer.setAttribute('material', `color: ${pointerColor}; opacity: ${hasData ? 0.9 : 0.7}`);
+              arrowContainer.setAttribute('scale', '1 1 1');
+              arrowOutline.setAttribute('material', 'color: white; opacity: 0.3');
+              
+              // Remove any animations
+              h.removeAttribute('animation');
+            }
+          }
+        });
+      }
+
+      // Show temporary message for unavailable panoramas
+      function showTemporaryMessage(message) {
+        const messageEl = document.createElement('div');
+        messageEl.style.cssText = `
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 20px;
+          border-radius: 8px;
+          z-index: 2000;
+          font-family: Arial, sans-serif;
+          text-align: center;
+        `;
+        messageEl.textContent = message;
+        document.body.appendChild(messageEl);
+        
+        setTimeout(() => {
+          document.body.removeChild(messageEl);
+        }, 2000);
+      }
       
       // Initialize when DOM is loaded
       document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 Panorama viewer initializing...');
         loadPanoramaData();
+        
+        // Add global click debugging
+        document.addEventListener('click', function(e) {
+          console.log('🎯 Global click detected:', e.target);
+        });
+        
+        // Show initial navigation hint
+        setTimeout(() => {
+          const navUI = document.getElementById('navigation-ui');
+          const navText = document.getElementById('navigation-text');
+          if (navUI && navText) {
+            navText.textContent = 'Look for blue arrows on the ground to navigate';
+            navUI.classList.add('visible');
+            
+            setTimeout(() => {
+              navUI.classList.remove('visible');
+            }, 4000);
+          }
+        }, 2000);
       });
     </script>
   </body>

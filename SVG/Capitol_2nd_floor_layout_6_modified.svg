@@ -519,9 +519,9 @@
        xlink:href="#swatch51"
        id="linearGradient51"
        x1="87.519531"
-       y1="99.011719"
+       y1="99.011717"
        x2="169.35207"
-       y2="99.011719"
+       y2="99.011717"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch49"
        id="linearGradient52"
@@ -532,9 +532,9 @@
        y2="99.011719" /><linearGradient
        xlink:href="#swatch53"
        id="linearGradient53"
-       x1="50.484581"
+       x1="50.48458"
        y1="622.63495"
-       x2="252.24631"
+       x2="252.2463"
        y2="622.63495"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch54"
@@ -554,29 +554,29 @@
        xlink:href="#swatch60"
        id="linearGradient60"
        x1="232.65204"
-       y1="247.35297"
+       y1="247.35296"
        x2="407.31546"
-       y2="247.35297"
+       y2="247.35296"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch66"
        id="linearGradient66"
-       x1="443.88956"
+       x1="443.88957"
        y1="260.80786"
-       x2="664.7428"
+       x2="664.74282"
        y2="260.80786"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch67"
        id="linearGradient67"
-       x1="443.88956"
+       x1="443.88957"
        y1="260.80786"
-       x2="664.7428"
+       x2="664.74282"
        y2="260.80786"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch80"
        id="linearGradient80"
-       x1="654.52124"
+       x1="654.52123"
        y1="235.08705"
-       x2="698.13696"
+       x2="698.13698"
        y2="235.08705"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch63"
@@ -603,7 +603,7 @@
        gradientTransform="translate(25.657974,0.37732314)" /><linearGradient
        xlink:href="#swatch102"
        id="linearGradient102"
-       x1="992.22418"
+       x1="992.22421"
        y1="197.73259"
        x2="1110.8192"
        y2="197.73259"
@@ -631,23 +631,23 @@
        y2="539.08234" /><linearGradient
        xlink:href="#swatch106"
        id="linearGradient106"
-       x1="755.79938"
-       y1="324.47763"
+       x1="755.79939"
+       y1="324.47762"
        x2="823.31152"
-       y2="324.47763"
+       y2="324.47762"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch107"
        id="linearGradient107"
-       x1="842.45721"
+       x1="842.45724"
        y1="555.26202"
-       x2="885.12128"
+       x2="885.1213"
        y2="555.26202"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch108"
        id="linearGradient108"
-       x1="774.99237"
+       x1="774.99238"
        y1="600.01202"
-       x2="820.00409"
+       x2="820.0041"
        y2="600.01202"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch63"
@@ -659,10 +659,10 @@
        y2="600.01202" /><linearGradient
        xlink:href="#swatch110"
        id="linearGradient110"
-       x1="979.88336"
-       y1="539.10309"
+       x1="979.88334"
+       y1="539.1031"
        x2="1142.0382"
-       y2="539.10309"
+       y2="539.1031"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch63"
        id="linearGradient111"
@@ -675,7 +675,7 @@
        id="linearGradient112"
        x1="1147.4344"
        y1="260.92416"
-       x2="1304.4146"
+       x2="1304.4145"
        y2="260.92416"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch63"
@@ -724,100 +724,44 @@
        id="linearGradient119"
        x1="1689.2327"
        y1="104.56057"
-       x2="1771.2325"
+       x2="1771.2326"
        y2="104.56057"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch120"
        id="linearGradient120"
-       x1="1633.1707"
-       y1="336.24011"
-       x2="1782.2845"
-       y2="336.24011"
+       x1="1633.1706"
+       y1="336.24012"
+       x2="1782.2846"
+       y2="336.24012"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch126"
        id="linearGradient126"
        x1="1571.0093"
-       y1="751.66974"
+       y1="751.66973"
        x2="1790.5988"
-       y2="751.66974"
+       y2="751.66973"
        gradientUnits="userSpaceOnUse" /><linearGradient
        xlink:href="#swatch60"
        id="linearGradient171"
        gradientUnits="userSpaceOnUse"
        x1="232.65204"
-       y1="247.35297"
+       y1="247.35296"
        x2="407.31546"
-       y2="247.35297" /><linearGradient
+       y2="247.35296" /><linearGradient
        xlink:href="#swatch62"
        id="linearGradient172"
        gradientUnits="userSpaceOnUse"
-       x1="269.13843"
-       y1="234.99767"
+       x1="269.13844"
+       y1="234.99766"
        x2="310.25848"
-       y2="234.99767" /><linearGradient
+       y2="234.99766" /><linearGradient
        xlink:href="#swatch63"
        id="linearGradient173"
        gradientUnits="userSpaceOnUse"
        x1="269.13843"
        y1="234.99767"
        x2="310.25848"
-       y2="234.99767" /><linearGradient
-       xlink:href="#swatch87"
-       id="linearGradient2"
-       gradientUnits="userSpaceOnUse"
-       x1="708.01581"
-       y1="412.51984"
-       x2="842.56262"
-       y2="412.51984" /><linearGradient
-       xlink:href="#swatch80"
-       id="linearGradient3"
-       gradientUnits="userSpaceOnUse"
-       x1="654.52124"
-       y1="235.08705"
-       x2="698.13696"
-       y2="235.08705" /><linearGradient
-       xlink:href="#swatch104"
-       id="linearGradient4"
-       gradientUnits="userSpaceOnUse"
-       x1="707.96503"
-       y1="539.08234"
-       x2="774.94604"
-       y2="539.08234" /><linearGradient
-       xlink:href="#swatch108"
-       id="linearGradient5"
-       gradientUnits="userSpaceOnUse"
-       x1="774.99237"
-       y1="600.01202"
-       x2="820.00409"
-       y2="600.01202" /><linearGradient
-       xlink:href="#swatch110"
-       id="linearGradient6"
-       gradientUnits="userSpaceOnUse"
-       x1="979.88336"
-       y1="539.10309"
-       x2="1142.0382"
-       y2="539.10309" /><linearGradient
-       xlink:href="#swatch102"
-       id="linearGradient7"
-       gradientUnits="userSpaceOnUse"
-       x1="992.22418"
-       y1="197.73259"
-       x2="1110.8192"
-       y2="197.73259" /><linearGradient
-       xlink:href="#swatch112"
-       id="linearGradient8"
-       gradientUnits="userSpaceOnUse"
-       x1="1147.4344"
-       y1="260.92416"
-       x2="1304.4146"
-       y2="260.92416" /><linearGradient
-       xlink:href="#swatch115"
-       id="linearGradient9"
-       gradientUnits="userSpaceOnUse"
-       x1="1404.6575"
-       y1="231.18945"
-       x2="1542.7096"
-       y2="231.18945" /></defs><g
+       y2="234.99767" /></defs><g
      id="g199"
      transform="matrix(1.0011219,0,0,1.0011219,43.704834,-232.4935)"
      style="display:inline;opacity:1;fill:#000000;fill-opacity:1"><path
@@ -1256,29 +1200,29 @@
    transform="translate(18.616059,214.41836)"><path
      style="display:inline;fill:#971812;fill-opacity:1;stroke-width:1.16077"
      d="m 32.229289,180.20827 -0.08695,40.71451 38.313732,0.001 0.0078,-14.51682 H 47.952585 v -12.9921 h 22.540323 v -13.22743 z"
-     id="path182" /><path
+     id="stair_west_1-2" /><path
      style="display:inline;fill:#971812;fill-opacity:1;stroke-width:0.968863"
      d="m 266.36202,174.71987 h 69.31984 V 164.28125 H 359 v 32.2691 h -92.62902 z"
      id="path197" /><path
      style="fill:#971812;fill-opacity:1;stroke-width:0.765927"
      d="m 407.3515,256.04947 v 44.95704 h 37.07422 v -45.03386 z"
-     id="path183"
+     id="stair_west-2-2"
      onclick="" /><path
      style="display:inline;fill:#971812;fill-opacity:1;stroke-width:1.08592"
      d="m 861.35882,220.86719 h -37.41409 v -45.46094 h 37.41236 z"
-     id="path179" /><path
+     id="stair_master_1-2" /><path
      style="display:inline;fill:#971812;fill-opacity:1;stroke-width:2.01459"
      d="M 992.54522,175.41314 H 823.94586 v -34.92185 h 168.59891 z"
-     id="path179-76" /><path
+     id="stair_toThirdFloor" /><path
      style="display:inline;fill:#971812;fill-opacity:1;stroke-width:1.07852"
      d="m 992.57398,220.7399 h -37.41802 v -45.46094 h 37.4168 z"
-     id="path179-1" /><path
+     id="stair_master_2-2" /><path
      style="fill:#971812;fill-opacity:1;stroke-width:0.745321"
      d="m 1369.904,256.2474 v 44.93041 h 35.2617 v -45.00689 z"
-     id="path184" /><path
+     id="stair_east_1-2" /><path
      style="display:inline;fill:#971812;fill-opacity:1;stroke-width:1.21764"
      d="m 1782.7883,175.35424 -2e-4,45.51537 -38.3049,0.003 -0.043,-16.27236 22.4008,-0.0735 -0.04,-14.5873 -22.3636,0.0726 V 175.3466 Z"
-     id="path181" /><path
+     id="stair_east_2-2" /><path
      style="fill:#971812;fill-opacity:1;stroke-width:0;paint-order:fill markers stroke"
      d="m 260.8675,391.17489 h 31.58873 l 0.0129,28.10938 -4.59474,-5e-5 -0.0586,149.29657 h 4.7001 v 26.70343 h -31.65233 v -26.51593 h 7.65233 v -29.92157 h -13.45672 v -91.84375 h 14.05858 v -27.56738 h -8.24221 z"
      id="path4" /><path
@@ -1319,7 +1263,7 @@
              <g
    id="g18"
    style="display:inline;opacity:1;fill:#21483f;fill-opacity:1"><path
-     style="display:inline;opacity:1;fill:#a13735;fill-opacity:1;stroke:url(#linearGradient53);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#a13735;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient53);stroke-dasharray:none"
      d="M 50.750205,435.34652 H 142.6213 V 544.9702 h 109.625 V 809.92339 H 60.152549 V 599.84405 H 50.48458 Z"
      id="room-2-2"
      transform="translate(-19.145794,-214.59494)" /></g>
@@ -1347,9 +1291,10 @@
              <!-- ROOM 5 -->
              <g
    id="g21"><path
-     style="display:inline;fill:url(#linearGradient66);fill-opacity:1;stroke:url(#linearGradient67);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;fill:url(#linearGradient66);fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient67);stroke-dasharray:none"
      d="m 443.88957,220.87085 v 79.96059 h 220.85325 v -80.04717 z"
-     id="room-5-2" /></g>
+     id="room-5-2"
+     transform="translate(-19.145794,-214.59494" /></g>
              
              <!-- ROOM 6 -->
              
@@ -1357,24 +1302,24 @@
              <!-- ROOM 7 -->
              <g
    id="g23"
-   style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient87);stroke-width:0.999878;stroke-dasharray:none"
+   style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient87);stroke-width:0.99987824;stroke-dasharray:none"
    transform="translate(-19.145794,-214.59494)"><path
-     style="display:inline;opacity:1;fill:#b1a99c;fill-opacity:1;stroke:url(#linearGradient2);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#b1a99c;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient87);stroke-dasharray:none"
      d="M 688.87004,255.53036 H 823.41683 V 140.31943 h -72.5592 v 45.125 h -50.00122 v 40.1978 h -11.98637 z"
      id="room-7-2"
      transform="translate(19.145794,214.59494)" /></g><g
    id="g22"
-   style="display:inline;opacity:1;fill:#21483f;fill-opacity:1;stroke:url(#linearGradient80);stroke-width:0.998879;stroke-dasharray:none"><path
-     style="display:inline;opacity:1;fill:#725950;fill-opacity:1;stroke:url(#linearGradient3);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+   style="display:inline;opacity:1;fill:#21483f;fill-opacity:1;stroke-width:0.99887936;stroke-dasharray:none;stroke:url(#linearGradient80)"><path
+     style="display:inline;opacity:1;fill:#725950;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient80)"
      d="m 664.74112,218.97686 v -4.33702 h 24.13171 v 40.89443 h -24.13171 z"
      id="room-6-2" /></g>
              
               <!-- ROOM 8 -->
              <g
    id="g24"
-   style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient104);stroke-width:0.999878;stroke-dasharray:none"
+   style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient104);stroke-width:0.99987824;stroke-dasharray:none"
    transform="translate(-19.145794,-214.59494)"><path
-     style="display:inline;opacity:1;fill:#a3888a;fill-opacity:1;stroke:url(#linearGradient4);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#a3888a;fill-opacity:1;stroke:url(#linearGradient104);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
      d="m 689.56971,350.42576 v -66.89149 h 66.23054 v 81.90625 h -54.95473 v -15.01869 z"
      id="room-8-2"
      transform="translate(19.145794,214.59494)" /></g>
@@ -1383,7 +1328,7 @@
               <!-- ROOM 9 -->
              <g
    id="g25"><path
-     style="display:inline;fill:#416d72;fill-opacity:1;stroke:url(#linearGradient106);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;fill:#416d72;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient106)"
      d="m 755.80019,283.53036 h 67.51133 v 81.89453 h -67.51213 z"
      id="room-9-2" /></g>
              
@@ -1393,7 +1338,7 @@
    id="g26"
    style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient108)"
    transform="translate(-19.145794,-214.59494)"><path
-     style="display:inline;opacity:1;fill:#a3888a;fill-opacity:1;stroke:url(#linearGradient5);stroke-width:1.99776;stroke-dasharray:none;paint-order:fill markers stroke"
+     style="display:inline;opacity:1;fill:#a3888a;fill-opacity:1;stroke-width:1.99775871;paint-order:fill markers stroke;stroke:url(#linearGradient108);stroke-dasharray:none"
      d="m 755.84659,365.4288 h 45.01172 v 39.97656 h -45.01172 z"
      id="room-10-2"
      transform="translate(19.145794,214.59494)" /></g>
@@ -1403,16 +1348,16 @@
    id="g27"
    style="display:inline;opacity:1;fill:#000000;fill-opacity:1"
    transform="translate(-19.145794,-214.59494)"><path
-     style="display:inline;opacity:1;fill:#b66f6f;fill-opacity:1;stroke:url(#linearGradient107);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#b66f6f;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient107);stroke-dasharray:none"
      d="m 842.45724,580.01983 v -49.51562 h 42.66406 v 49.5 z"
      id="room-11-2" /></g>
              
              <!-- ROOM 12 -->
              <g
    id="g28"
-   style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient110);stroke-width:0.998879;stroke-dasharray:none"
+   style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient110);stroke-width:0.99887936;stroke-dasharray:none"
    transform="translate(-19.145794,-214.59494)"><path
-     style="display:inline;opacity:1;fill:#ddc2bb;fill-opacity:1;stroke:url(#linearGradient6);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#ddc2bb;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient110);stroke-dasharray:none"
      d="m 979.88334,580.01856 v -49.55995 h 31.31016 v -32.31389 h 130.8447 v 66.87114 h -12.0584 v 15.04562 z"
      id="room-12-2" /></g>
              
@@ -1421,7 +1366,7 @@
    id="g29"
    transform="matrix(1.0017108,0,0,1,-1.9004367,0)"
    style="stroke:url(#linearGradient102)"><path
-     style="display:inline;fill:#ddc2bb;fill-opacity:1;stroke:url(#linearGradient7);stroke-width:1.99605;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;fill:#ddc2bb;fill-opacity:1;paint-order:stroke fill markers;stroke:url(#linearGradient102);stroke-width:1.99605202;stroke-dasharray:none"
      d="m 1011.37,354.7629 v 115.12925 h 118.595 v -69.8534 h -52.0978 v -45.13872 z"
      id="room-13-2"
      transform="translate(-19.145794,-214.59494)" /></g>
@@ -1429,8 +1374,8 @@
             <!-- ROOM 14 -->
              <g
    id="g30"
-   style="stroke:url(#linearGradient112);stroke-width:0.999878;stroke-dasharray:none"><path
-     style="fill:#f6a5ae;fill-opacity:1;stroke:url(#linearGradient8);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+   style="stroke-width:0.99987824;stroke-dasharray:none;stroke:url(#linearGradient112)"><path
+     style="fill:#f6a5ae;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient112)"
      d="m 1147.4344,220.83974 v 80.16884 h 149.7382 V 260.5294 h 7.2419 v -39.68707 z"
      id="room-14-2" /></g>
              
@@ -1438,7 +1383,7 @@
              <g
    id="g31"
    style="display:inline;opacity:1;fill:#21483f;fill-opacity:1"><path
-     style="display:inline;opacity:1;fill:#697768;fill-opacity:1;stroke:url(#linearGradient114);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#697768;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient114);stroke-dasharray:none"
      d="m 1297.1726,301.00337 h 72.2249 v -80.15195 h -64.9807 v 39.68288 h -7.2481 z"
      id="room-15-2" /></g>
              
@@ -1446,8 +1391,8 @@
              <g
    id="g32"
    transform="matrix(1.0025581,0,0,1,-3.5933165,0)"
-   style="stroke:url(#linearGradient115);stroke-width:0.999599;stroke-dasharray:none"><path
-     style="display:inline;fill:#7e5852;fill-opacity:1;stroke:url(#linearGradient9);stroke-width:1.99521;stroke-dasharray:none;paint-order:stroke fill markers"
+   style="stroke-width:0.99959939;stroke-dasharray:none;stroke:url(#linearGradient115)"><path
+     style="display:inline;fill:#7e5852;fill-opacity:1;stroke-width:1.99520837;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient115)"
      d="m 1423.8033,435.44638 v 35.12075 h 138.0521 v -35.18708 h -9.1499 v -14.3784 h -119.1691 v 14.50182 z"
      id="room-16-2"
      transform="translate(-19.145794,-214.59494)" /></g>
@@ -1457,7 +1402,7 @@
              <g
    id="g33"
    style="display:inline;opacity:1;fill:#21483f;fill-opacity:1"><path
-     style="display:inline;opacity:1;fill:#dd9ca4;fill-opacity:1;stroke:url(#linearGradient118);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#dd9ca4;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient118);stroke-dasharray:none"
      d="m 1557.3972,167.49351 h 146.1944 v -27.47716 h -14.3705 V 69.037384 h -131.8404 z"
      id="room-17-2" /></g>
              
@@ -1465,7 +1410,7 @@
              <!-- ROOM 18 -->
              <g
    id="g34"><path
-     style="fill:#ccc5b5;fill-opacity:1;stroke:url(#linearGradient117);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="fill:#ccc5b5;fill-opacity:1;stroke:url(#linearGradient117);stroke-width:1.99775871;stroke-dasharray:none;paint-order:stroke fill markers"
      d="m 1450.0011,354.3462 v -70.61984 h 183.38 v 122.81041 h 91.8209 v 45.20412 h 16.2452 v 27.00463 h 30.0058 v 23.12364 h -154.9409 v -23.02345 h -59.6778 V 385.3895 h -10.535 v -54.88085 h -9.341 v 23.84145 z"
      id="room-18-2" /></g>
              
@@ -1474,7 +1419,7 @@
              <g
    id="g35"
    style="display:inline;opacity:1;fill:#21483f;fill-opacity:1"><path
-     style="display:inline;opacity:1;fill:#8da778;fill-opacity:1;stroke:url(#linearGradient126);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#8da778;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient126)"
      d="m 1571.0093,693.51622 v 22.90789 h 4.9866 v 37.73891 h 44.6178 v 55.74216 h 169.9851 v -93.44985 h -169.9333 v -23.02104 z"
      id="room-19-2"
      transform="translate(-19.145794,-214.59494)" /></g>
@@ -1483,7 +1428,7 @@
              <!-- ROOM 20 -->
              <g
    id="g36"><path
-     style="display:inline;fill:#e9d1cf;fill-opacity:1;stroke:url(#linearGradient120);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;fill:#e9d1cf;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke:url(#linearGradient120);stroke-dasharray:none"
      d="m 1782.2573,220.64738 h -148.9618 l -0.1249,185.6417 h 91.912 v 45.54377 h 46.2377 l 0.1249,-64.53692 h 10.8394 z"
      id="room-20-2" /></g>
              
@@ -1491,7 +1436,7 @@
              <!-- ROOM 21 -->
              <g
    id="g37"><path
-     style="display:inline;fill:#1c5351;fill-opacity:1;stroke:url(#linearGradient119);stroke-width:1.99776;stroke-dasharray:none;paint-order:stroke fill markers"
+     style="display:inline;fill:#1c5351;fill-opacity:1;stroke-width:1.99775871;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient119)"
      d="m 1689.2327,140.01426 h 27.749 l 0.052,-24.19183 h 30.4679 v 24.21841 h 23.731 V 69.080305 H 1689.24 Z"
      id="room-21-2" /></g></g>
              
@@ -2132,11 +2077,11 @@
          style="fill:#dfbdbe;fill-opacity:1;stroke:#000000;stroke-width:1.578;stroke-dasharray:none;paint-order:stroke fill markers"
          id="path236"
          d="m 264.64417,250.82815 a 14.733998,14.733998 0 0 1 -10.41852,-4.31549 14.733998,14.733998 0 0 1 -4.31548,-10.41851 h 14.734 z" /></g></g></g><g
-   id="layer2"
+   id="layer3"
    style="display:inline;opacity:1;fill:#21483f;fill-opacity:1"
    transform="translate(19.145794,214.59494)"><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:url(#linearGradient121);fill-opacity:1;stroke:url(#linearGradient122);stroke-width:0.998879;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:url(#linearGradient121);fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient122);stroke-width:0.998879;stroke-opacity:1;-inkscape-stroke:hairline;paint-order:stroke fill markers"
      x="57.188728"
      y="101.41903"
      id="text-1-2"
@@ -2146,7 +2091,7 @@
        x="57.188728"
        y="101.41903">Room1</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;vector-effect:non-scaling-stroke;fill:#000000;fill-opacity:1;stroke:url(#linearGradient123);stroke-width:0.998879;-inkscape-stroke:hairline;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;vector-effect:non-scaling-stroke;stroke:url(#linearGradient123);stroke-width:0.998879;-inkscape-stroke:hairline;paint-order:stroke fill markers"
      x="85.531937"
      y="427.17856"
      id="text-2-2"><tspan
@@ -2155,7 +2100,7 @@
        x="85.531937"
        y="427.17856">Room2</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:url(#linearGradient124);fill-opacity:1;stroke:url(#linearGradient125);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:url(#linearGradient124);fill-opacity:1;stroke-width:0.998879;stroke-dasharray:none;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:url(#linearGradient125);stroke-opacity:1;paint-order:stroke fill markers"
      x="170.53032"
      y="120.25727"
      id="text-3-2"
@@ -2165,7 +2110,7 @@
        x="170.53032"
        y="120.25727">Room3</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:url(#linearGradient172);fill-opacity:1;stroke:url(#linearGradient173);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:url(#linearGradient172);fill-opacity:1;stroke:url(#linearGradient173);stroke-width:0.998879;stroke-dasharray:none;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="268.46732"
      y="239.26437"
      id="text-4-2"
@@ -2175,7 +2120,7 @@
        x="268.46732"
        y="239.26437">Room4</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="521.83899"
      y="254.08778"
      id="text-5-2"><tspan
@@ -2184,7 +2129,7 @@
        x="521.83899"
        y="254.08778">Room5</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:url(#linearGradient129);fill-opacity:1;stroke:url(#linearGradient90);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:url(#linearGradient129);fill-opacity:1;stroke:url(#linearGradient90);stroke-width:0.999878;stroke-dasharray:none;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="751.30774"
      y="412.92828"
      id="text-7-2"
@@ -2194,27 +2139,27 @@
        y="412.92828"
        style="fill:url(#linearGradient129);stroke:url(#linearGradient90);stroke-width:0.999878;stroke-dasharray:none;paint-order:stroke fill markers">Room7</tspan></text><text
      xml:space="preserve"
-     style="font-size:12.0094px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient81);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke-width:0.99887937;stroke-dasharray:none;stroke:url(#linearGradient81);font-size:12.0094px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="615.5802"
      y="241.16432"
      id="text-6-2"
      transform="scale(1.062047,0.94157789)"><tspan
        id="roomlabel-22"
-       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient81);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient81);stroke-width:0.99887937;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
        x="615.5802"
        y="241.16432">Room6</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:0.99987824;stroke-dasharray:none;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="719.55042"
      y="527.7998"
      id="text-8-2"
      transform="translate(-19.145794,-214.59494)"><tspan
        id="roomlabel-24"
-       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient105);stroke-width:0.99987824;stroke-opacity:1;paint-order:stroke fill markers;stroke-dasharray:none"
        x="719.55042"
        y="527.7998">Room8</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="769.73883"
      y="314.1488"
      id="text-9-2"><tspan
@@ -2223,7 +2168,7 @@
        x="769.73883"
        y="314.1488">Room9</tspan></text><text
      xml:space="preserve"
-     style="font-size:10.7189px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient109);stroke-width:0.892998;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient109);font-size:10.7189px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-width:0.892998;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="881.117"
      y="526.39722"
      id="text-10-2"
@@ -2233,7 +2178,7 @@
        x="881.117"
        y="526.39722">Room10</tspan></text><text
      xml:space="preserve"
-     style="font-size:10.6483px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:10.6483px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="963.56824"
      y="480.09262"
      id="text-11-2"
@@ -2243,35 +2188,35 @@
        x="963.56824"
        y="480.09262">Room11</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient111);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient111);stroke-width:0.99887936;stroke-dasharray:none;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="1037.8807"
      y="544.38281"
      id="text-12-2"
      transform="translate(-19.145794,-214.59494)"><tspan
        id="roomlabel-28"
-       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient111);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient111);stroke-width:0.99887936;stroke-opacity:1;paint-order:stroke fill markers;stroke-dasharray:none"
        x="1037.8807"
        y="544.38281">Room12</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient103);paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient103);font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;paint-order:stroke fill markers"
      x="1018.2125"
      y="211.89957"
      id="text-13-2"><tspan
        id="roomlabel-29"
-       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient103);paint-order:stroke fill markers"
+       style="fill:#000000;fill-opacity:1;paint-order:stroke fill markers;stroke:url(#linearGradient103)"
        x="1018.2125"
        y="211.89957">Room13</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient113);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke-width:0.99987824;stroke-dasharray:none;stroke:url(#linearGradient113);font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="1178.899"
      y="256.37228"
      id="text-14-2"><tspan
        id="roomlabel-30"
-       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient113);stroke-width:0.999878;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient113);stroke-width:0.99987824;stroke-opacity:1;paint-order:stroke fill markers;stroke-dasharray:none"
        x="1178.899"
        y="256.37228">Room14</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="1312.0393"
      y="257.96149"
      id="text-15-2"><tspan
@@ -2280,16 +2225,16 @@
        x="1312.0393"
        y="257.96149">Room15</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient116);stroke-width:1.00088;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke-width:1.00087711;stroke-dasharray:none;stroke:url(#linearGradient116);font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke-opacity:1;paint-order:stroke fill markers"
      x="1428.1506"
      y="233.67749"
      id="text-16-2"><tspan
        id="roomlabel-32"
-       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient116);stroke-width:1.00088;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient116);stroke-width:1.00087711;stroke-opacity:1;paint-order:stroke fill markers;stroke-dasharray:none"
        x="1428.1506"
        y="233.67749">Room16</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke markers fill"
      x="1575.9607"
      y="118.03504"
      id="text-17-2"><tspan
@@ -2298,7 +2243,7 @@
        x="1575.9607"
        y="118.03504">Room17</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:url(#linearGradient131);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:url(#linearGradient131);stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="1588.4653"
      y="432.90067"
      id="text-18-2"><tspan
@@ -2307,7 +2252,7 @@
        x="1588.4653"
        y="432.90067">Room18</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="1618.3123"
      y="543.04858"
      id="text-19-2"><tspan
@@ -2316,7 +2261,7 @@
        x="1618.3123"
        y="543.04858">Room19</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="1664.5104"
      y="295.32651"
      id="text-20-2"><tspan
@@ -2325,7 +2270,7 @@
        x="1664.5104"
        y="295.32651">Room20</tspan></text><text
      xml:space="preserve"
-     style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     style="display:inline;opacity:1;fill:#000000;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#ffffff;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      x="1699.6293"
      y="90.918137"
      id="text-21-2"><tspan
@@ -2334,7 +2279,7 @@
        x="1699.6293"
        y="90.918137">Room21</tspan></text></g><text
    xml:space="preserve"
-   style="font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;opacity:1;fill:#1a0d0f;fill-opacity:1;stroke:#000000;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:fill markers stroke"
+   style="display:inline;opacity:1;fill:#1a0d0f;fill-opacity:1;font-size:11.9866px;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;stroke:#000000;stroke-width:0.998879;stroke-dasharray:none;stroke-opacity:1;paint-order:fill markers stroke"
    x="915.01862"
    y="487.69635"
    id="text63"><tspan

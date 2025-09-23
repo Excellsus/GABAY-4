@@ -305,8 +305,7 @@
             "pathPoints": [
                 {
                     "x": 130,
-                    "y": 110,
-                    "isPano": true
+                    "y": 110
                 },
                 {
                     "x": 130,
@@ -340,8 +339,8 @@
                     "x": 165,
                     "y": 340,
                     "isPano": true,
-                    "panoImage": "pano_path1_5_1758031418_68c96e3a1d147.jpg",
-                    "panoTitle": "Exit",
+                    "panoImage": "pano_path1_5_1758625386_68d27e6ad5a52.jpg",
+                    "panoTitle": "Between ICTD and Exit",
                     "panoDescription": null
                 },
                 {
@@ -352,20 +351,20 @@
                     "x": 220,
                     "y": 340,
                     "isPano": true,
-                    "panoImage": "pano_path1_7_1758031559_68c96ec7edf30.jpg",
-                    "panoTitle": "Security",
+                    "panoImage": "pano_path1_7_1758625429_68d27e95c8945.jpg",
+                    "panoTitle": "ICTD",
                     "panoDescription": null
                 },
                 {
                     "x": 100,
                     "y": 340,
                     "isPano": true,
-                    "isIntersection":true,
-                    "panoImage": "pano_path1_8_1758031559_68c96ec7edf30.jpg",
-                    "panoTitle": "Exit",
+                    "isIntersection": true,
+                    "panoImage": "pano_path1_8_1758625870_68d2804eb683c.jpg",
+                    "panoTitle": "path1 -8",
                     "panoDescription": null
                 }
-             ]
+            ]
         },
         {
             "id": "path2",
@@ -468,7 +467,10 @@
                 {
                     "x": 1084,
                     "y": 215,
-                    "isPano": true
+                    "isPano": true,
+                    "panoImage": "pano_path2_11_1758635517_68d2a5fd829a7.jpg",
+                    "panoTitle": null,
+                    "panoDescription": null
                 },
                 {
                     "x": 1184,

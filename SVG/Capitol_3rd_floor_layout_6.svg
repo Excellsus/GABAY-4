@@ -875,13 +875,13 @@
        transform="translate(19.145794,214.59494)"><path
          style="display:inline;fill:#cc353a;fill-opacity:1;stroke-width:1.55255"
          d="m 29.276847,180.11227 -0.0021,20.48408 25.096257,0.0404 h 35.970081 v -20.53353 z m 1691.540053,0.078 -0.1197,20.35817 25.097,0.0404 h 35.9701 v -20.49335 z"
-         id="path182-3" /><path
+         id="stair_thirdFloor_3-3" /><path
          style="display:inline;fill:#9e171a;fill-opacity:1;stroke-width:1.19002"
          d="M 859.85604,175.41314 H 800.83686 V 140.32351 H 859.7987 Z"
-         id="path179-76-4" /><path
+         id="stair_thirdFloor_1-3" /><path
          style="display:inline;fill:#9e171a;fill-opacity:1;stroke-width:1.19002"
          d="M 1021.1645,175.40223 H 962.14522 V 140.3126 h 58.96188 z"
-         id="path179-76-4-7" /><path
+         id="stair_thirdFloor_2-3" /><path
          style="display:inline;fill:#a21b1f;fill-opacity:1;stroke-width:0.998879;stroke-dasharray:none;paint-order:fill markers stroke"
          d="m 819.99463,580.0089 v -45.18368 h -22.40455 v 16.68416 h 6.69411 V 580.005 Z"
          id="path44"
