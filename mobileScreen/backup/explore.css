@@ -1,0 +1,1056 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+/* Full height support */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Mobile viewport fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific viewport height fix */
+  html, body {
+    height: -webkit-fill-available;
+  }
+  
+  .content {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Basic body reset and bottom padding for nav */
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif; /* Use Poppins */
+  background-color: #f9f9f9;
+  /* Remove body padding, handle spacing within .content */
+  /* padding-bottom: 70px; */
+}
+
+/* Fixed Header Styles */
+.header {
+  position: fixed; /* Make header fixed */
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #ffffff; /* White background */
+  color: #333;
+  padding: 10px 15px; /* Padding consistent with rooms.css/about.css */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  z-index: 1000; /* Ensure header stays on top */
+  display: flex; /* Use flexbox for layout */
+  justify-content: space-between; /* Space out title/subtitle and actions */
+  align-items: center; /* Vertically center items */
+  box-sizing: border-box; /* Include padding in width calculation */
+  height: 60px; /* Explicit height consistent with feedback.css/office_details.css */
+}
+
+.header-content {
+  flex-grow: 1; /* Allow title/subtitle area to take available space */
+}
+
+/* Adjust existing title/subtitle styles if needed within the fixed header context */
+.header .section-title {
+  margin: 0; /* Remove default margins */
+  font-size: 1.2em; /* Example size adjustment */
+  font-weight: bold;
+  color: #333; /* Reset color if needed */
+}
+
+.header .section-subtitle {
+  margin: 0; /* Remove default margins */
+  font-size: 0.9em; /* Example size adjustment */
+  color: #666;
+}
+
+/* Main container styles */
+.content {
+  position: fixed;
+  top: 60px; /* Header height */
+  left: 0;
+  right: 0;
+  bottom: 60px; /* Bottom nav height */
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SVG container - now direct child of content */
+.svg-container {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  position: relative;
+  touch-action: none;
+  background-color: #f8f9fa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  /* Ensure full viewport usage on mobile */
+  .content {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 60px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: calc(100vh - 120px); /* Subtract header and nav heights */
+  }
+  
+  .svg-container {
+    width: 100vw;
+    height: 100%;
+    position: relative;
+    touch-action: none;
+    background-color: #f8f9fa;
+    overflow: hidden;
+    flex: 1;
+    /* Prevent rubber band scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+  
+  /* Mobile touch optimizations */
+  svg {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Optimize room interactions for mobile */
+  svg path[id^="room"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+}
+
+/* SVG element */
+#svg1,
+svg {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  display: block;
+  touch-action: none;
+}
+
+/* Room styles with improved touch targets */
+#svg1 path[id^="room"],
+svg path[id^="room"] {
+  transition: fill 0.2s ease, opacity 0.2s ease, stroke 0.2s ease;
+  stroke: none;
+  stroke-width: 1.07225;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(
+    0,
+    0,
+    0,
+    0
+  ); /* Remove tap highlight on iOS */
+  touch-action: none;
+}
+
+#svg1 path[id^="room"]:hover,
+svg path[id^="room"]:hover {
+  opacity: 0.85;
+}
+
+/* Active state for touch */
+#svg1 path[id^="room"]:active,
+svg path[id^="room"]:active {
+  opacity: 0.7;
+  stroke: #04aa6d;
+  stroke-width: 2;
+}
+
+/* Make room labels unselectable */
+.room-label {
+  fill: white;
+  stroke: black;
+  stroke-width: 0.5px;
+  font-weight: bold;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* SVG Pan Zoom Controls - Fixed size and consistent styling */
+.svg-pan-zoom-control {
+  background-color: rgba(26, 86, 50, 0.9) !important;
+  padding: 4px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  transition: opacity 0.2s !important;
+  touch-action: none;
+  position: absolute !important;
+  right: 10px !important;
+  z-index: 999 !important; /* Below drawer but above map */
+}
+
+/* Control background */
+.svg-pan-zoom-control-background {
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Control buttons container - consistent sizing */
+.svg-pan-zoom-control-zoom,
+.svg-pan-zoom-control-zoom-in,
+.svg-pan-zoom-control-zoom-out,
+.svg-pan-zoom-control-home {
+  width: 30px !important;
+  height: 30px !important;
+  position: relative !important;
+  display: block !important;
+  margin: 4px !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  background: rgba(26, 86, 50, 0.9) !important;
+  border-radius: 4px !important;
+  touch-action: none !important;
+}
+
+/* Control icons - consistent scaling */
+.svg-pan-zoom-control path {
+  fill: white !important;
+  transform: scale(0.025) !important;
+  transform-origin: center !important;
+}
+
+/* Fixed positioning for controls */
+.svg-pan-zoom-control-zoom-in {
+  top: 10px !important;
+}
+
+.svg-pan-zoom-control-zoom-out {
+  top: 45px !important;
+}
+
+.svg-pan-zoom-control-home {
+  top: 80px !important;
+}
+
+/* Hover effects */
+.svg-pan-zoom-control button:hover {
+  background-color: rgba(26, 86, 50, 1) !important;
+}
+
+/* Ensure SVG content is visible */
+svg g,
+svg path {
+  transform-origin: 0 0;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .svg-pan-zoom-control {
+    right: 5px !important;
+  }
+
+  .svg-pan-zoom-control-zoom,
+  .svg-pan-zoom-control-zoom-in,
+  .svg-pan-zoom-control-zoom-out,
+  .svg-pan-zoom-control-home {
+    width: 28px !important;
+    height: 28px !important;
+    margin: 3px !important;
+  }
+
+  .svg-pan-zoom-control path {
+    transform: scale(0.025) !important;
+  }
+}
+
+/* Bottom Navigation - Always on top */
+.bottom-nav {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  background-color: #ffffff !important;
+  border-top: 1px solid #ccc !important;
+  display: flex !important;
+  justify-content: space-around !important;
+  align-items: center !important;
+  padding: 8px 0 !important;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08) !important;
+  z-index: 1001 !important; /* Above drawer */
+  height: 60px !important;
+  box-sizing: border-box !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Link Styles within Bottom Navigation */
+/* Link Styles within Bottom Navigation */
+.bottom-nav a {
+  text-decoration: none;
+  color: #333;
+  font-size: 12px;
+  text-align: center;
+  flex: 1;
+}
+
+/* Icon Styles within Bottom Navigation */
+/* Icon Styles within Bottom Navigation */
+.bottom-nav a i {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Active Link Styles */
+/* Active Link Styles */
+.bottom-nav a.active {
+  color: #04aa6d; /* Green color for active link */
+}
+
+/* Details Drawer - Overlay Style */
+.details-drawer {
+  position: fixed;
+  bottom: 60px; /* Space for bottom nav */
+  left: 0;
+  width: 100%;
+  background-color: #ffffff;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  height: 50vh;
+  max-height: calc(100vh - 120px); /* Account for header and nav */
+  transform: translateY(calc(100% - 40px));
+  transition: transform 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile-specific drawer adjustments */
+@media (max-width: 768px) {
+  .details-drawer {
+    height: 45vh; /* Slightly smaller on mobile */
+    max-height: calc(100vh - 120px);
+    width: 100vw;
+    left: 0;
+    right: 0;
+  }
+  
+  .drawer-content {
+    padding-bottom: 10px; /* Less padding on mobile */
+  }
+  
+  .location-info {
+    padding: 0px 15px; /* Reduce padding on mobile */
+  }
+  
+  .button-container {
+    flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+    gap: 8px;
+    padding: 10px;
+  }
+  
+  .drawer-button {
+    min-width: 120px; /* Ensure buttons aren't too small */
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
+}
+
+.details-drawer.dragging {
+  transition: none;
+}
+
+.drawer-handle {
+  height: 40px;
+  width: 100%;
+  cursor: grab;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background-color: #ffffff;
+  z-index: 2;
+  padding: 10px 0;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.drawer-handle::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 5px;
+  background-color: #cccccc;
+  border-radius: 3px;
+}
+
+.details-drawer:not(.dragging) .drawer-handle:active {
+  cursor: grabbing;
+}
+
+/* Scrollable content container */
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 20px;
+}
+
+/* Content inside the drawer */
+.location-info {
+  padding: 0px 20px;
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.location-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: #f0fdf4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid #04aa6d;
+  box-shadow: 0 2px 8px rgba(4, 170, 109, 0.15);
+}
+
+.location-title {
+  flex: 1;
+}
+
+.location-title h2 {
+  font-size: 1.2em;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+}
+
+#drawer-office-location-detail {
+  font-size: 0.95em;
+  color: #64748b;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#drawer-office-location-detail i {
+  color: #04aa6d;
+}
+
+#drawer-office-status {
+  margin-top: 4px;
+}
+
+/* Separator line */
+.location-info hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 8px 0 10px 0;
+}
+
+/* Details section */
+.details-section {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.detail-row i {
+  color: #04aa6d;
+  margin-top: 2px;
+  width: 16px;
+  text-align: center;
+}
+
+.detail-row > div {
+  flex: 1;
+}
+
+#drawer-office-details {
+  font-size: 0.95em;
+  color: #334155;
+}
+
+#drawer-office-contact {
+  font-size: 0.95em;
+  color: #475569;
+}
+
+#drawer-office-last-updated {
+  font-size: 0.95em;
+  color: #64748b;
+}
+
+/* Explore button container */
+.explore-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+#explore-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #04aa6d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 0.95em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(4, 170, 109, 0.15);
+  transition: all 0.2s;
+}
+
+#explore-btn:hover {
+  background: #038857;
+  box-shadow: 0 4px 12px rgba(4, 170, 109, 0.25);
+}
+
+/* Ensure SVG controls are visible */
+.svg-pan-zoom-control {
+  z-index: 999 !important;
+}
+
+/* Custom Zoom Controls - Guaranteed visibility */
+#custom-zoom-controls {
+  position: fixed !important;
+  bottom: 120px !important;
+  right: 20px !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  padding: 8px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+  pointer-events: auto !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#custom-zoom-controls button {
+  width: 48px !important;
+  height: 48px !important;
+  border: none !important;
+  background: #ffffff !important;
+  color: #333333 !important;
+  font-size: 24px !important;
+  font-weight: bold !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+#custom-zoom-controls button:hover {
+  background: #f0f0f0 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+}
+
+#custom-zoom-controls button:active {
+  transform: scale(0.95) !important;
+}
+
+@media (max-width: 768px) {
+  #custom-zoom-controls {
+    bottom: 80px !important;
+    right: 15px !important;
+  }
+  
+  #custom-zoom-controls button {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 20px !important;
+  }
+}
+
+/* Pathfinding and navigation styles */
+.walkable-path {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.door-point {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.door-point:hover {
+  r: 8;
+  opacity: 0.8;
+}
+
+.panorama-point {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panorama-point:hover {
+  opacity: 0.8;
+}
+
+/* Camera icons handle their own hover effects */
+
+/* Ensure panorama markers are always on top */
+#marker-group {
+  z-index: 100 !important;
+}
+
+#marker-group .path-marker {
+  z-index: 101 !important;
+}
+
+.path-line {
+  pointer-events: none;
+  animation: pathFlow 2s linear infinite;
+}
+
+@keyframes pathFlow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 15; }
+}
+
+.path-step-label {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Enhanced path highlighting */
+.path-highlight {
+  stroke: #ff4444 !important;
+  stroke-width: 4 !important;
+  fill: rgba(255, 68, 68, 0.3) !important;
+  animation: pathPulse 1.5s infinite;
+}
+
+/* Panorama modal styles */
+#panorama-modal img {
+  transition: transform 0.3s ease;
+}
+
+#panorama-modal img:hover {
+  transform: scale(1.02);
+}
+
+/* Mobile panorama optimizations */
+@media (max-width: 768px) {
+  .panorama-point {
+    r: 10;
+  }
+  
+  .door-point {
+    r: 8;
+  }
+  
+  .path-step-label {
+    font-size: 14px;
+  }
+}
+
+/* Panorama Split-Screen Layout */
+.panorama-split-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panorama-split-screen.hidden {
+  display: none;
+}
+
+/* Top Panel: Panorama Viewer */
+.panorama-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  position: relative;
+}
+
+.panorama-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  color: white;
+}
+
+.close-panorama-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.close-panorama-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.panorama-title {
+  flex: 1;
+  margin-left: 15px;
+}
+
+.panorama-title h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.panorama-title p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.panorama-viewer {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Bottom Panel: Map View */
+.map-panel {
+  height: 40vh;
+  min-height: 200px;
+  background: white;
+  border-top: 2px solid #04aa6d;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.map-header {
+  height: 50px;
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.btn-sm {
+  background: #04aa6d;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.2s ease;
+}
+
+.btn-sm:hover {
+  background: #038a5a;
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.map-container svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Responsive adjustments for split-screen */
+@media (max-width: 768px) {
+  .panorama-panel {
+    flex: 1.2;
+  }
+  
+  .map-panel {
+    height: 35vh;
+    min-height: 180px;
+  }
+  
+  .panorama-header {
+    height: 50px;
+    padding: 8px 12px;
+  }
+  
+  .panorama-title h3 {
+    font-size: 14px;
+  }
+  
+  .panorama-title p {
+    font-size: 11px;
+  }
+  
+  .map-header {
+    height: 40px;
+    padding: 8px 12px;
+  }
+  
+  .map-header h4 {
+    font-size: 14px;
+  }
+  
+  .close-panorama-btn {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .panorama-panel {
+    flex: 1.5;
+  }
+  
+  .map-panel {
+    height: 180px;
+  }
+}
+
+/* A-Frame scene adjustments for embedded mode */
+.panorama-viewer a-scene {
+  border: none !important;
+}
+
+/* Hide A-Frame VR button and fullscreen in split-screen mode */
+.panorama-split-screen .a-enter-vr,
+.panorama-split-screen .a-fullscreen {
+  display: none !important;
+}
+
+/* Office Details Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-dialog {
+    background: #ffffff;
+    border-radius: 12px;
+    max-width: 90%;
+    max-height: 80%;
+    overflow: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: scale(0.7);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.active .modal-dialog {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-title {
+    margin: 0;
+    color: #1a5632;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.panel-section {
+    margin-bottom: 20px;
+}
+
+.panel-section h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-weight: bold;
+}
+
+.panel-section p {
+    margin: 0;
+    color: #666;
+}
+
+/* Toggle Switch CSS */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    margin-right: 10px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #1a5632;
+}
+
+input:not(:checked) + .slider {
+    background-color: #ccc;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #1a5632;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Rounded slider */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}

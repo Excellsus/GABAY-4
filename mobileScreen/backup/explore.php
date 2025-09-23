@@ -477,14 +477,6 @@ try {
       </div>
     </div>
 
-    <!-- 3D Demo Modal -->
-    <div id="three-demo-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:4000; align-items:center; justify-content:center;">
-      <div style="position:relative; width:95vw; max-width:1100px; height:90vh; background:#000; border-radius:12px; box-shadow:0 8px 40px rgba(0,0,0,0.6); overflow:hidden;">
-        <button id="close-three-demo" aria-label="Close 3D demo" style="position:absolute; top:12px; right:12px; font-size:28px; background:rgba(255,255,255,0.08); color:#fff; border:none; width:44px; height:44px; border-radius:8px; cursor:pointer; z-index:12;">&times;</button>
-        <iframe id="three-demo-frame" src="../3d_demo/three_demo.html" style="width:100%; height:100%; border:none; background:#000;" allowfullscreen></iframe>
-      </div>
-    </div>
-
     <!-- Pathfinding Modal for Directions -->
     <div id="pathfinding-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:3000; align-items:center; justify-content:center;">
       <div style="position:relative; width:95vw; max-width:400px; background:#fff; border-radius:16px; box-shadow:0 4px 24px #0002; padding:20px;">
@@ -1075,45 +1067,6 @@ try {
             }
           }
         });
-
-        // 3D demo modal wiring
-        const switch3dBtn = document.getElementById('switch-3d-view-btn');
-        const threeDemoModal = document.getElementById('three-demo-modal');
-        const closeThreeDemoBtn = document.getElementById('close-three-demo');
-        const threeDemoFrame = document.getElementById('three-demo-frame');
-
-        if (switch3dBtn && threeDemoModal) {
-          switch3dBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            // Show modal
-            threeDemoModal.style.display = 'flex';
-            // Optional: reload iframe to ensure fresh state
-            try {
-              threeDemoFrame.contentWindow.location.reload();
-            } catch (e) {
-              // ignore cross-origin or not yet loaded
-            }
-          });
-        }
-
-        if (closeThreeDemoBtn && threeDemoModal) {
-          closeThreeDemoBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            threeDemoModal.style.display = 'none';
-            // stop any audio/animation by resetting iframe src (lightweight)
-            try { threeDemoFrame.src = threeDemoFrame.src; } catch (e) {}
-          });
-        }
-
-        // Close modal when clicking outside the content
-        if (threeDemoModal) {
-          threeDemoModal.addEventListener('click', (e) => {
-            if (e.target === threeDemoModal) {
-              threeDemoModal.style.display = 'none';
-              try { threeDemoFrame.src = threeDemoFrame.src; } catch (e) {}
-            }
-          });
-        }
       });
 
       // Safe function to draw paths and doors only when everything is ready
