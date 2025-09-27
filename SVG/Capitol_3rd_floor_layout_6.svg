@@ -8,9 +8,30 @@
    version="1.1"
    id="svg1"
    xml:space="preserve"
+   sodipodi:docname="Capitol_3rd_floor_layout_6.svg"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg"><defs
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="2.8284271"
+     inkscape:cx="1753.6248"
+     inkscape:cy="403.22764"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g199-88" /><defs
      id="defs1"><linearGradient
        id="swatch138"><stop
          style="stop-color:#ffffff;stop-opacity:1;"
@@ -444,7 +465,7 @@
        xlink:href="#swatch138"
        id="linearGradient115"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(16.24523,-0.70631435)"
+       gradientTransform="translate(34.724498,-20.184462)"
        x1="686.47449"
        y1="496.76932"
        x2="724.05945"
@@ -452,7 +473,7 @@
        xlink:href="#swatch138"
        id="linearGradient116"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(90.985801,99.985484)"
+       gradientTransform="translate(115.35365,97.513384)"
        x1="686.47449"
        y1="496.76932"
        x2="724.05945"
@@ -460,7 +481,7 @@
        xlink:href="#swatch138"
        id="linearGradient117"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(412.62498,-1.997766)"
+       gradientTransform="translate(439.59472,-10.488241)"
        x1="686.47449"
        y1="496.76932"
        x2="724.05945"
@@ -468,7 +489,7 @@
        xlink:href="#swatch138"
        id="linearGradient118"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(964.00645,34.960774)"
+       gradientTransform="translate(990.14008,44.496018)"
        x1="686.47449"
        y1="496.76932"
        x2="724.05945"
@@ -476,7 +497,7 @@
        xlink:href="#swatch138"
        id="linearGradient119"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(966.33308,-78.905337)"
+       gradientTransform="translate(986.8162,-71.842193)"
        x1="686.47449"
        y1="496.76932"
        x2="724.05945"
@@ -484,7 +505,7 @@
        xlink:href="#swatch138"
        id="linearGradient120"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(1045.9146,-146.83527)"
+       gradientTransform="translate(1067.4572,-146.83527)"
        x1="686.47449"
        y1="496.76932"
        x2="724.05945"
@@ -873,9 +894,16 @@
        id="g198-6"
        style="display:inline;fill:#000000;fill-opacity:1"
        transform="translate(19.145794,214.59494)"><path
-         style="display:inline;fill:#cc353a;fill-opacity:1;stroke-width:1.55255"
-         d="m 29.276847,180.11227 -0.0021,20.48408 25.096257,0.0404 h 35.970081 v -20.53353 z m 1691.540053,0.078 -0.1197,20.35817 25.097,0.0404 h 35.9701 v -20.49335 z"
-         id="stair_thirdFloor_3-3" /><path
+         style="display:inline;fill:#9e171a;fill-opacity:1;vector-effect:non-scaling-stroke;stroke-width:0.999648;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+         d="m 29.228872,180.1978 v 20.32303 h 60.8827 v -20.38346 z"
+         id="stair_thirdFloor_4-3"
+         inkscape:label="stair_thirdFloor_4-3"
+         sodipodi:nodetypes="ccccc" /><path
+         style="display:inline;fill:#9e171a;fill-opacity:1;vector-effect:non-scaling-stroke;stroke-width:0.999648;-inkscape-stroke:hairline;paint-order:fill markers stroke"
+         d="m 1720.8813,180.1978 v 20.32303 h 60.8827 v -20.38346 z"
+         id="stair_thirdFloor_3-3"
+         inkscape:label="stair_thirdFloor_3-3"
+         sodipodi:nodetypes="ccccc" /><path
          style="display:inline;fill:#9e171a;fill-opacity:1;stroke-width:1.19002"
          d="M 859.85604,175.41314 H 800.83686 V 140.32351 H 859.7987 Z"
          id="stair_thirdFloor_1-3" /><path
@@ -916,30 +944,30 @@
        d="m 774.99447,580.0089 v -45.17977 h -22.41236 v 45.20709 z"
        id="path49" /><text
        xml:space="preserve"
-       style="font-size:12px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#000000;fill-opacity:1;paint-order:stroke fill markers"
-       x="175.36247"
-       y="270.8219"
-       id="text89"
-       transform="matrix(0.99887936,0,0,0.99887936,-44.617394,231.94627)"><tspan
+       style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#000000;fill-opacity:1;stroke-width:0.998879;paint-order:stroke fill markers"
+       x="153.77251"
+       y="502.46466"
+       id="text89"><tspan
          id="tspan89"
-         x="175.36247"
-         y="270.8219">ROOFDECK</tspan></text><text
+         x="153.77251"
+         y="502.46466"
+         style="stroke-width:0.998879">ROOFDECK</tspan></text><text
        xml:space="preserve"
        style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke-width:0.998879;paint-order:stroke fill markers"
-       x="1646.0331"
+       x="1679.9362"
        y="667.25439"
        id="text89-82"><tspan
          id="tspan89-66"
-         x="1646.0331"
+         x="1679.9362"
          y="667.25439"
          style="stroke-width:0.998879">ROOFDECK</tspan></text><text
        xml:space="preserve"
        style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke-width:0.998879;paint-order:stroke fill markers"
-       x="891.16089"
+       x="928.11945"
        y="482.57135"
        id="text89-0"><tspan
          id="tspan89-6"
-         x="891.16089"
+         x="928.11945"
          y="482.57135"
          style="stroke-width:0.998879">SOCIAL HALL</tspan></text><text
        xml:space="preserve"
@@ -971,12 +999,12 @@
      id="room-1-3" /><text
      xml:space="preserve"
      style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke:url(#linearGradient115);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
-     x="702.13641"
-     y="500.34433"
+     x="720.61566"
+     y="480.86618"
      id="text-1-3"><tspan
        id="roomlabel-1-3"
-       x="702.13641"
-       y="500.34433"
+       x="720.61566"
+       y="480.86618"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient115);stroke-width:0.998879;stroke-opacity:1">room1</tspan></text></g>
              
              <!-- ROOM 2 -->
@@ -987,12 +1015,12 @@
      id="room-2-3" /><text
      xml:space="preserve"
      style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke:url(#linearGradient116);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
-     x="776.87695"
-     y="601.03613"
+     x="801.24481"
+     y="598.56403"
      id="text-2-3"><tspan
        id="roomlabel-2-3"
-       x="776.87695"
-       y="601.03613"
+       x="801.24481"
+       y="598.56403"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient116);stroke-width:0.998879;stroke-opacity:1">room2</tspan></text></g>
              
              <!-- ROOM 3 -->
@@ -1003,12 +1031,12 @@
      id="room-3-3" /><text
      xml:space="preserve"
      style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke:url(#linearGradient117);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
-     x="1098.5161"
-     y="499.05289"
+     x="1125.4858"
+     y="490.56241"
      id="ttext-3-3"><tspan
        id="roomlabel-3-3"
-       x="1098.5161"
-       y="499.05289"
+       x="1125.4858"
+       y="490.56241"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient117);stroke-width:0.998879;stroke-opacity:1">room3</tspan></text></g>
              
              <!-- ROOM 4 -->
@@ -1019,12 +1047,12 @@
      id="room-4-3" /><text
      xml:space="preserve"
      style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke:url(#linearGradient118);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
-     x="1649.8976"
-     y="536.01141"
+     x="1676.0312"
+     y="545.54663"
      id="text-4-3"><tspan
        id="roomlabel-4-3"
-       x="1649.8976"
-       y="536.01141"
+       x="1676.0312"
+       y="545.54663"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient118);stroke-width:0.998879;stroke-opacity:1">room4</tspan></text></g>
              
              
@@ -1033,15 +1061,16 @@
    id="g42"><path
      style="display:inline;fill:#eaebe6;fill-opacity:1;stroke-width:0.998879;stroke-dasharray:none;paint-order:fill markers stroke"
      d="m 1773.8386,394.73384 v -52.6246 l -155.4388,-0.17658 V 468.8706 h 154.9919 v -53.75837 h -33.3439 v -20.31985 z"
-     id="room-5-3" /><text
+     id="room-5-3"
+     sodipodi:nodetypes="ccccccccc" /><text
      xml:space="preserve"
      style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke:url(#linearGradient119);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
-     x="1652.2242"
-     y="422.14532"
+     x="1672.7074"
+     y="429.20847"
      id="text-5-3"><tspan
        id="roomlabel-5-3"
-       x="1652.2242"
-       y="422.14532"
+       x="1672.7074"
+       y="429.20847"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient119);stroke-width:0.998879;stroke-opacity:1">room5</tspan></text></g>
              
              <g
@@ -1051,10 +1080,10 @@
      id="room-6-3" /><text
      xml:space="preserve"
      style="font-size:11.9866px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;display:inline;fill:#000000;fill-opacity:1;stroke:url(#linearGradient120);stroke-width:0.998879;stroke-opacity:1;paint-order:stroke fill markers"
-     x="1731.8057"
+     x="1753.3481"
      y="354.21539"
      id="text-6-3"><tspan
        id="roomlabel-6-3"
-       x="1731.8057"
+       x="1753.3481"
        y="354.21539"
        style="fill:#000000;fill-opacity:1;stroke:url(#linearGradient120);stroke-width:0.998879;stroke-opacity:1">room6</tspan></text></g></g></g></svg>

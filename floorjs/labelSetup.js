@@ -1,15 +1,22 @@
 document.addEventListener("DOMContentLoaded", function () {
   console.log("labelSetup.js loaded and DOM ready.");
 
-  const officeDetailsModal = document.getElementById("office-details-modal");
-  const panelOfficeName = document.getElementById("panel-office-name");
-  const officeActiveToggle = document.getElementById("office-active-toggle");
-  const officeStatusText = document.getElementById("office-status-text");
-  const closePanelBtn = document.getElementById("close-panel-btn");
-  const tooltip = document.getElementById("floorplan-tooltip");
+  // Cache DOM elements once to avoid repeated queries
+  const domCache = {
+    officeDetailsModal: document.getElementById("office-details-modal"),
+    panelOfficeName: document.getElementById("panel-office-name"),
+    officeActiveToggle: document.getElementById("office-active-toggle"),
+    officeStatusText: document.getElementById("office-status-text"),
+    closePanelBtn: document.getElementById("close-panel-btn"),
+    tooltip: document.getElementById("floorplan-tooltip"),
+    // Cache SVG elements for better performance
+    svg: null,
+    svgViewport: null
+  };
 
   let currentSelectedOffice = null;
   let officeActiveStates = {};
+  let roomElementCache = new Map(); // Cache room elements to avoid repeated DOM queries
 
   // Log elements found for debugging
   console.log("Office details modal found:", !!officeDetailsModal);
@@ -21,35 +28,49 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updateRoomLabel(group, officeName) {
     let textEl = group.querySelector("text");
-    if (!textEl) {
+    let originalX, originalY;
+
+    if (textEl) {
+      // If text element exists, preserve its original coordinates
+      originalX = parseFloat(textEl.getAttribute("x"));
+      originalY = parseFloat(textEl.getAttribute("y"));
+    } else {
+      // If not, create it and calculate its center position from the room's bounding box
       const roomElement = group.querySelector("path, rect");
-      if(!roomElement) return;
+      if (!roomElement) return;
 
       const roomMatch = roomElement.id.match(/room-(\d+)/);
       if (!roomMatch) return;
       const roomNumber = roomMatch[1];
-
-      // Remove any existing duplicate elsewhere
-      const dup = document.querySelector(`#roomlabel-${roomNumber}`);
-      if (dup && !group.contains(dup)) dup.remove();
 
       textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
       textEl.setAttribute("class", "room-label");
       textEl.setAttribute("id", `roomlabel-${roomNumber}`);
       
       const bbox = roomElement.getBBox();
-      textEl.setAttribute("x", bbox.x + bbox.width / 2);
-      textEl.setAttribute("y", bbox.y + bbox.height / 2);
+      originalX = bbox.x + bbox.width / 2;
+      originalY = bbox.y + bbox.height / 2;
       
-      // Always append to the group so transforms align
+      textEl.setAttribute("x", originalX);
+      textEl.setAttribute("y", originalY);
+      
       group.appendChild(textEl);
     }
 
-    // Store original x coordinate for centering
-    const originalX = parseFloat(textEl.getAttribute("x")) || 0;
-
-    // Set text-anchor to middle for automatic centering
+    // Ensure text alignment is always centered to prevent shifts
     textEl.setAttribute("text-anchor", "middle");
+    textEl.setAttribute("dominant-baseline", "central");
+    
+    // Force consistent font styling
+    textEl.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+    textEl.style.fontWeight = "600";
+    textEl.style.fontSize = "14px";
+    textEl.style.fill = "#1a1a1a";
+    textEl.style.stroke = "#ffffff";
+    textEl.style.strokeWidth = "3px";
+    textEl.style.strokeLinejoin = "round";
+    textEl.style.paintOrder = "stroke fill";
+    textEl.style.vectorEffect = "non-scaling-stroke";
 
     // Clear existing content
     textEl.textContent = "";
@@ -60,131 +81,81 @@ document.addEventListener("DOMContentLoaded", function () {
     const lineHeight = "1.2em";
     const words = officeName.split(" ");
 
-    if (words.length > 0) {
-        words.forEach((word, index) => {
-            const newTspan = document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "tspan"
-            );
-            newTspan.textContent = word;
-            newTspan.setAttribute("x", originalX); // Set x for each tspan
-            if (index > 0) {
-                newTspan.setAttribute("dy", lineHeight);
-            }
-            textEl.appendChild(newTspan);
-        });
+    // Create tspans for each word to handle multi-line text
+    words.forEach((word, index) => {
+        const newTspan = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "tspan"
+        );
+        newTspan.textContent = word;
+        // Set x on each tspan to lock horizontal alignment
+        newTspan.setAttribute("x", originalX); 
+        
+        // Force consistent font styling on tspan as well
+        newTspan.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+        newTspan.style.fontWeight = "600";
+        newTspan.style.fontSize = "14px";
+        
+        if (index > 0) {
+            newTspan.setAttribute("dy", lineHeight);
+        }
+        textEl.appendChild(newTspan);
+    });
+  }
+
+  // Optimized room finding with caching
+  function findRoomElements(office) {
+    const cacheKey = `${office.id}-${office.location}`;
+    
+    // Return cached result if available
+    if (roomElementCache.has(cacheKey)) {
+      return roomElementCache.get(cacheKey);
     }
+
+    const locationStr = office.location || "";
+    let roomGroup = null;
+    let roomElement = null;
+
+    // Optimized search order: try most common patterns first
+    const searchPatterns = [
+      () => document.getElementById(locationStr), // Direct location match
+      () => {
+        const roomMatch = locationStr.match(/room-(\d+)/);
+        return roomMatch ? document.getElementById(`room-${roomMatch[1]}-1`) : null;
+      },
+      () => document.getElementById(`room-${office.id}-1`), // Office ID pattern
+      () => document.getElementById(`g${office.id}`) // Legacy pattern
+    ];
+
+    for (const searchFn of searchPatterns) {
+      roomElement = searchFn();
+      if (roomElement) {
+        roomGroup = roomElement.closest("g") || roomElement.parentElement || roomElement;
+        break;
+      }
+    }
+
+    const result = { roomGroup, roomElement };
+    roomElementCache.set(cacheKey, result); // Cache the result
+    return result;
   }
 
   function updateRoomAppearanceById(officeId, isActive) {
     // Look up the office in officesData to get its location
-    const office = officesData.find(
-      (o) => o.id.toString() === officeId.toString()
-    );
+    const office = officesData.find(o => o.id.toString() === officeId.toString());
     if (!office) {
       console.warn(`Office with ID ${officeId} not found in officesData`);
       return;
     }
 
-    const locationStr = office.location || "";
-    console.log(
-      `Updating room appearance for office ${officeId} (${office.name}), location: ${locationStr}, active: ${isActive}`
-    );
+    console.log(`Updating room appearance for office ${officeId} (${office.name}), active: ${isActive}`);
 
-    // Try multiple ways to find the room group
-    let roomGroup = null;
-    let roomElement = null;
-
-    // First try to find by room-X-1 pattern
-    let roomNum = null;
-    if (locationStr) {
-      // Try to extract room number from location string
-      const roomMatch = locationStr.match(/room-(\d+)/);
-      if (roomMatch && roomMatch[1]) {
-        roomNum = roomMatch[1];
-        // Try new format first
-        roomElement = document.getElementById(`room-${roomNum}-1`);
-        if (!roomElement) {
-          // If not found, try old format
-          roomElement = document.getElementById(`g${roomNum}`);
-          if (roomElement) {
-            // Convert old format to new format
-            console.log(
-              `Converting old format g${roomNum} to room-${roomNum}-1`
-            );
-            roomElement.id = `room-${roomNum}-1`;
-          }
-        }
-        if (roomElement) {
-          console.log(
-            `Found element with ID ${roomElement.id} for office ${office.name}`
-          );
-          roomGroup = roomElement.closest("g");
-          if (roomGroup) {
-            console.log(
-              `Found parent group ${roomGroup.id} for room ${roomNum}`
-            );
-            // Set data attributes to help with identification
-            roomGroup.dataset.roomNumber = roomNum;
-            roomElement.dataset.roomNumber = roomNum;
-          }
-        }
-      }
-    }
-
-    // If not found by room-X-1, try direct group ID match using locationStr
-    if (!roomGroup && locationStr) {
-      // Try new format first
-      if (locationStr.startsWith("g")) {
-        const gNum = locationStr.substring(1);
-        roomGroup = document.getElementById(`room-${gNum}-1`);
-        if (!roomGroup) {
-          // If not found, try old format
-          roomGroup = document.getElementById(locationStr);
-          if (roomGroup) {
-            // Convert old format to new format
-            console.log(
-              `Converting old format ${locationStr} to room-${gNum}-1`
-            );
-            roomGroup.id = `room-${gNum}-1`;
-          }
-        }
-      } else {
-        roomGroup = document.getElementById(locationStr);
-      }
-      if (roomGroup) {
-        console.log(`Found group by location string: ${locationStr}`);
-      }
-    }
-
-    // If still not found, try group by office ID (legacy fallback)
-    if (!roomGroup) {
-      // Try new format first
-      roomGroup = document.getElementById(`room-${id}-1`);
-      if (!roomGroup) {
-        // If not found, try old format
-        roomGroup = document.getElementById(`g${id}`);
-        if (roomGroup) {
-          // Convert old format to new format
-          console.log(`Converting old format g${id} to room-${id}-1`);
-          roomGroup.id = `room-${id}-1`;
-        }
-      }
-      if (roomGroup) {
-        console.log(`Found group by ID ${roomGroup.id}`);
-      }
-    }
+    // Use optimized room finder
+    const { roomGroup, roomElement } = findRoomElements(office);
 
     if (!roomGroup) {
-      console.warn(
-        `Room group not found for office ${officeId} with location ${locationStr}`
-      );
+      console.warn(`Room group not found for office ${officeId} with location ${office.location}`);
       return;
-    }
-
-    // Find the path or rect element inside the group if we haven't already
-    if (!roomElement) {
-      roomElement = roomGroup.querySelector("path, rect");
     }
 
     const textEl = roomGroup.querySelector("text");
@@ -240,13 +211,10 @@ document.addEventListener("DOMContentLoaded", function () {
       });
   }
 
-  if (
-    !officeDetailsModal ||
-    !panelOfficeName ||
-    !officeActiveToggle ||
-    !officeStatusText ||
-    !closePanelBtn
-  ) {
+  // Use cached DOM elements
+  const { officeDetailsModal, panelOfficeName, officeActiveToggle, officeStatusText, closePanelBtn, tooltip } = domCache;
+
+  if (!officeDetailsModal || !panelOfficeName || !officeActiveToggle || !officeStatusText || !closePanelBtn) {
     console.error("Missing one or more essential panel elements.");
     return;
   }
@@ -277,304 +245,81 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
+    // Cache SVG elements for better performance
+    domCache.svg = document.querySelector('svg');
+    domCache.svgViewport = domCache.svg?.querySelector('.svg-pan-zoom_viewport');
+
+    // Create office lookup map for faster access
+    const officeMap = new Map(officesData.map(office => [office.id.toString(), office]));
+
     // Map office data to room groups
     officesData.forEach((office) => {
       const id = office.id;
       const idStr = id.toString();
       const officeName = office.name || `Office ${id}`;
 
-      // Get location from office data
-      const locationStr = office.location || "";
-
-      // Find room elements using multiple methods
-      let roomGroup = null;
-      let roomElement = null;
-
-      // First try to find by room-X-1 pattern
-      let roomNum = null;
-      if (locationStr) {
-        // Try to extract room number from location string
-        const roomMatch = locationStr.match(/room-(\d+)/);
-        if (roomMatch && roomMatch[1]) {
-          roomNum = roomMatch[1];
-          // Try new format first
-          roomElement = document.getElementById(`room-${roomNum}-1`);
-          if (!roomElement) {
-            // If not found, try old format
-            roomElement = document.getElementById(`g${roomNum}`);
-            if (roomElement) {
-              // Convert old format to new format
-              console.log(
-                `Converting old format g${roomNum} to room-${roomNum}-1`
-              );
-              roomElement.id = `room-${roomNum}-1`;
-            }
-          }
-          if (roomElement) {
-            console.log(
-              `Found element with ID ${roomElement.id} for office ${officeName}`
-            );
-            roomGroup = roomElement.closest("g");
-            if (roomGroup) {
-              console.log(
-                `Found parent group ${roomGroup.id} for room ${roomNum}`
-              );
-              // Set data attributes to help with identification
-              roomGroup.dataset.roomNumber = roomNum;
-              roomElement.dataset.roomNumber = roomNum;
-            }
-          }
-        }
-      }
-
-      // If not found by room-X-1, try direct group ID match using locationStr
-      if (!roomGroup && locationStr) {
-        // Try new format first
-        if (locationStr.startsWith("g")) {
-          const gNum = locationStr.substring(1);
-          roomGroup = document.getElementById(`room-${gNum}-1`);
-          if (!roomGroup) {
-            // If not found, try old format
-            roomGroup = document.getElementById(locationStr);
-            if (roomGroup) {
-              // Convert old format to new format
-              console.log(
-                `Converting old format ${locationStr} to room-${gNum}-1`
-              );
-              roomGroup.id = `room-${gNum}-1`;
-            }
-          }
-        } else {
-          roomGroup = document.getElementById(locationStr);
-        }
-        if (roomGroup) {
-          console.log(`Found group by location string: ${locationStr}`);
-        }
-      }
-
-      // If still not found, try group by office ID (legacy fallback)
-      if (!roomGroup) {
-        // Try new format first
-        roomGroup = document.getElementById(`room-${id}-1`);
-        if (!roomGroup) {
-          // If not found, try old format
-          roomGroup = document.getElementById(`g${id}`);
-          if (roomGroup) {
-            // Convert old format to new format
-            console.log(`Converting old format g${id} to room-${id}-1`);
-            roomGroup.id = `room-${id}-1`;
-          }
-        }
-        if (roomGroup) {
-          console.log(`Found group by ID ${roomGroup.id}`);
-        }
-      }
+      // Use optimized room finder
+      const { roomGroup, roomElement } = findRoomElements(office);
 
       if (!roomGroup) {
-        console.warn(
-          `Room not found for office ${officeName} (ID: ${id}, Location: ${locationStr})`
-        );
+        console.warn(`Room not found for office ${officeName} (ID: ${id}, Location: ${office.location})`);
         return;
       }
 
-      console.log(
-        `Processing room for office ${officeName}, using element: ${roomGroup.id}`
-      );
+      console.log(`Processing room for office ${officeName}, using element: ${roomGroup.id}`);
 
-      // Find the path or rect element inside the group if we haven't already
-      if (!roomElement) {
-        roomElement = roomGroup.querySelector("path, rect");
-      }
+      // Update room label with optimized function
+      updateRoomLabel(roomGroup, officeName);
 
-      // Find text element for the label
-      let textEl = roomGroup.querySelector("text");
-      // Only update the existing <text> element, do not create new ones
-      if (textEl) {
-        // Save original style and position
-        const originalX = parseFloat(textEl.getAttribute("x")) || 0;
-        const originalY = parseFloat(textEl.getAttribute("y")) || 0;
-        const originalFill = textEl.getAttribute("fill");
-        const originalFontSize = textEl.getAttribute("font-size");
-        const originalFontWeight = textEl.getAttribute("font-weight");
-        const originalTextAnchor = textEl.getAttribute("text-anchor");
-        const originalAlignmentBaseline =
-          textEl.getAttribute("alignment-baseline");
-        // Clear existing tspans or text content
-        textEl.textContent = "";
-        while (textEl.firstChild) {
-          textEl.removeChild(textEl.firstChild);
-        }
-        if (officeName.includes(" ")) {
-          const words = officeName.split(" ");
-          words.forEach((word, index) => {
-            const newTspan = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "tspan"
-            );
-            newTspan.textContent = word;
-            newTspan.setAttribute("x", originalX);
-            if (index > 0) newTspan.setAttribute("dy", "1.2em");
-            textEl.appendChild(newTspan);
-          });
-        } else {
-          const newTspan = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "tspan"
-          );
-          newTspan.textContent = officeName;
-          newTspan.setAttribute("x", originalX);
-          textEl.appendChild(newTspan);
-        }
-
-        // Center the text by calculating bounding box and adjusting position
-        try {
-          // Force layout update
-          textEl.getBBox();
-          
-          // Get the bounding box of the updated text
-          const bbox = textEl.getBBox();
-          
-          // Calculate offset to center the text horizontally around original X
-          const centerOffset = bbox.width / 2;
-          const centeredX = originalX - centerOffset;
-          
-          // Update all tspan x positions to center the text
-          const tspans = textEl.querySelectorAll("tspan");
-          tspans.forEach((tspan) => {
-            tspan.setAttribute("x", centeredX);
-          });
-          
-          // Update the text element's x attribute for consistency
-          textEl.setAttribute("x", centeredX);
-          
-        } catch (error) {
-          console.warn("Could not center text, using original position:", error);
-        }
-
-        // Restore original style and position (y remains unchanged)
-        textEl.setAttribute("y", originalY);
-        if (originalFill) textEl.setAttribute("fill", originalFill);
-        if (originalFontSize)
-          textEl.setAttribute("font-size", originalFontSize);
-        if (originalFontWeight)
-          textEl.setAttribute("font-weight", originalFontWeight);
-        if (originalTextAnchor)
-          textEl.setAttribute("text-anchor", originalTextAnchor);
-        if (originalAlignmentBaseline)
-          textEl.setAttribute("alignment-baseline", originalAlignmentBaseline);
-        // Style for interactivity
-        textEl.style.cursor = "pointer";
-        textEl.style.pointerEvents = "auto";
-      }
-      // Log what we found for debugging
-      console.log(
-        `  Room element found: ${roomElement ? roomElement.id : "none"}`
-      );
-      console.log(`  Text element found: ${!!textEl}`);
       // Set office ID on both group and element
       roomGroup.dataset.officeId = id;
       if (roomElement) {
         roomElement.dataset.officeId = id;
-        roomElement.classList.add("interactive-room"); // Add interactive class to element
+        roomElement.classList.add("interactive-room");
         roomElement.style.cursor = "pointer";
-        roomElement.style.pointerEvents = "auto"; // Ensure click events are captured
+        roomElement.style.pointerEvents = "auto";
       }
 
-      // Add click event to both the group and the element
-      // --- MOBILE-OPTIMIZED CLICK HANDLER ---
+      // Define click handler for this office
       const handleRoomClick = function (e) {
-        // Check if we're in edit mode - if so, don't show the dialog
-        if (document.body.classList.contains("edit-mode-active")) {
-          return;
-        }
-
-        // Prevent default and stop propagation for mobile
+        if (document.body.classList.contains("edit-mode-active")) return;
+        
         e.stopPropagation();
-        // Do not call preventDefault to allow pan/zoom
         currentSelectedOffice = office;
-        // --- MOBILE: Use drawer if available ---
+        
+        // Mobile: Use drawer if available
         if (typeof window.populateAndShowDrawerWithData === "function") {
           window.populateAndShowDrawerWithData(office);
           return;
         }
-        // --- END MOBILE ---
-        // --- DESKTOP: Use panel if available ---
-        if (typeof panelOfficeName !== "undefined" && panelOfficeName) {
-          panelOfficeName.textContent = office.name || "N/A";
-        }
-        if (typeof officeActiveToggle !== "undefined" && officeActiveToggle) {
-          const isActive = officeActiveStates[id.toString()];
+        
+        // Desktop: Use panel if available
+        if (panelOfficeName) panelOfficeName.textContent = office.name || "N/A";
+        if (officeActiveToggle) {
+          const isActive = officeActiveStates[idStr];
           officeActiveToggle.checked = isActive;
         }
-        if (typeof officeStatusText !== "undefined" && officeStatusText) {
-          const isActive = officeActiveStates[id.toString()];
+        if (officeStatusText) {
+          const isActive = officeActiveStates[idStr];
           officeStatusText.textContent = isActive ? "Active" : "Inactive";
           officeStatusText.style.color = isActive ? "#4CAF50" : "#f44336";
         }
-  // Do not update/recreate the label on click to avoid duplicate/misaligned tspans
-        if (typeof officeDetailsModal !== "undefined" && officeDetailsModal) {
-          openModal();
-        }
+        if (officeDetailsModal) openModal();
       };
 
       // Add click handler to both the group and the element
       roomGroup.addEventListener("click", handleRoomClick, true);
       if (roomElement) {
-        console.log(
-          `Adding click handler to room element: ${roomElement.id} (${roomElement.tagName})`
-        );
         roomElement.addEventListener("click", handleRoomClick, true);
       }
 
+      // Find and configure text element
+      let textEl = roomGroup.querySelector("text");
       if (textEl) {
-        // Apply styling from mobileLabelSetup.js
-        textEl.style.fill = "white";
-        textEl.style.stroke = "black";
-        textEl.style.strokeWidth = "0.5px";
-        textEl.style.fontWeight = "bold";
-        textEl.style.cursor = "pointer"; // Make text clickable
-
-        // Apply line-breaking logic from mobileLabelSetup.js
-        const originalX = textEl.getAttribute("x") || 0;
-        const lineHeight = "1.2em"; // Consistent with mobile
-
-        // Clear existing tspans or text content
-        textEl.textContent = ""; // Clear direct text content
-        while (textEl.firstChild) {
-          // Remove existing tspan children if any
-          textEl.removeChild(textEl.firstChild);
-        }
-
-        if (officeName.includes(" ")) {
-          const words = officeName.split(" "); // Split into words
-          words.forEach((word, index) => {
-            const newTspan = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "tspan"
-            );
-            newTspan.textContent = word;
-            newTspan.setAttribute("x", originalX); // Reset x for each line
-            if (index > 0) {
-              newTspan.setAttribute("dy", lineHeight); // Apply vertical shift for subsequent lines
-            }
-            textEl.appendChild(newTspan);
-          });
-        } else {
-          // If no space, use a single tspan
-          const newTspan = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "tspan"
-          );
-          newTspan.textContent = officeName;
-          newTspan.setAttribute("x", originalX);
-          textEl.appendChild(newTspan);
-        }
-
-        // Apply active/inactive class to the textEl itself
-        textEl.classList.toggle(
-          "text-label-inactive",
-          !officeActiveStates[idStr]
-        );
+        // Apply active/inactive class
+        textEl.classList.toggle("text-label-inactive", !officeActiveStates[idStr]);
+        textEl.style.cursor = "pointer";
+        textEl.style.pointerEvents = "auto";
 
         // Add click listener to textEl
         textEl.addEventListener("click", handleRoomClick);
@@ -582,11 +327,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Add tooltip to textEl
         if (tooltip) {
           textEl.addEventListener("mousemove", function (e) {
-            // Don't show tooltip if in edit mode
-            if (document.body.classList.contains("edit-mode-active")) {
-              return;
-            }
-
+            if (document.body.classList.contains("edit-mode-active")) return;
             tooltip.innerHTML = officeName;
             tooltip.style.display = "block";
             tooltip.style.left = e.pageX + 15 + "px";
