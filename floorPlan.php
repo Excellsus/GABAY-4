@@ -93,12 +93,30 @@ if (isset($_GET['selectRoom'])) {
       stroke: #43a047; 
       stroke-width: 4; 
     }
-    .room-label {
-      fill: white;
-      stroke: black;
-      stroke-width: 0.5px;
-      font-weight: bold;
-      pointer-events: none;
+    /* SVG Text Styling - Professional & Accessible with Forced Font Loading */
+    .room-label,
+    text[id*="roomlabel"],
+    text[id*="text-"],
+    tspan[id*="roomlabel"],
+    svg text,
+    svg tspan {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      font-weight: 600 !important;
+      font-size: 14px !important;
+      fill: #1a1a1a !important;
+      stroke: #ffffff !important;
+      stroke-width: 3px !important;
+      stroke-linejoin: round !important;
+      paint-order: stroke fill !important;
+      text-anchor: middle !important;
+      dominant-baseline: central !important;
+      pointer-events: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+      vector-effect: non-scaling-stroke !important;
+      font-display: swap !important;
     }
     </style>
     </head><body style="margin:0;padding:0;">
@@ -109,6 +127,25 @@ if (isset($_GET['selectRoom'])) {
     const officesData = <?php echo json_encode($offices); ?>;
     
     // Function to update room label
+    // Function to force font application on all SVG text elements
+    function applyConsistentFontStyling(container) {
+      const textElements = container.querySelectorAll('text, tspan');
+      textElements.forEach(el => {
+        el.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+        el.style.fontWeight = '600';
+        el.style.fontSize = '14px';
+        el.style.fill = '#1a1a1a';
+        el.style.stroke = '#ffffff';
+        el.style.strokeWidth = '3px';
+        el.style.strokeLinejoin = 'round';
+        el.style.paintOrder = 'stroke fill';
+        el.style.textAnchor = 'middle';
+        el.style.dominantBaseline = 'central';
+        el.style.vectorEffect = 'non-scaling-stroke';
+        el.setAttribute('class', 'room-label');
+      });
+    }
+
     function updateRoomLabelMain(group, officeName) {
       // First try to find existing text element in the SVG by roomlabel ID
       const roomElement = group.querySelector("path, rect");
@@ -173,6 +210,13 @@ if (isset($_GET['selectRoom'])) {
         textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textEl.setAttribute("class", "room-label");
         textEl.setAttribute("id", labelId);
+        
+        // Add responsive text class based on name length  
+        if (officeName.length > 25) {
+          textEl.classList.add("room-label-large");
+        } else if (officeName.length > 15) {
+          textEl.classList.add("room-label-small");
+        }
 
         // Use room center as fallback if no original coordinates found
         const bbox = roomElement.getBBox();
@@ -217,6 +261,9 @@ if (isset($_GET['selectRoom'])) {
       // Set final position using preserved coordinates
       textEl.setAttribute("x", originalX);
       textEl.setAttribute("y", originalY);
+      
+      // Force apply consistent font styling
+      applyConsistentFontStyling(group);
     }
 
     function initializePanZoom(svgElement) {
@@ -318,6 +365,11 @@ if (isset($_GET['selectRoom'])) {
 
         // Initialize Pan and Zoom
         initializePanZoom(svg);
+        
+        // Force apply consistent font styling to all text elements after SVG load
+        setTimeout(() => {
+          applyConsistentFontStyling(container);
+        }, 100);
       })
       .catch(error => {
         console.error('Error loading or processing SVG:', error);

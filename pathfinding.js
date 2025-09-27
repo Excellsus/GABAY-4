@@ -2,6 +2,344 @@ let floorGraph = {};
 let selectedRooms = [];
 let pathResult = [];
 
+// Cached floor graphs keyed by floor number to support multi-floor routing
+const floorGraphCache = {};
+let currentFloorNumber = 1;
+let activeRoute = null;
+let routeInstructionsPanel = null;
+
+const ROUTE_EVENT_NAME = 'routeCalculated';
+
+const FLOOR_GRAPH_FILENAMES = {
+    1: 'floor_graph.json',
+    2: 'floor_graph_2.json',
+    3: 'floor_graph_3.json'
+};
+
+const STAIR_NAME_MAP = {
+    west: 'West Stair',
+    central: 'Central Stair',
+    east: 'East Stair'
+};
+
+function parseFloorFromRoomId(roomId) {
+    if (!roomId) return null;
+    const parts = roomId.split('-');
+    const last = parts[parts.length - 1];
+    const parsed = parseInt(last, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function getGraphFilePath(floor) {
+    const basePath = window.FLOOR_GRAPH_BASE_PATH || '';
+    const fileName = FLOOR_GRAPH_FILENAMES[floor] || `floor_graph_${floor}.json`;
+    return `${basePath}${fileName}`;
+}
+
+async function ensureFloorGraphLoaded(floor) {
+    if (!floor || floor < 1) {
+        throw new Error(`Invalid floor requested: ${floor}`);
+    }
+
+    if (floorGraphCache[floor]) {
+        return floorGraphCache[floor];
+    }
+
+    const graphFile = getGraphFilePath(floor);
+    const response = await fetch(`${graphFile}?${new Date().getTime()}`);
+    if (!response.ok) {
+        throw new Error(`Failed to load ${graphFile}`);
+    }
+    const data = await response.json();
+    const decorated = decorateFloorGraph(data, floor);
+    floorGraphCache[floor] = decorated;
+    return decorated;
+}
+
+function decorateFloorGraph(data, floor) {
+    const graph = data || {};
+    graph.floorNumber = floor;
+    graph.stairNodes = extractStairNodes(graph);
+
+    // Normalize entry point data so new code can rely on entryPoints while old JSON still using doorPoints keeps working.
+    if (graph.rooms && typeof graph.rooms === 'object') {
+        Object.values(graph.rooms).forEach(room => {
+            if (!room) return;
+
+            const legacyDoorPoints = Array.isArray(room.doorPoints) ? room.doorPoints : [];
+            if (!Array.isArray(room.entryPoints) && legacyDoorPoints.length) {
+                // Reuse the same array reference to avoid duplicating memory; callers now read via entryPoints.
+                room.entryPoints = legacyDoorPoints;
+            }
+        });
+    }
+    return graph;
+}
+
+function extractStairNodes(graph) {
+    if (!graph || !graph.rooms) return [];
+    return Object.entries(graph.rooms)
+        .filter(([_, room]) => room && room.type === 'stair' && room.stairKey)
+        .map(([roomId, room]) => ({
+            roomId,
+            stairKey: room.stairKey,
+            label: room.label || STAIR_NAME_MAP[room.stairKey] || roomId,
+            room
+        }));
+}
+
+function getSharedStairKeys(floorRange) {
+    if (!floorRange || !floorRange.length) return [];
+    let sharedKeys = null;
+    floorRange.forEach(floor => {
+        const graph = floorGraphCache[floor];
+        if (!graph) return;
+        const keys = new Set((graph.stairNodes || []).map(node => node.stairKey));
+        if (sharedKeys === null) {
+            sharedKeys = keys;
+        } else {
+            sharedKeys = new Set([...sharedKeys].filter(key => keys.has(key)));
+        }
+    });
+    return sharedKeys ? [...sharedKeys] : [];
+}
+
+function calculatePolylineLength(points) {
+    if (!points || points.length < 2) return 0;
+    let length = 0;
+    for (let i = 1; i < points.length; i++) {
+        length += getDistance(points[i - 1], points[i]);
+    }
+    return length;
+}
+
+function describeStairKey(stairKey) {
+    return STAIR_NAME_MAP[stairKey] || `Stair ${stairKey}`;
+}
+
+function setActiveRoute(route) {
+    activeRoute = route;
+    window.activeRoute = route;
+    if (route && route.segments) {
+        // Precompute lookup by floor for quick rendering
+        route._segmentsByFloor = route.segments.reduce((acc, segment) => {
+            if (segment.floor != null) {
+                if (!acc[segment.floor]) acc[segment.floor] = [];
+                acc[segment.floor].push(segment);
+            }
+            return acc;
+        }, {});
+    }
+    renderRouteInstructions(route);
+}
+
+function renderActiveRouteForFloor(floor) {
+    clearAllPaths();
+
+    const svg = document.querySelector('svg');
+    if (svg) {
+        const previouslySelected = svg.querySelectorAll('.selected-room');
+        previouslySelected.forEach(el => el.classList.remove('selected-room'));
+    }
+
+    if (!activeRoute || !activeRoute._segmentsByFloor) return;
+
+    const segments = activeRoute._segmentsByFloor[floor] || [];
+    const walkSegment = segments.find(segment => segment.type === 'walk' && segment.points && segment.points.length);
+    if (walkSegment) {
+        drawCompletePath(walkSegment.points);
+    }
+
+    const selectionIds = [activeRoute.startRoomId, activeRoute.endRoomId].filter(Boolean);
+    selectionIds.forEach(roomId => {
+        const element = document.getElementById(roomId);
+        if (element) {
+            element.classList.add('selected-room');
+        }
+    });
+}
+
+function broadcastRoute(route) {
+    try {
+        window.dispatchEvent(new CustomEvent(ROUTE_EVENT_NAME, { detail: route }));
+    } catch (err) {
+        console.warn('Failed to broadcast route event', err);
+    }
+}
+
+function ensureRouteInstructionsPanel() {
+    if (routeInstructionsPanel && document.body.contains(routeInstructionsPanel)) {
+        return routeInstructionsPanel;
+    }
+
+    if (!document.body) {
+        return null;
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'route-instructions-panel';
+    panel.style.position = 'fixed';
+    panel.style.bottom = '20px';
+    panel.style.left = '20px';
+    panel.style.right = '20px';
+    panel.style.maxWidth = '360px';
+    panel.style.margin = '0 auto';
+    panel.style.padding = '16px';
+    panel.style.borderRadius = '12px';
+    panel.style.background = 'rgba(26, 86, 50, 0.95)';
+    panel.style.color = '#ffffff';
+    panel.style.boxShadow = '0 12px 32px rgba(0,0,0,0.35)';
+    panel.style.fontFamily = 'Segoe UI, Roboto, sans-serif';
+    panel.style.zIndex = '5000';
+    panel.style.display = 'none';
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+    header.style.marginBottom = '12px';
+
+    const title = document.createElement('div');
+    title.textContent = 'Route Instructions';
+    title.style.fontSize = '18px';
+    title.style.fontWeight = '600';
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.setAttribute('aria-label', 'Close route instructions');
+    closeButton.style.fontSize = '24px';
+    closeButton.style.lineHeight = '24px';
+    closeButton.style.border = 'none';
+    closeButton.style.background = 'transparent';
+    closeButton.style.color = '#ffffff';
+    closeButton.style.cursor = 'pointer';
+    closeButton.addEventListener('click', () => {
+        panel.style.display = 'none';
+    });
+
+    header.appendChild(title);
+    header.appendChild(closeButton);
+    panel.appendChild(header);
+
+    const content = document.createElement('div');
+    content.id = 'route-instructions-content';
+    content.style.maxHeight = '280px';
+    content.style.overflowY = 'auto';
+    content.style.paddingRight = '4px';
+    panel.appendChild(content);
+
+    document.body.appendChild(panel);
+    routeInstructionsPanel = panel;
+    return panel;
+}
+
+function formatDistance(distance) {
+    if (!distance || Number.isNaN(distance)) return '';
+    const rounded = Math.round(distance);
+    if (rounded <= 0) return '';
+    return `${rounded} units`;
+}
+
+function renderRouteInstructions(route) {
+    const panel = ensureRouteInstructionsPanel();
+    if (!panel) return;
+
+    const content = panel.querySelector('#route-instructions-content');
+    if (!route) {
+        panel.style.display = 'none';
+        if (content) {
+            content.innerHTML = '';
+        }
+        return;
+    }
+
+    panel.style.display = 'block';
+
+    if (!content) {
+        return;
+    }
+
+    const totalFloors = route.floors ? route.floors.length : 1;
+    const totalDistance = formatDistance(route.totalDistance);
+    content.innerHTML = '';
+
+    const summary = document.createElement('p');
+    summary.style.margin = '0 0 10px 0';
+    summary.style.fontSize = '14px';
+    summary.style.lineHeight = '1.4';
+    let summaryText = route.type === 'multi-floor'
+        ? `Route spans ${totalFloors} floors using the ${describeStairKey(route.stairKey)}.`
+        : 'Single-floor route.';
+    if (totalDistance) {
+        summaryText += ` Total path length ≈ ${totalDistance}.`;
+    }
+    summary.textContent = summaryText;
+    content.appendChild(summary);
+
+    const list = document.createElement('ol');
+    list.style.margin = '0';
+    list.style.paddingLeft = '20px';
+    list.style.fontSize = '14px';
+    list.style.lineHeight = '1.5';
+
+    (route.segments || []).forEach(segment => {
+        const item = document.createElement('li');
+        item.style.marginBottom = '8px';
+
+        const title = document.createElement('div');
+        title.style.fontWeight = '600';
+        title.textContent = segment.description;
+        item.appendChild(title);
+
+        const distanceText = formatDistance(segment.distance);
+        if (distanceText) {
+            const distanceLine = document.createElement('div');
+            distanceLine.style.opacity = '0.85';
+            distanceLine.textContent = `Distance ≈ ${distanceText}`;
+            item.appendChild(distanceLine);
+        }
+
+        if (segment.type === 'stair' && segment.floorSpan) {
+            const floorSpanLine = document.createElement('div');
+            floorSpanLine.style.opacity = '0.85';
+            floorSpanLine.textContent = `Covers ${segment.floorSpan} floor${segment.floorSpan === 1 ? '' : 's'}.`;
+            item.appendChild(floorSpanLine);
+        }
+
+        list.appendChild(item);
+    });
+
+    content.appendChild(list);
+
+    if (route.type === 'multi-floor') {
+        const tip = document.createElement('p');
+        tip.style.margin = '12px 0 0 0';
+        tip.style.fontSize = '13px';
+        tip.style.lineHeight = '1.4';
+        tip.style.opacity = '0.85';
+        tip.textContent = 'Switch floors using the floor selector when you arrive. The highlighted route will update automatically.';
+        content.appendChild(tip);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener(ROUTE_EVENT_NAME, event => {
+        renderRouteInstructions(event.detail);
+    });
+    if (!window.resetActiveRoute) {
+        window.resetActiveRoute = () => setActiveRoute(null);
+    }
+    if (!window.activateRouteBetweenRooms) {
+        window.activateRouteBetweenRooms = activateRouteBetweenRooms;
+    }
+    if (!window.calculateMultiFloorRoute) {
+        window.calculateMultiFloorRoute = calculateMultiFloorRoute;
+    }
+    if (!window.ensureFloorGraphLoaded) {
+        window.ensureFloorGraphLoaded = ensureFloorGraphLoaded;
+    }
+}
+
 // Function to find the nearest point on a path to a given point
 function findNearestPointOnPath(point, pathPoints) {
     let nearestPoint = null;
@@ -50,10 +388,40 @@ function getDistance(point1, point2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+function findNearestWalkablePath(graph, point) {
+    if (!graph || !Array.isArray(graph.walkablePaths) || !point) {
+        return null;
+    }
+
+    let bestMatch = null;
+
+    graph.walkablePaths.forEach(path => {
+        if (!path || !Array.isArray(path.pathPoints) || !path.pathPoints.length) {
+            return;
+        }
+
+        const nearestPoint = findNearestPointOnPath(point, path.pathPoints);
+        if (!nearestPoint) {
+            return;
+        }
+
+        const distance = getDistance(point, nearestPoint);
+        if (!bestMatch || distance < bestMatch.distance) {
+            bestMatch = {
+                path,
+                pathId: path.id,
+                point: nearestPoint,
+                distance
+            };
+        }
+    });
+
+    return bestMatch;
+}
+
 // Function to reload graph data
 function reloadGraphData(floor) {
-    const basePath = window.FLOOR_GRAPH_BASE_PATH || '';
-    const graphFile = `${basePath}floor_graph_${floor}.json`;
+    const graphFile = getGraphFilePath(floor);
     return fetch(graphFile + '?' + new Date().getTime())
         .then(res => {
             if (!res.ok) {
@@ -62,7 +430,13 @@ function reloadGraphData(floor) {
             return res.json();
         })
         .then(data => {
-            floorGraph = data;
+            const decoratedGraph = decorateFloorGraph(data, floor);
+            floorGraphCache[floor] = decoratedGraph;
+            floorGraph = decoratedGraph;
+            currentFloorNumber = floor;
+            if (typeof window !== 'undefined') {
+                window.floorGraph = decoratedGraph;
+            }
             console.log(`Reloaded floor graph for floor ${floor}:`, floorGraph);
             
             // Clear existing paths first
@@ -89,13 +463,15 @@ function reloadGraphData(floor) {
                     }
                 });
                 
-                // Draw door points for easy adjustment
+                // Draw entry points for easy adjustment
                 if (floorGraph.rooms) {
-                    drawDoorPoints(floorGraph.rooms);
+                    drawEntryPoints(floorGraph.rooms);
                 }
                 
                 // Initialize room selection after paths are drawn
                 initRoomSelection();
+
+                renderActiveRouteForFloor(floor);
             }
             return floorGraph;
         })
@@ -285,9 +661,9 @@ function drawWalkablePath(walkablePath) {
     }
 }
 
-// Function to draw door points for easy adjustment
-function drawDoorPoints(rooms) {
-    console.log('Drawing door points for adjustment...', rooms);
+// Function to draw entry points for easy adjustment
+function drawEntryPoints(rooms) {
+    console.log('Drawing entry points for adjustment...', rooms);
     const svg = document.querySelector('svg');
     if (!svg) {
         console.error('SVG element not found');
@@ -300,57 +676,58 @@ function drawDoorPoints(rooms) {
         svg.appendChild(mainGroup);
     }
 
-    let doorPointGroup = mainGroup.querySelector('#door-point-group');
-    if (!doorPointGroup) {
-        doorPointGroup = document.createElementNS(svgNS, 'g');
-        doorPointGroup.setAttribute('id', 'door-point-group');
-        mainGroup.appendChild(doorPointGroup);
+    let entryPointGroup = mainGroup.querySelector('#entry-point-group');
+    if (!entryPointGroup) {
+        entryPointGroup = document.createElementNS(svgNS, 'g');
+        entryPointGroup.setAttribute('id', 'entry-point-group');
+        mainGroup.appendChild(entryPointGroup);
     }
-    // Clear existing door points to avoid duplicates on reload
-    doorPointGroup.innerHTML = '';
+    // Clear existing entry points to avoid duplicates on reload
+    entryPointGroup.innerHTML = '';
 
     for (const roomId in rooms) {
         const room = rooms[roomId];
         console.log(`Checking room ${roomId}:`, room);
-        
-        const doorPoints = room.doorPoints || (room.doorPoint ? [room.doorPoint] : []);
 
-        if (doorPoints.length > 0 && room.style && room.style.pointMarker) {
+        // Accept both entryPoints (new) and doorPoints (legacy) to keep older data compatible.
+        const entryPoints = getEntryPointsForRoom(room);
+
+        if (entryPoints.length > 0 && room.style && room.style.pointMarker) {
             const style = room.style.pointMarker;
 
-            doorPoints.forEach((doorPoint, index) => {
-                console.log(`Drawing door point for ${roomId} at (${doorPoint.x}, ${doorPoint.y})`);
+            entryPoints.forEach((entryPoint, index) => {
+                console.log(`Drawing entry point for ${roomId} at (${entryPoint.x}, ${entryPoint.y})`);
 
                 const marker = document.createElementNS(svgNS, 'circle');
-                marker.setAttribute('cx', doorPoint.x);
-                marker.setAttribute('cy', doorPoint.y);
+                marker.setAttribute('cx', entryPoint.x);
+                marker.setAttribute('cy', entryPoint.y);
                 marker.setAttribute('r', style.radius || 8);
                 marker.setAttribute('fill', style.color || 'red');
                 marker.setAttribute('stroke', style.strokeColor || '#000');
                 marker.setAttribute('stroke-width', style.strokeWidth || 2);
                 marker.setAttribute('vector-effect', 'non-scaling-stroke');
-                marker.setAttribute('class', 'door-point-marker-highlight');
-                marker.setAttribute('id', `door-point-${roomId}-${index}`);
+                marker.setAttribute('class', 'entry-point-marker-highlight');
+                marker.setAttribute('id', `entry-point-${roomId}-${index}`);
 
                 // Add hover effect for better interaction
                 marker.addEventListener('mouseenter', () => {
                     marker.setAttribute('fill', style.hoverColor || '#FF0000');
                     marker.setAttribute('r', (style.radius || 8) * 1.2);
                 });
-                
+
                 marker.addEventListener('mouseleave', () => {
                     marker.setAttribute('fill', style.color || 'red');
                     marker.setAttribute('r', style.radius || 8);
                 });
 
-                doorPointGroup.appendChild(marker);
-                console.log(`Successfully added door point marker for ${roomId}`);
+                entryPointGroup.appendChild(marker);
+                console.log(`Successfully added entry point marker for ${roomId}`);
             });
         } else {
-            console.log(`Skipping room ${roomId} - no door points or style found`);
+            console.log(`Skipping room ${roomId} - no entry points or style found`);
         }
     }
-    console.log('Finished drawing door points');
+    console.log('Finished drawing entry points');
 }
 
 // Initialize everything when DOM is ready
@@ -390,7 +767,13 @@ const initPathfinding = (floor) => {
             return res.json();
         })
         .then(data => {
-            floorGraph = data;
+            const decoratedGraph = decorateFloorGraph(data, floor);
+            floorGraphCache[floor] = decoratedGraph;
+            floorGraph = decoratedGraph;
+            currentFloorNumber = floor;
+            if (typeof window !== 'undefined') {
+                window.floorGraph = decoratedGraph;
+            }
             console.log(`Loaded floor graph for floor ${floor}:`, floorGraph);
             if (floorGraph.walkablePaths && Array.isArray(floorGraph.walkablePaths)) {
                 console.log(`Found ${floorGraph.walkablePaths.length} paths to draw`);
@@ -409,13 +792,16 @@ const initPathfinding = (floor) => {
                     }
                 });
                 
-                // Draw door points for easy adjustment
+                // Draw entry points for easy adjustment
                 if (floorGraph.rooms) {
-                    drawDoorPoints(floorGraph.rooms);
+                    drawEntryPoints(floorGraph.rooms);
                 }
                 
                 // Initialize room selection after paths are drawn
                 initRoomSelection();
+
+                // If a multi-floor route is active, render the segment for this floor
+                renderActiveRouteForFloor(floor);
             }
         })
         .catch(error => {
@@ -433,8 +819,249 @@ function initRoomSelection() {
     });
 }
 
+function getEntryPointsForRoom(room) {
+    if (!room) return [];
+    if (Array.isArray(room.entryPoints) && room.entryPoints.length) {
+        return room.entryPoints;
+    }
+    if (Array.isArray(room.doorPoints) && room.doorPoints.length) {
+        return room.doorPoints;
+    }
+    if (room.doorPoint) {
+        return [room.doorPoint];
+    }
+    return [];
+}
+
+function calculateSingleFloorRoute(graph, startRoomId, endRoomId) {
+    if (!graph || !graph.rooms) {
+        return null;
+    }
+
+    const startRoom = graph.rooms[startRoomId];
+    const endRoom = graph.rooms[endRoomId];
+
+    if (!startRoom || !endRoom) {
+        console.warn('Single-floor route failed due to missing room data', {
+            startRoomId,
+            endRoomId
+        });
+        return null;
+    }
+
+    const startDoors = getEntryPointsForRoom(startRoom);
+    const endDoors = getEntryPointsForRoom(endRoom);
+
+    if (!startDoors.length || !endDoors.length) {
+        console.warn('No entry points found for rooms', { startRoomId, endRoomId });
+        return null;
+    }
+
+    let bestOption = null;
+
+    for (const startDoor of startDoors) {
+        for (const endDoor of endDoors) {
+            const startPathId = startDoor.nearestPathId || startRoom.nearestPathId;
+            const endPathId = endDoor.nearestPathId || endRoom.nearestPathId;
+
+            let startPath = startPathId ? graph.walkablePaths.find(p => p.id === startPathId) : null;
+            let endPath = endPathId ? graph.walkablePaths.find(p => p.id === endPathId) : null;
+
+            let startPathPoint = startPath ? findNearestPointOnPath(startDoor, startPath.pathPoints) : null;
+            let endPathPoint = endPath ? findNearestPointOnPath(endDoor, endPath.pathPoints) : null;
+
+            if (!startPathPoint) {
+                const fallback = findNearestWalkablePath(graph, startDoor);
+                if (fallback) {
+                    startPath = fallback.path;
+                    startPathPoint = fallback.point;
+                    if (!startDoor.nearestPathId) {
+                        startDoor.nearestPathId = fallback.pathId;
+                    }
+                }
+            }
+
+            if (!endPathPoint) {
+                const fallback = findNearestWalkablePath(graph, endDoor);
+                if (fallback) {
+                    endPath = fallback.path;
+                    endPathPoint = fallback.point;
+                    if (!endDoor.nearestPathId) {
+                        endDoor.nearestPathId = fallback.pathId;
+                    }
+                }
+            }
+
+            if (!startPathPoint || !endPathPoint) {
+                continue;
+            }
+
+            // Ensure we have valid paths after fallback resolution
+            if (!startPath || !endPath) {
+                continue;
+            }
+
+            const pathBetween = getPathBetweenPoints(startPathPoint, endPathPoint, graph.walkablePaths, { graph });
+
+            if (!pathBetween) {
+                continue;
+            }
+
+            const combinedPoints = [startDoor, ...pathBetween, endDoor];
+            const distance = calculatePolylineLength(combinedPoints);
+
+            if (!bestOption || distance < bestOption.distance) {
+                bestOption = {
+                    startDoor,
+                    endDoor,
+                    startPathPoint,
+                    endPathPoint,
+                    pathBetween,
+                    points: combinedPoints,
+                    distance,
+                    startPathId,
+                    endPathId
+                };
+            }
+        }
+    }
+
+    return bestOption;
+}
+
+async function calculateMultiFloorRoute(startRoomId, endRoomId) {
+    const startFloor = parseFloorFromRoomId(startRoomId);
+    const endFloor = parseFloorFromRoomId(endRoomId);
+
+    if (startFloor == null || endFloor == null) {
+        console.warn('Unable to determine floors for rooms', { startRoomId, endRoomId });
+        return null;
+    }
+
+    if (startFloor === endFloor) {
+        const graph = await ensureFloorGraphLoaded(startFloor);
+        const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
+        if (!route) return null;
+        return {
+            type: 'single-floor',
+            startRoomId,
+            endRoomId,
+            floors: [startFloor],
+            totalDistance: route.distance,
+            segments: [
+                {
+                    type: 'walk',
+                    floor: startFloor,
+                    description: `Floor ${startFloor}: Route from ${startRoomId} to ${endRoomId}`,
+                    points: route.points,
+                    distance: route.distance,
+                    startDoor: route.startDoor,
+                    endDoor: route.endDoor
+                }
+            ]
+        };
+    }
+
+    const floorRange = [];
+    const step = startFloor < endFloor ? 1 : -1;
+    for (let f = startFloor; step > 0 ? f <= endFloor : f >= endFloor; f += step) {
+        floorRange.push(f);
+    }
+
+    await Promise.all([...new Set(floorRange)].map(ensureFloorGraphLoaded));
+
+    const sharedStairKeys = getSharedStairKeys(floorRange);
+    if (!sharedStairKeys.length) {
+        console.warn('No shared stair connectors found for floors', floorRange);
+        return null;
+    }
+
+    let bestRoute = null;
+
+    sharedStairKeys.forEach(stairKey => {
+        const startGraph = floorGraphCache[startFloor];
+        const endGraph = floorGraphCache[endFloor];
+
+        const startStair = (startGraph.stairNodes || []).find(node => node.stairKey === stairKey);
+        const endStair = (endGraph.stairNodes || []).find(node => node.stairKey === stairKey);
+
+        if (!startStair || !endStair) {
+            return;
+        }
+
+        const startRoute = calculateSingleFloorRoute(startGraph, startRoomId, startStair.roomId);
+        const endRoute = calculateSingleFloorRoute(endGraph, endStair.roomId, endRoomId);
+
+        if (!startRoute || !endRoute) {
+            return;
+        }
+
+        const totalDistance = startRoute.distance + endRoute.distance;
+        const verticalSpan = Math.abs(endFloor - startFloor);
+        const stairName = describeStairKey(stairKey);
+
+        const candidateRoute = {
+            type: 'multi-floor',
+            startRoomId,
+            endRoomId,
+            stairKey,
+            stairName,
+            floors: floorRange,
+            totalDistance,
+            segments: [
+                {
+                    type: 'walk',
+                    floor: startFloor,
+                    description: `Floor ${startFloor}: Proceed to ${stairName}`,
+                    points: startRoute.points,
+                    distance: startRoute.distance,
+                    startDoor: startRoute.startDoor,
+                    endDoor: startRoute.endDoor,
+                    via: stairKey
+                },
+                {
+                    type: 'stair',
+                    stairKey,
+                    description: `Take ${stairName} to Floor ${endFloor}`,
+                    fromFloor: startFloor,
+                    toFloor: endFloor,
+                    floors: floorRange,
+                    floorSpan: verticalSpan
+                },
+                {
+                    type: 'walk',
+                    floor: endFloor,
+                    description: `Floor ${endFloor}: Exit ${stairName} and continue to destination`,
+                    points: endRoute.points,
+                    distance: endRoute.distance,
+                    startDoor: endRoute.startDoor,
+                    endDoor: endRoute.endDoor,
+                    via: stairKey
+                }
+            ]
+        };
+
+        if (!bestRoute || totalDistance < bestRoute.totalDistance) {
+            bestRoute = candidateRoute;
+        }
+    });
+
+    return bestRoute;
+}
+
+async function activateRouteBetweenRooms(startRoomId, endRoomId) {
+    const route = await calculateMultiFloorRoute(startRoomId, endRoomId);
+    if (!route) {
+        return null;
+    }
+    setActiveRoute(route);
+    renderActiveRouteForFloor(currentFloorNumber);
+    broadcastRoute(route);
+    return route;
+}
+
 // Room click handler - separated for easier management
-function roomClickHandler(event) {
+async function roomClickHandler(event) {
     // Use the global floorGraph if in mobile mode, otherwise use the local one
     const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
 
@@ -465,6 +1092,7 @@ function roomClickHandler(event) {
         });
         selectedRooms = [];
         clearAllPaths();
+        setActiveRoute(null);
     }
 
     // Add the clicked room to selection
@@ -482,14 +1110,14 @@ function roomClickHandler(event) {
         return;
     }
 
-    const doorPoints = clickedRoom.doorPoints || (clickedRoom.doorPoint ? [clickedRoom.doorPoint] : []);
+    const entryPoints = getEntryPointsForRoom(clickedRoom);
 
-    if (doorPoints.length === 0) {
-        console.error('No door points found for this room');
+    if (entryPoints.length === 0) {
+        console.error('No entry points found for this room');
         return;
     }
 
-    // Find the nearest door point on the clicked room to the click event
+    // Find the nearest entry point on the clicked room to the click event
     const rect = this.getBoundingClientRect();
     const svg = this.closest('svg');
     const pt = svg.createSVGPoint();
@@ -497,14 +1125,14 @@ function roomClickHandler(event) {
     pt.y = event.clientY;
     const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
     
-    let nearestDoorPoint = doorPoints[0];
-    if (doorPoints.length > 1) {
+    let nearestEntryPoint = entryPoints[0];
+    if (entryPoints.length > 1) {
         let minDistance = Infinity;
-        doorPoints.forEach(doorPoint => {
-            const distance = getDistance({x: svgP.x, y: svgP.y}, doorPoint);
+        entryPoints.forEach(entryPoint => {
+            const distance = getDistance({x: svgP.x, y: svgP.y}, entryPoint);
             if (distance < minDistance) {
                 minDistance = distance;
-                nearestDoorPoint = doorPoint;
+                nearestEntryPoint = entryPoint;
             }
         });
     }
@@ -516,7 +1144,7 @@ function roomClickHandler(event) {
         return;
     }
 
-    const clickedPathPoint = findNearestPointOnPath(nearestDoorPoint, clickedPath.pathPoints);
+    const clickedPathPoint = findNearestPointOnPath(nearestEntryPoint, clickedPath.pathPoints);
 
     // Clear existing paths
     clearAllPaths();
@@ -524,83 +1152,29 @@ function roomClickHandler(event) {
     if (selectedRooms.length === 1) {
         // Just show connection to nearest path for first room
         drawCompletePath([
-            nearestDoorPoint,
+            nearestEntryPoint,
             clickedPathPoint
         ]);
     } else if (selectedRooms.length === 2) {
         const [startRoomId, endRoomId] = selectedRooms;
-        const startRoom = graph.rooms[startRoomId];
-        const endRoom = graph.rooms[endRoomId];
-        
-        const startDoors = startRoom.doorPoints || [startRoom.doorPoint];
-        const endDoors = endRoom.doorPoints || [endRoom.doorPoint];
+        console.log('Attempting to compute route between rooms:', startRoomId, '->', endRoomId);
 
-        // Find the optimal door pair based on shortest PATH distance, not direct distance
-        let bestStartDoor = startDoors[0];
-        let bestEndDoor = endDoors[0];
-        let shortestPathDistance = Infinity;
+        try {
+            const route = await activateRouteBetweenRooms(startRoomId, endRoomId);
 
-        console.log('Evaluating door combinations based on path distance:');
-        for (const startDoor of startDoors) {
-            for (const endDoor of endDoors) {
-                // Get the paths for each door
-                const startPathId = startDoor.nearestPathId || startRoom.nearestPathId;
-                const endPathId = endDoor.nearestPathId || endRoom.nearestPathId;
-                
-                const startPath = graph.walkablePaths.find(p => p.id === startPathId);
-                const endPath = graph.walkablePaths.find(p => p.id === endPathId);
-
-                if (!startPath || !endPath) {
-                    console.warn('Could not find paths for a door combination, skipping.');
-                    continue;
-                }
-
-                const startPathPoint = findNearestPointOnPath(startDoor, startPath.pathPoints);
-                const endPathPoint = findNearestPointOnPath(endDoor, endPath.pathPoints);
-                
-                // Calculate total distance: door->path + path traversal + path->door
-                const doorToPathDist = getDistance(startDoor, startPathPoint);
-                const pathToPathDist = getDistance(startPathPoint, endPathPoint);
-                const pathToDoorDist = getDistance(endPathPoint, endDoor);
-                const totalPathDistance = doorToPathDist + pathToPathDist + pathToDoorDist;
-                
-                console.log(`Start(${startDoor.x}, ${startDoor.y})[${startPathId}] to End(${endDoor.x}, ${endDoor.y})[${endPathId}] = ${totalPathDistance.toFixed(2)}`);
-                
-                if (totalPathDistance < shortestPathDistance) {
-                    shortestPathDistance = totalPathDistance;
-                    bestStartDoor = startDoor;
-                    bestEndDoor = endDoor;
-                }
+            if (!route) {
+                console.error('No route could be calculated between the selected rooms.');
+                alert('No available route between the selected rooms. Please verify that stair data exists for both floors.');
+                return;
             }
-        }
 
-        console.log(`Selected optimal doors: Start(${bestStartDoor.x}, ${bestStartDoor.y}) End(${bestEndDoor.x}, ${bestEndDoor.y}) Path Distance: ${shortestPathDistance.toFixed(2)}`);
-
-        // Now find the full path using the best door pair
-        const startPath = graph.walkablePaths.find(p => p.id === (bestStartDoor.nearestPathId || startRoom.nearestPathId));
-        const endPath = graph.walkablePaths.find(p => p.id === (bestEndDoor.nearestPathId || endRoom.nearestPathId));
-
-        const startPathPoint = findNearestPointOnPath(bestStartDoor, startPath.pathPoints);
-        const endPathPoint = findNearestPointOnPath(bestEndDoor, endPath.pathPoints);
-
-        console.log('Calculating path between optimal door points:', {
-            startDoor: bestStartDoor,
-            endDoor: bestEndDoor,
-            startPathPoint: startPathPoint,
-            endPathPoint: endPathPoint
-        });
-
-        const pathBetween = getPathBetweenPoints(startPathPoint, endPathPoint, graph.walkablePaths);
-
-        if (pathBetween) {
-            const finalPath = [bestStartDoor, ...pathBetween, bestEndDoor];
-            console.log('Final path calculated with', finalPath.length, 'points:', finalPath);
-            drawCompletePath(finalPath);
-        } else {
-            console.error('No path found between doors');
-            // Fallback: draw direct line between doors
-            console.log('Drawing fallback direct path between doors');
-            drawCompletePath([bestStartDoor, bestEndDoor]);
+            if (route.type === 'multi-floor' && route.stairKey) {
+                const stairName = describeStairKey(route.stairKey);
+                console.log(`Multi-floor route computed using ${stairName}.`);
+            }
+        } catch (error) {
+            console.error('Error while calculating multi-floor route:', error);
+            alert('Unable to calculate a route between the selected rooms. Please try again.');
         }
     }
 }
@@ -823,8 +1397,8 @@ function clearAllPaths() {
     }
 }
 
-function getPathBetweenPoints(start, end, walkablePaths) {
-    const graph = window.MOBILE_MODE ? window.floorGraph : floorGraph;
+function getPathBetweenPoints(start, end, walkablePaths, options = {}) {
+    const graphContext = options.graph || (window.MOBILE_MODE ? window.floorGraph : floorGraph);
     console.log('Finding path between', start, 'and', end);
     
     // Convert walkable paths into a graph structure for A*
@@ -872,9 +1446,9 @@ function getPathBetweenPoints(start, end, walkablePaths) {
     });
 
     // Add connections from pathConnections if they exist in the floor graph
-    if (graph.pathConnections) {
-        Object.keys(graph.pathConnections).forEach(intersectionPoint => {
-            const connections = graph.pathConnections[intersectionPoint];
+    if (graphContext && graphContext.pathConnections) {
+        Object.keys(graphContext.pathConnections).forEach(intersectionPoint => {
+            const connections = graphContext.pathConnections[intersectionPoint];
             
             // Find the actual point in the graph that corresponds to the intersection
             connections.forEach((connection, index) => {

@@ -265,12 +265,62 @@ try {
         stroke: #43a047; 
         stroke-width: 4; 
       }
-      .room-label {
-        fill: white;
-        stroke: black;
-        stroke-width: 0.5px;
-        font-weight: bold;
-        pointer-events: none;
+      /* SVG Text Styling - Professional & Accessible with Forced Font Loading */
+      .room-label,
+      text[id*="roomlabel"],
+      text[id*="text-"],
+      tspan[id*="roomlabel"],
+      svg text,
+      svg tspan {
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        fill: #1a1a1a !important;
+        stroke: #ffffff !important;
+        stroke-width: 3px !important;
+        stroke-linejoin: round !important;
+        paint-order: stroke fill !important;
+        text-anchor: middle !important;
+        dominant-baseline: central !important;
+        pointer-events: none !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        vector-effect: non-scaling-stroke !important;
+        font-display: swap !important;
+      }
+      
+      /* High contrast variant for better accessibility */
+      .room-label-high-contrast,
+      .high-contrast text[id*="roomlabel"],
+      .high-contrast tspan[id*="roomlabel"] {
+        fill: #000000;
+        stroke: #ffffff;
+        stroke-width: 4px;
+      }
+      
+      /* Mobile-optimized text sizing */
+      @media (max-width: 768px) {
+        .room-label,
+        text[id*="roomlabel"],
+        text[id*="text-"],
+        tspan[id*="roomlabel"] {
+          font-size: 16px;
+          stroke-width: 4px;
+        }
+      }
+      
+      /* Large text for rooms with longer names */
+      .room-label-large {
+        font-size: 12px;
+        line-height: 1.2;
+      }
+      
+      /* Small text for compact rooms */
+      .room-label-small {
+        font-size: 10px;
+        stroke-width: 2px;
       }
       .room-inactive {
         opacity: 0.5;
@@ -349,14 +399,6 @@ try {
       
       .panorama-marker .camera-bg {
         transition: all 0.3s ease;
-      }
-      
-      .panorama-marker:hover .camera-bg {
-        /* Removed glow effect */
-      }
-      
-      .panorama-marker.active .camera-bg {
-        /* Removed glow effect */
       }
       
       /* Touch-friendly sizing for mobile panorama markers */
@@ -1137,7 +1179,7 @@ try {
         if (oldPathGroup) oldPathGroup.remove();
         const oldMarkerGroup = panZoomViewport.querySelector('#marker-group');
         if (oldMarkerGroup) oldMarkerGroup.remove();
-        const oldDoorGroup = panZoomViewport.querySelector('#door-points-group');
+  const oldDoorGroup = panZoomViewport.querySelector('#entry-points-group');
         if (oldDoorGroup) oldDoorGroup.remove();
 
         if (!window.pendingGraphData) {
@@ -1161,16 +1203,34 @@ try {
           });
         }
 
-        // Draw door points if available
+        // Draw entry points if available
         if (window.floorGraph.rooms) {
-          console.log('Drawing door points for', Object.keys(window.floorGraph.rooms).length, 'rooms');
-          drawDoorPoints(window.floorGraph.rooms);
+          console.log('Drawing entry points for', Object.keys(window.floorGraph.rooms).length, 'rooms');
+          drawEntryPoints(window.floorGraph.rooms);
         }
 
         // Initialize pathfinding room selection now that graph data is loaded
         if (typeof window.initRoomSelection === 'function') {
           console.log('Initializing pathfinding room selection handlers');
           window.initRoomSelection();
+        }
+
+        // Re-render any active path for the currently loaded floor
+        if (window.activeRoute && typeof renderActiveRouteForFloor === 'function') {
+          try {
+            let targetFloor = null;
+            if (typeof window.currentFloorNumber === 'number' && !Number.isNaN(window.currentFloorNumber)) {
+              targetFloor = window.currentFloorNumber;
+            } else if (Array.isArray(window.activeRoute.floors) && window.activeRoute.floors.length > 0) {
+              targetFloor = window.activeRoute.floors[0];
+            }
+
+            if (targetFloor !== null) {
+              renderActiveRouteForFloor(targetFloor);
+            }
+          } catch (error) {
+            console.warn('Unable to re-render active route after floor load:', error);
+          }
         }
 
         // Handle office highlighting for QR scan
@@ -1188,7 +1248,7 @@ try {
         // Clear the pending data
         window.pendingGraphData = null;
 
-        console.log('Path and door drawing completed');
+  console.log('Path and entry point drawing completed');
         
         // Debug: Check if panorama markers were created
         setTimeout(() => {
@@ -1567,6 +1627,55 @@ try {
         }
       }
 
+      // Enhanced text accessibility and readability with consistent font enforcement
+      function enhanceSVGTextAccessibility() {
+        const textElements = document.querySelectorAll('svg text, svg tspan');
+        
+        textElements.forEach(textEl => {
+          // Apply consistent CSS class
+          if (!textEl.classList.contains('room-label')) {
+            textEl.classList.add('room-label');
+          }
+          
+          // Force inline styles to override any default fonts during floor changes
+          textEl.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+          textEl.style.fontWeight = "600";
+          textEl.style.fontSize = "14px";
+          textEl.style.fill = "#1a1a1a";
+          textEl.style.stroke = "#ffffff";
+          textEl.style.strokeWidth = "3px";
+          textEl.style.strokeLinejoin = "round";
+          textEl.style.paintOrder = "stroke fill";
+          textEl.style.textAnchor = "middle";
+          textEl.style.dominantBaseline = "central";
+          textEl.style.vectorEffect = "non-scaling-stroke";
+          
+          // Apply high contrast mode if system prefers reduced motion (accessibility indicator)
+          if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            textEl.classList.add('room-label-high-contrast');
+          }
+        });
+      }
+
+      // Function to optimize text for different zoom levels
+      function optimizeTextForZoom() {
+        if (!window.svgPanZoomInstance) return;
+        
+        try {
+          const currentZoom = window.svgPanZoomInstance.getZoom();
+          const textElements = document.querySelectorAll('svg text, svg tspan');
+          
+          textElements.forEach(textEl => {
+            // Adjust stroke width based on zoom level for optimal readability
+            const baseStrokeWidth = 3;
+            const adjustedStrokeWidth = Math.max(1, baseStrokeWidth / Math.sqrt(currentZoom));
+            textEl.setAttribute('stroke-width', adjustedStrokeWidth.toString());
+          });
+        } catch (e) {
+          console.warn('Error optimizing text for zoom:', e);
+        }
+      }
+
       // Function to draw walkable paths on the SVG (simplified version)
       function drawWalkablePath(path) {
         console.log('Drawing walkable path:', path.id);
@@ -1720,12 +1829,12 @@ try {
 
       // "YOU ARE HERE" functionality
 
-      // Function to draw door points
-      function drawDoorPoints(rooms) {
-        console.log('Drawing door points for rooms:', Object.keys(rooms).length);
+      // Function to draw entry points
+      function drawEntryPoints(rooms) {
+        console.log('Drawing entry points for rooms:', Object.keys(rooms).length);
         const svg = document.querySelector('svg');
         if (!svg) {
-          console.warn('Cannot draw door points - no SVG found');
+          console.warn('Cannot draw entry points - no SVG found');
           return;
         }
 
@@ -1736,34 +1845,71 @@ try {
           svg.appendChild(mainGroup);
         }
 
-        // Create or get the door points group
-        let doorGroup = mainGroup.querySelector('#door-points-group');
-        if (!doorGroup) {
-          doorGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-          doorGroup.id = 'door-points-group';
-          mainGroup.appendChild(doorGroup);
-          console.log('Created door points group in:', mainGroup.classList || mainGroup.tagName);
+        // Create or get the entry points group
+        let entryGroup = mainGroup.querySelector('#entry-points-group');
+        if (!entryGroup) {
+          entryGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          entryGroup.id = 'entry-points-group';
+          mainGroup.appendChild(entryGroup);
+          console.log('Created entry points group in:', mainGroup.classList || mainGroup.tagName);
         }
+
+        // Clear previous markers before drawing new ones
+        entryGroup.innerHTML = '';
 
         Object.keys(rooms).forEach(roomId => {
           const room = rooms[roomId];
-          if (room.doorPoints && Array.isArray(room.doorPoints)) {
-            room.doorPoints.forEach((doorPoint, index) => {
-              const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-              circle.id = `door-${roomId}-${index}`;
-              circle.setAttribute('cx', doorPoint.x);
-              circle.setAttribute('cy', doorPoint.y);
-              circle.setAttribute('r', room.style?.pointMarker?.radius || 6);
-              circle.setAttribute('fill', room.style?.pointMarker?.color || '#FF6B35');
-              circle.setAttribute('stroke', room.style?.pointMarker?.strokeColor || '#000');
-              circle.setAttribute('stroke-width', room.style?.pointMarker?.strokeWidth || 1);
-              circle.setAttribute('vector-effect', 'non-scaling-stroke');
-              circle.classList.add('door-point');
-              
-              doorGroup.appendChild(circle);
-            });
-            console.log(`Door points for room ${roomId} drawn successfully`);
+          const entryPoints = Array.isArray(room?.entryPoints) && room.entryPoints.length
+            ? room.entryPoints
+            : Array.isArray(room?.doorPoints) && room.doorPoints.length
+              ? room.doorPoints
+              : [];
+
+          if (!entryPoints.length) {
+            return;
           }
+
+          const markerStyle = room?.style?.pointMarker || {};
+          const defaultStyle = {
+            radius: 6,
+            color: '#FF6B35',
+            strokeColor: '#000',
+            strokeWidth: 1,
+            visible: true
+          };
+
+          const resolvedStyle = {
+            ...defaultStyle,
+            ...markerStyle
+          };
+
+          entryPoints.forEach((entryPoint, index) => {
+            if (!entryPoint || typeof entryPoint.x !== 'number' || typeof entryPoint.y !== 'number') {
+              return;
+            }
+
+            const pointVisible = entryPoint.visible ?? resolvedStyle.visible;
+            if (pointVisible === false) {
+              return;
+            }
+
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.id = `entry-${roomId}-${index}`;
+            circle.setAttribute('cx', entryPoint.x);
+            circle.setAttribute('cy', entryPoint.y);
+            circle.setAttribute('r', entryPoint.radius ?? resolvedStyle.radius);
+            circle.setAttribute('fill', entryPoint.color || resolvedStyle.color);
+            circle.setAttribute('stroke', entryPoint.strokeColor || resolvedStyle.strokeColor);
+            circle.setAttribute('stroke-width', entryPoint.strokeWidth ?? resolvedStyle.strokeWidth);
+            circle.setAttribute('vector-effect', 'non-scaling-stroke');
+
+            // Apply both legacy and new class names so existing styles continue to work.
+            circle.classList.add('entry-point', 'door-point');
+
+            entryGroup.appendChild(circle);
+          });
+
+          console.log(`Entry points for room ${roomId} drawn successfully`);
         });
       }
 
@@ -1846,9 +1992,20 @@ try {
               const currentRoom = window.floorGraph.rooms[path[i]];
               const nextRoom = window.floorGraph.rooms[path[i + 1]];
               
-              if (currentRoom && nextRoom && currentRoom.doorPoints && nextRoom.doorPoints) {
-                const start = currentRoom.doorPoints[0];
-                const end = nextRoom.doorPoints[0];
+              if (currentRoom && nextRoom) {
+                    const currentEntryPoints = Array.isArray(currentRoom.entryPoints) && currentRoom.entryPoints.length
+                      ? currentRoom.entryPoints
+                      : Array.isArray(currentRoom.doorPoints) ? currentRoom.doorPoints : [];
+                    const nextEntryPoints = Array.isArray(nextRoom.entryPoints) && nextRoom.entryPoints.length
+                      ? nextRoom.entryPoints
+                      : Array.isArray(nextRoom.doorPoints) ? nextRoom.doorPoints : [];
+
+                    const start = currentEntryPoints[0];
+                    const end = nextEntryPoints[0];
+
+                    if (!start || !end) {
+                      continue;
+                    }
                 
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 line.setAttribute('x1', start.x);
@@ -1963,6 +2120,13 @@ try {
             textEl.setAttribute("class", "room-label");
             textEl.setAttribute("id", labelId);
             
+            // Add responsive text class based on name length
+            if (officeName.length > 15) {
+                textEl.classList.add("room-label-small");
+            } else if (officeName.length > 25) {
+                textEl.classList.add("room-label-large");
+            }
+            
             const bbox = roomPath.getBBox();
             textEl.setAttribute("x", bbox.x + bbox.width / 2);
             textEl.setAttribute("y", bbox.y + bbox.height / 2);
@@ -2021,6 +2185,13 @@ try {
         2: '../floor_graph_2.json', 
         3: '../floor_graph_3.json'
       };
+
+      const getFloorFromLocation = (location) => {
+        if (!location || typeof location !== 'string') return null;
+        const parts = location.split('-');
+        const possibleFloor = parseInt(parts[parts.length - 1], 10);
+        return Number.isNaN(possibleFloor) ? null : possibleFloor;
+      };
       
       // Track current floor
       let currentFloor = 1;
@@ -2031,18 +2202,24 @@ try {
         currentFloor = floorNumber; // Track the current floor
         
         // Load both SVG and floor graph for pathfinding
-        Promise.all([
+        return Promise.all([
           fetch(floorMaps[floorNumber]).then(response => {
             if (!response.ok) throw new Error(`SVG fetch failed: ${response.status}`);
             return response.text();
           }),
-          fetch(floorGraphs[floorNumber]).then(response => {
-            if (!response.ok) throw new Error(`Floor graph fetch failed: ${response.status}`);
-            return response.json();
-          }).catch(error => {
-            console.warn(`Floor graph for floor ${floorNumber} not available:`, error.message);
-            return null; // Return null instead of failing completely
-          })
+          (typeof window.ensureFloorGraphLoaded === 'function'
+            ? window.ensureFloorGraphLoaded(floorNumber).catch(error => {
+                console.warn(`Floor graph for floor ${floorNumber} not available:`, error.message);
+                return null;
+              })
+            : fetch(floorGraphs[floorNumber]).then(response => {
+                if (!response.ok) throw new Error(`Floor graph fetch failed: ${response.status}`);
+                return response.json();
+              }).catch(error => {
+                console.warn(`Floor graph for floor ${floorNumber} not available:`, error.message);
+                return null; // Return null instead of failing completely
+              })
+          )
         ])
         .then(([svgText, graphData]) => {
           // Load SVG
@@ -2108,6 +2285,12 @@ try {
           
           // Initialize SVG interactivity (adds room handlers)
           initializeSVG(svg);
+          
+          // Force consistent font styling after SVG load
+          setTimeout(() => {
+            enhanceSVGTextAccessibility();
+            optimizeTextForZoom();
+          }, 100);
           
           // Initialize pan-zoom, which will then trigger the panZoomReady event
           initializePanZoom(svg);
@@ -2644,6 +2827,23 @@ try {
 
       // Initialize floor buttons on document load
       document.addEventListener("DOMContentLoaded", function() {
+        // Initialize text accessibility enhancements
+        setTimeout(() => {
+          enhanceSVGTextAccessibility();
+          optimizeTextForZoom();
+        }, 1000);
+        
+        // Listen for zoom changes to optimize text
+        setTimeout(() => {
+          if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.setOnZoom === 'function') {
+            const originalOnZoom = window.svgPanZoomInstance.options.onZoom || (() => {});
+            window.svgPanZoomInstance.setOnZoom(() => {
+              originalOnZoom();
+              optimizeTextForZoom();
+            });
+          }
+        }, 1500);
+        
         const floorButtons = document.querySelectorAll('.floor-btn');
         
         floorButtons.forEach(button => {
@@ -3057,7 +3257,7 @@ try {
         };
 
         // Directions button logic - open pathfinding modal
-        document.getElementById('directions-btn').onclick = function() {
+        document.getElementById('directions-btn').onclick = async function() {
           // Populate both dropdowns with all available locations
           const startLocationSelect = document.getElementById('start-location');
           const endLocationSelect = document.getElementById('end-location');
@@ -3086,62 +3286,74 @@ try {
           console.log('Populating dropdowns with offices for floor:', currentFloor);
           console.log('Available floorGraph rooms:', window.floorGraph ? Object.keys(window.floorGraph.rooms || {}) : 'No floor graph loaded');
           
-          let validOfficesCount = 0;
-          
-          officesData.forEach(office => {
-            console.log('Checking office:', office.name, 'location:', office.location, 'includes floor:', office.location && office.location.includes(`-${currentFloor}`));
-            
-            if (office.location && office.location.includes(`-${currentFloor}`)) { // Only show offices on current floor
-              // Verify this location exists in the floor graph
-              const roomExists = window.floorGraph && window.floorGraph.rooms && window.floorGraph.rooms[office.location];
-              console.log('Room exists in floor graph:', office.location, roomExists);
-              
-              if (roomExists) {
-                validOfficesCount++;
-                
-                // Add to "From" dropdown (but not if it's already the default from QR code)
-                if (office.location !== defaultStartLocation) {
-                  const startOption = document.createElement('option');
-                  startOption.value = office.location;
-                  startOption.textContent = office.name;
-                  startLocationSelect.appendChild(startOption);
+          let addedOptions = 0;
+
+          const officeOptions = (officesData || [])
+            .filter(office => office.location)
+            .map(office => {
+              const floorNumber = getFloorFromLocation(office.location);
+              return {
+                value: office.location,
+                label: `${office.name}${floorNumber ? ` (Floor ${floorNumber})` : ''}`,
+                floor: floorNumber
+              };
+            })
+            .sort((a, b) => {
+              if (a.floor == null && b.floor != null) return 1;
+              if (b.floor == null && a.floor != null) return -1;
+              if (a.floor !== b.floor) return (a.floor || 0) - (b.floor || 0);
+              return a.label.localeCompare(b.label);
+            });
+
+          officeOptions.forEach(option => {
+            if (option.value !== defaultStartLocation) {
+              const startOption = document.createElement('option');
+              startOption.value = option.value;
+              startOption.textContent = option.label;
+              startOption.dataset.floorNumber = option.floor || '';
+              startLocationSelect.appendChild(startOption);
+            }
+
+            const endOption = document.createElement('option');
+            endOption.value = option.value;
+            endOption.textContent = option.label;
+            endOption.dataset.floorNumber = option.floor || '';
+            if (window.currentSelectedOffice && option.value === window.currentSelectedOffice.location && !window.highlightOfficeIdFromPHP) {
+              endOption.selected = true;
+            }
+            endLocationSelect.appendChild(endOption);
+            addedOptions++;
+          });
+
+          if (addedOptions === 0 && typeof window.ensureFloorGraphLoaded === 'function') {
+            const floorsToLoad = [1, 2, 3];
+            for (const floor of floorsToLoad) {
+              try {
+                const graph = await window.ensureFloorGraphLoaded(floor);
+                if (graph && graph.rooms) {
+                  Object.keys(graph.rooms).forEach(roomId => {
+                    const label = `Room ${roomId} (Floor ${floor})`;
+                    if (roomId !== defaultStartLocation) {
+                      const startOption = document.createElement('option');
+                      startOption.value = roomId;
+                      startOption.textContent = label;
+                      startOption.dataset.floorNumber = floor;
+                      startLocationSelect.appendChild(startOption);
+                    }
+                    const endOption = document.createElement('option');
+                    endOption.value = roomId;
+                    endOption.textContent = label;
+                    endOption.dataset.floorNumber = floor;
+                    endLocationSelect.appendChild(endOption);
+                    addedOptions++;
+                  });
                 }
-                
-                // Add to "To" dropdown
-                const endOption = document.createElement('option');
-                endOption.value = office.location;
-                endOption.textContent = office.name;
-                // Pre-select if this is the currently selected office but not from QR code
-                if (window.currentSelectedOffice && office.location === window.currentSelectedOffice.location && !window.highlightOfficeIdFromPHP) {
-                  endOption.selected = true;
-                }
-                endLocationSelect.appendChild(endOption);
-              } else {
-                console.warn('Office location not found in floor graph:', office.location, 'for office:', office.name);
+              } catch (error) {
+                console.warn('Failed to preload floor graph for dropdown fallback:', floor, error);
               }
             }
-          });
-          
-          // If no valid offices found, add all rooms from floor graph as backup
-          if (validOfficesCount === 0 && window.floorGraph && window.floorGraph.rooms) {
-            console.log('No valid offices found, adding all floor graph rooms as options');
-            Object.keys(window.floorGraph.rooms).forEach(roomId => {
-              if (roomId.includes(`-${currentFloor}`)) {
-                const startOption = document.createElement('option');
-                startOption.value = roomId;
-                startOption.textContent = `Room ${roomId}`;
-                startLocationSelect.appendChild(startOption);
-                
-                const endOption = document.createElement('option');
-                endOption.value = roomId;
-                endOption.textContent = `Room ${roomId}`;
-                endLocationSelect.appendChild(endOption);
-              }
-            });
           }
-          
-          console.log('Added', validOfficesCount, 'valid offices to dropdowns');
-          
+
           // Show pathfinding modal
           document.getElementById('pathfinding-modal-overlay').style.display = 'flex';
         };
@@ -3151,7 +3363,7 @@ try {
           document.getElementById('pathfinding-modal-overlay').style.display = 'none';
         };
 
-        document.getElementById('find-path-btn').onclick = function() {
+        document.getElementById('find-path-btn').onclick = async function() {
           const startLocation = document.getElementById('start-location').value;
           const endLocation = document.getElementById('end-location').value;
           
@@ -3165,93 +3377,45 @@ try {
             return;
           }
           
-          // Critical: Check if floor graph data is loaded before proceeding
-          if (!window.floorGraph || !window.floorGraph.rooms) {
-            alert('Navigation data is still loading. Please wait a moment and try again.');
-            console.error('Floor graph not loaded yet. Cannot proceed with pathfinding.');
-            return;
-          }
-          
-          // Verify that the selected rooms exist in the current floor graph
-          if (!window.floorGraph.rooms[startLocation] || !window.floorGraph.rooms[endLocation]) {
-            console.error('Selected rooms not found in floor graph:', {
-              startExists: !!window.floorGraph.rooms[startLocation],
-              endExists: !!window.floorGraph.rooms[endLocation],
-              availableRooms: Object.keys(window.floorGraph.rooms)
-            });
-            alert('One or both selected rooms are not available for navigation on this floor. Please try different rooms.');
-            return;
-          }
-          
-          console.log(`Get Directions: Finding path from ${startLocation} to ${endLocation}`);
-          console.log('Floor graph ready:', !!window.floorGraph, 'with rooms:', Object.keys(window.floorGraph.rooms || {}).length);
-          
-          // Close the modal immediately
           document.getElementById('pathfinding-modal-overlay').style.display = 'none';
-          
-          // Clear any existing paths and selections
-          if (window.clearAllPaths && typeof window.clearAllPaths === 'function') {
-            window.clearAllPaths();
-          }
-          document.querySelectorAll('.selected-room').forEach(el => {
-            el.classList.remove('selected-room');
-          });
-          
-          // Reset the selectedRooms array to simulate desktop pathfinding behavior
-          window.selectedRooms = [];
-          
-          // Get the room elements
-          const startRoomElement = document.getElementById(startLocation);
-          const endRoomElement = document.getElementById(endLocation);
-          
-          if (!startRoomElement || !endRoomElement) {
-            alert('Selected rooms not found on the map');
+
+          if (typeof window.activateRouteBetweenRooms !== 'function') {
+            alert('Pathfinding system is not ready yet. Please wait for the map to load.');
             return;
           }
-          
-          // Use the stored pathfinding handlers with special pathfinding events
-          if (startRoomElement._pathfindingHandler && endRoomElement._pathfindingHandler) {
-            console.log('Using stored pathfinding handlers...');
-            
-            // Create special events marked for pathfinding
-            const startEvent = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              clientX: 0,
-              clientY: 0
-            });
-            startEvent._isPathfindingClick = true;
-            
-            const endEvent = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              clientX: 0,
-              clientY: 0
-            });
-            endEvent._isPathfindingClick = true;
-            
-            // Call the pathfinding handlers directly
-            console.log('Calling pathfinding for start room:', startLocation);
-            startRoomElement._pathfindingHandler.call(startRoomElement, startEvent);
-            
-            // Small delay then handle the end room to complete the path
-            setTimeout(() => {
-              console.log('Calling pathfinding for end room:', endLocation);
-              endRoomElement._pathfindingHandler.call(endRoomElement, endEvent);
-              
-              // Show success message after pathfinding completes
-              setTimeout(() => {
-                if (window.selectedRooms && window.selectedRooms.length === 2) {
-                  alert('Directions found! Path is highlighted on the map.');
-                } else {
-                  alert('Pathfinding completed. Check the map for the route.');
-                }
-              }, 200);
-            }, 100);
-            
-          } else {
-            alert('Pathfinding system not ready. Please wait for the map to fully load and try again.');
-            console.error('Pathfinding handlers not found on room elements');
+
+          try {
+            const startFloorNumber = getFloorFromLocation(startLocation);
+            if (startFloorNumber && startFloorNumber !== currentFloor) {
+              await loadFloorMap(startFloorNumber);
+            }
+
+            if (typeof window.resetActiveRoute === 'function') {
+              window.resetActiveRoute();
+            }
+
+            const route = await window.activateRouteBetweenRooms(startLocation, endLocation);
+
+            if (!route) {
+              alert('No available route between the selected locations.');
+              return;
+            }
+
+            window.selectedRooms = [startLocation, endLocation];
+
+            const firstFloor = route.floors ? route.floors[0] : startFloorNumber;
+            if (firstFloor && firstFloor !== currentFloor) {
+              await loadFloorMap(firstFloor);
+            }
+
+            if (route.type === 'multi-floor') {
+              alert('Multi-floor route ready! Follow the green path and switch floors as instructed in the panel.');
+            } else {
+              alert('Directions found! Path is highlighted on the map.');
+            }
+          } catch (error) {
+            console.error('Error computing route via modal:', error);
+            alert('Unable to calculate directions right now. Please try again.');
           }
         };
 
@@ -3268,6 +3432,10 @@ try {
               clearAllPaths();
             }
           }
+          if (typeof window.resetActiveRoute === 'function') {
+            window.resetActiveRoute();
+          }
+          window.selectedRooms = [];
           document.getElementById('pathfinding-modal-overlay').style.display = 'none';
         };
       });

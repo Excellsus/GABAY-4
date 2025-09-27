@@ -1,5 +1,101 @@
 {
     "rooms": {
+    "stair_west_1-1": {
+            "type": "stair",
+            "stairKey": "west",
+            "label": "West Stair",
+            "doorPoints": [
+                {
+                    "x": 100,
+                    "y": 174,
+                    "nearestPathId": "path1"
+                }
+            ],
+            "nearestPathId": "path1",
+            "connectsTo": [2],
+            "x": 165,
+            "y": 215
+        },
+        "stair_west_2-1": {
+            "type": "stair",
+            "stairKey": "west",
+            "label": "West Stair",
+            "doorPoints": [
+                {
+                    "x": 470,
+                    "y": 270,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "connectsTo": [2],
+            "x": 165,
+            "y": 215
+        },
+    "stair_master_1-1": {
+            "type": "stair",
+            "stairKey": "central",
+            "label": "Central Stair",
+            "doorPoints": [
+                {
+                    "x": 887,
+                    "y": 165,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "connectsTo": [2],
+            "x": 880,
+            "y": 130
+        },
+    "stair_master_2-1": {
+            "type": "stair",
+            "stairKey": "central",
+            "label": "Central Stair",
+            "doorPoints": [
+                {
+                    "x": 1017,
+                    "y": 165,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "connectsTo": [2],
+            "x": 880,
+            "y": 130
+        },
+    "stair_east_1-1": {
+            "type": "stair",
+            "stairKey": "east",
+            "label": "East Stair",
+            "doorPoints": [
+                {
+                    "x": 1450,
+                    "y": 265,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "connectsTo": [2,3],
+            "x": 1685,
+            "y": 215
+        },
+        "stair_east_2-1": {
+            "type": "stair",
+            "stairKey": "east",
+            "label": "East Stair",
+            "doorPoints": [
+                {
+                    "x": 1823   ,
+                    "y": 168    ,
+                    "nearestPathId": "path2"
+                }
+            ],
+            "nearestPathId": "path2",
+            "connectsTo": [2],
+            "x": 1685,
+            "y": 215
+        },
         "room-1-1": {
             "doorPoints": [
                 {
