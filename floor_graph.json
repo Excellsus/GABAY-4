@@ -1,4 +1,10 @@
 {
+    "pathAccessRules": {
+        "path1": {
+            "transitionStairKeys": ["west"],
+            "enforceTransitions": true
+        }
+    },
     "rooms": {
     "stair_west_1-1": {
             "type": "stair",

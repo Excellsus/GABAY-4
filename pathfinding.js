@@ -22,6 +22,108 @@ const STAIR_NAME_MAP = {
     east: 'East Stair'
 };
 
+const STAIR_ID_PATTERN = /^stair_([^_]+)_(\d+)-(\d+)$/i;
+
+function getPathIdBase(pathId) {
+    if (!pathId) return null;
+    const underscoreIndex = pathId.indexOf('_');
+    return underscoreIndex === -1 ? pathId : pathId.substring(0, underscoreIndex);
+}
+
+function getPathAccessRule(graph, pathId) {
+    if (!graph || !graph.pathAccessRules || !pathId) {
+        return null;
+    }
+    if (graph.pathAccessRules[pathId]) {
+        return graph.pathAccessRules[pathId];
+    }
+    const baseId = getPathIdBase(pathId);
+    if (baseId && graph.pathAccessRules[baseId]) {
+        return graph.pathAccessRules[baseId];
+    }
+    return null;
+}
+
+function getAllowedTransitionStairKeys(graph, pathId) {
+    const rule = getPathAccessRule(graph, pathId);
+    if (!rule) return null;
+    if (Array.isArray(rule.transitionStairKeys) && rule.transitionStairKeys.length) {
+        return [...rule.transitionStairKeys];
+    }
+    if (Array.isArray(rule.allowedStairKeys) && rule.allowedStairKeys.length) {
+        return [...rule.allowedStairKeys];
+    }
+    return null;
+}
+
+function shouldForceStairTransition(graph, startPathId, endPathId) {
+    if (!graph || !startPathId || !endPathId) {
+        return false;
+    }
+    if (startPathId === endPathId) {
+        return false;
+    }
+    const startRule = getPathAccessRule(graph, startPathId);
+    const endRule = getPathAccessRule(graph, endPathId);
+    return Boolean((startRule && startRule.enforceTransitions) || (endRule && endRule.enforceTransitions));
+}
+
+function parseStairId(roomId) {
+    if (!roomId) return null;
+    const match = STAIR_ID_PATTERN.exec(roomId);
+    if (!match) return null;
+    return {
+        key: match[1],
+        variant: match[2],
+        floor: parseInt(match[3], 10)
+    };
+}
+
+function findStairNodesBy(graph, predicate) {
+    if (!graph || !Array.isArray(graph.stairNodes)) return [];
+    return graph.stairNodes.filter(node => predicate(node.room, node));
+}
+
+function findStairNodeByKeyAndVariant(graph, stairKey, variant) {
+    return findStairNodesBy(graph, (room, node) => {
+        const meta = parseStairId(node.roomId);
+        return meta && meta.key === stairKey && meta.variant === variant;
+    })[0] || null;
+}
+
+function getPrimaryPathIdForRoom(room) {
+    if (!room) return null;
+    if (room.nearestPathId) {
+        return room.nearestPathId;
+    }
+    const entryPoints = getEntryPointsForRoom(room);
+    if (entryPoints.length) {
+        return entryPoints[0].nearestPathId || null;
+    }
+    return null;
+}
+
+function intersectArrays(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return [];
+    const setB = new Set(b);
+    return a.filter(item => setB.has(item));
+}
+
+function determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId) {
+    const startKeys = getAllowedTransitionStairKeys(startGraph, startPathId);
+    const endKeys = getAllowedTransitionStairKeys(endGraph, endPathId);
+    if (startKeys && startKeys.length && endKeys && endKeys.length) {
+        return intersectArrays(startKeys, endKeys);
+    }
+    if (startKeys && startKeys.length) {
+        return [...startKeys];
+    }
+    if (endKeys && endKeys.length) {
+        return [...endKeys];
+    }
+    return [];
+}
+
 function parseFloorFromRoomId(roomId) {
     if (!roomId) return null;
     const parts = roomId.split('-');
@@ -60,6 +162,7 @@ function decorateFloorGraph(data, floor) {
     const graph = data || {};
     graph.floorNumber = floor;
     graph.stairNodes = extractStairNodes(graph);
+    graph.pathAccessRules = graph.pathAccessRules || {};
 
     // Normalize entry point data so new code can rely on entryPoints while old JSON still using doorPoints keeps working.
     if (graph.rooms && typeof graph.rooms === 'object') {
@@ -145,9 +248,12 @@ function renderActiveRouteForFloor(floor) {
     if (!activeRoute || !activeRoute._segmentsByFloor) return;
 
     const segments = activeRoute._segmentsByFloor[floor] || [];
-    const walkSegment = segments.find(segment => segment.type === 'walk' && segment.points && segment.points.length);
-    if (walkSegment) {
-        drawCompletePath(walkSegment.points);
+    const walkSegments = segments.filter(segment => segment.type === 'walk' && segment.points && segment.points.length);
+
+    if (walkSegments.length) {
+        walkSegments.forEach((segment, index) => {
+            drawCompletePath(segment.points, { clearExisting: index === 0 });
+        });
     }
 
     const selectionIds = [activeRoute.startRoomId, activeRoute.endRoomId].filter(Boolean);
@@ -929,6 +1035,159 @@ function calculateSingleFloorRoute(graph, startRoomId, endRoomId) {
     return bestOption;
 }
 
+async function calculateConstrainedSameFloorRoute({
+    floorNumber,
+    graph,
+    startRoomId,
+    endRoomId,
+    startPathId,
+    endPathId
+}) {
+    if (!graph) return null;
+
+    const candidateStairKeys = determineCandidateStairKeys(graph, startPathId, graph, endPathId);
+    const stairKeysToConsider = candidateStairKeys.length ? candidateStairKeys : (graph.stairNodes || []).map(node => node.room.stairKey);
+    const uniqueStairKeys = [...new Set(stairKeysToConsider.filter(Boolean))];
+    if (!uniqueStairKeys.length) {
+        console.warn('No candidate stair keys found for constrained route', { startPathId, endPathId });
+        return null;
+    }
+
+    let bestRoute = null;
+
+    for (const stairKey of uniqueStairKeys) {
+        const startStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === startPathId);
+        const endStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === endPathId);
+
+        if (!startStairs.length || !endStairs.length) {
+            continue;
+        }
+
+        for (const startStair of startStairs) {
+            const startSegment = calculateSingleFloorRoute(graph, startRoomId, startStair.roomId);
+            if (!startSegment) {
+                continue;
+            }
+
+            const startMeta = parseStairId(startStair.roomId);
+            const startConnects = Array.isArray(startStair.room.connectsTo) ? startStair.room.connectsTo : [];
+
+            for (const endStair of endStairs) {
+                const sharedFloors = intersectArrays(startConnects, Array.isArray(endStair.room.connectsTo) ? endStair.room.connectsTo : []);
+                if (!sharedFloors.length) {
+                    continue;
+                }
+
+                const endSegment = calculateSingleFloorRoute(graph, endStair.roomId, endRoomId);
+                if (!endSegment) {
+                    continue;
+                }
+
+                const endMeta = parseStairId(endStair.roomId);
+                if (!startMeta || !endMeta) {
+                    continue;
+                }
+
+                for (const midFloor of sharedFloors) {
+                    const midGraph = await ensureFloorGraphLoaded(midFloor);
+                    if (!midGraph) {
+                        continue;
+                    }
+
+                    const upperStart = findStairNodeByKeyAndVariant(midGraph, stairKey, startMeta.variant);
+                    const upperEnd = findStairNodeByKeyAndVariant(midGraph, stairKey, endMeta.variant);
+
+                    if (!upperStart || !upperEnd) {
+                        continue;
+                    }
+
+                    const middleSegment = calculateSingleFloorRoute(midGraph, upperStart.roomId, upperEnd.roomId);
+                    if (!middleSegment) {
+                        continue;
+                    }
+
+                    const totalDistance = startSegment.distance + middleSegment.distance + endSegment.distance;
+
+                    const route = {
+                        type: 'multi-floor',
+                        startRoomId,
+                        endRoomId,
+                        stairKey,
+                        floors: [floorNumber, midFloor],
+                        totalDistance,
+                        segments: [
+                            {
+                                type: 'walk',
+                                floor: floorNumber,
+                                description: `Floor ${floorNumber}: Proceed to ${describeStairKey(stairKey)}`,
+                                points: startSegment.points,
+                                distance: startSegment.distance,
+                                startDoor: startSegment.startDoor,
+                                endDoor: startSegment.endDoor,
+                                via: stairKey
+                            },
+                            {
+                                type: 'stair',
+                                stairKey,
+                                description: `Use ${describeStairKey(stairKey)} to reach Floor ${midFloor}`,
+                                fromFloor: floorNumber,
+                                toFloor: midFloor,
+                                floors: [floorNumber, midFloor],
+                                floorSpan: Math.abs(midFloor - floorNumber) || 1
+                            },
+                            {
+                                type: 'walk',
+                                floor: midFloor,
+                                description: `Floor ${midFloor}: Transition across ${describeStairKey(stairKey)} landing`,
+                                points: middleSegment.points,
+                                distance: middleSegment.distance,
+                                startDoor: middleSegment.startDoor,
+                                endDoor: middleSegment.endDoor,
+                                via: stairKey
+                            },
+                            {
+                                type: 'stair',
+                                stairKey,
+                                description: `Return via ${describeStairKey(stairKey)} to Floor ${floorNumber}`,
+                                fromFloor: midFloor,
+                                toFloor: floorNumber,
+                                floors: [midFloor, floorNumber],
+                                floorSpan: Math.abs(midFloor - floorNumber) || 1
+                            },
+                            {
+                                type: 'walk',
+                                floor: floorNumber,
+                                description: `Floor ${floorNumber}: Continue to destination`,
+                                points: endSegment.points,
+                                distance: endSegment.distance,
+                                startDoor: endSegment.startDoor,
+                                endDoor: endSegment.endDoor,
+                                via: stairKey
+                            }
+                        ]
+                    };
+
+                    if (!bestRoute || totalDistance < bestRoute.totalDistance) {
+                        bestRoute = route;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!bestRoute) {
+        console.warn('No constrained route found between rooms with enforced stair transition', {
+            floorNumber,
+            startRoomId,
+            endRoomId,
+            startPathId,
+            endPathId
+        });
+    }
+
+    return bestRoute;
+}
+
 async function calculateMultiFloorRoute(startRoomId, endRoomId) {
     const startFloor = parseFloorFromRoomId(startRoomId);
     const endFloor = parseFloorFromRoomId(endRoomId);
@@ -940,6 +1199,31 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
 
     if (startFloor === endFloor) {
         const graph = await ensureFloorGraphLoaded(startFloor);
+        if (!graph) return null;
+
+        const startRoom = graph.rooms ? graph.rooms[startRoomId] : null;
+        const endRoom = graph.rooms ? graph.rooms[endRoomId] : null;
+
+        if (startRoom && endRoom) {
+            const startPathId = getPrimaryPathIdForRoom(startRoom);
+            const endPathId = getPrimaryPathIdForRoom(endRoom);
+
+            if (shouldForceStairTransition(graph, startPathId, endPathId)) {
+                const constrainedRoute = await calculateConstrainedSameFloorRoute({
+                    floorNumber: startFloor,
+                    graph,
+                    startRoomId,
+                    endRoomId,
+                    startPathId,
+                    endPathId
+                });
+
+                if (constrainedRoute) {
+                    return constrainedRoute;
+                }
+            }
+        }
+
         const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
         if (!route) return null;
         return {
@@ -978,9 +1262,31 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
 
     let bestRoute = null;
 
-    sharedStairKeys.forEach(stairKey => {
-        const startGraph = floorGraphCache[startFloor];
-        const endGraph = floorGraphCache[endFloor];
+    const startGraph = floorGraphCache[startFloor];
+    const endGraph = floorGraphCache[endFloor];
+    const startRoom = startGraph && startGraph.rooms ? startGraph.rooms[startRoomId] : null;
+    const endRoom = endGraph && endGraph.rooms ? endGraph.rooms[endRoomId] : null;
+    const startPathId = getPrimaryPathIdForRoom(startRoom);
+    const endPathId = getPrimaryPathIdForRoom(endRoom);
+
+    let stairKeysToEvaluate = [...sharedStairKeys];
+    const constrainedStairKeys = determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId);
+    if (constrainedStairKeys && constrainedStairKeys.length) {
+        stairKeysToEvaluate = intersectArrays(sharedStairKeys, constrainedStairKeys);
+    }
+
+    if (!stairKeysToEvaluate.length) {
+        console.warn('No permissible stair connectors available under path access rules', {
+            floorRange,
+            sharedStairKeys,
+            constrainedStairKeys,
+            startPathId,
+            endPathId
+        });
+        return null;
+    }
+
+    stairKeysToEvaluate.forEach(stairKey => {
 
         const startStair = (startGraph.stairNodes || []).find(node => node.stairKey === stairKey);
         const endStair = (endGraph.stairNodes || []).find(node => node.stairKey === stairKey);
@@ -1624,7 +1930,8 @@ function aStarSearch(graph, startId, endId) {
     return null; // No path found
 }
 
-function drawCompletePath(points) {
+function drawCompletePath(points, options = {}) {
+    const { clearExisting = true } = options || {};
     console.log('Drawing complete path:', points);
     console.log('Number of points to draw:', points.length);
     
@@ -1694,11 +2001,12 @@ function drawCompletePath(points) {
         console.log('Using existing path highlight group');
     }
     
-    // Clear existing paths
-    while (pathGroup.firstChild) {
-        pathGroup.removeChild(pathGroup.firstChild);
+    if (clearExisting) {
+        while (pathGroup.firstChild) {
+            pathGroup.removeChild(pathGroup.firstChild);
+        }
+        console.log('Cleared existing paths from group');
     }
-    console.log('Cleared existing paths from group');
     
     // Create the path element
     const pathElement = document.createElementNS("http://www.w3.org/2000/svg", 'path');
