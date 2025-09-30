@@ -23,11 +23,17 @@ const STAIR_NAME_MAP = {
 };
 
 const STAIR_ID_PATTERN = /^stair_([^_]+)_(\d+)-(\d+)$/i;
+const PATH1_PRIMARY_STAIR_ID = 'stair_west_1-1';
 
 function getPathIdBase(pathId) {
     if (!pathId) return null;
     const underscoreIndex = pathId.indexOf('_');
     return underscoreIndex === -1 ? pathId : pathId.substring(0, underscoreIndex);
+}
+
+function isPathIdForPrimaryRoute(pathId, baseId) {
+    if (!pathId || !baseId) return false;
+    return getPathIdBase(pathId) === baseId;
 }
 
 function getPathAccessRule(graph, pathId) {
@@ -207,6 +213,107 @@ function getSharedStairKeys(floorRange) {
     return sharedKeys ? [...sharedKeys] : [];
 }
 
+function floorsAreAdjacent(floorA, floorB) {
+    if (floorA == null || floorB == null) return false;
+    return Math.abs(floorA - floorB) === 1;
+}
+
+function getStairNodesConnectingToFloor(graph, targetFloor) {
+    if (!graph || !Array.isArray(graph.stairNodes)) return [];
+    return graph.stairNodes.filter(node => Array.isArray(node.room.connectsTo) && node.room.connectsTo.includes(targetFloor));
+}
+
+function isMasterStairNode(node) {
+    if (!node || !node.roomId) return false;
+    return node.roomId.toLowerCase().includes('stair_master');
+}
+
+function isThirdFloorStairNode(node) {
+    if (!node || !node.roomId) return false;
+    return node.roomId.toLowerCase().startsWith('stair_thirdfloor');
+}
+
+function isThirdFloorTransition(floorA, floorB) {
+    return floorA === 3 || floorB === 3;
+}
+
+function getStairTransitionKey(node) {
+    if (!node) return null;
+    const parsed = parseStairId(node.roomId);
+    if (parsed) {
+        return `${parsed.key.toLowerCase()}:${parsed.variant}`;
+    }
+    if (node.stairKey) {
+        return `${node.stairKey.toLowerCase()}:default`;
+    }
+    return node.roomId ? node.roomId.toLowerCase() : null;
+}
+
+function isStairTransitionAllowed(nodeA, nodeB, floorA, floorB) {
+    if (!nodeA || !nodeB) return false;
+
+    if (!floorsAreAdjacent(floorA, floorB)) {
+        return false;
+    }
+
+    const lower = Math.min(floorA, floorB);
+    const upper = Math.max(floorA, floorB);
+
+    if ((isMasterStairNode(nodeA) || isMasterStairNode(nodeB)) && (upper > 2)) {
+        return false;
+    }
+
+    if (isThirdFloorTransition(floorA, floorB)) {
+        if (!isThirdFloorStairNode(nodeA) || !isThirdFloorStairNode(nodeB)) {
+            return false;
+        }
+        const parsedA = parseStairId(nodeA.roomId);
+        const parsedB = parseStairId(nodeB.roomId);
+        if (!parsedA || !parsedB || parsedA.variant !== parsedB.variant) {
+            return false;
+        }
+    }
+
+    const transitionKeyA = getStairTransitionKey(nodeA);
+    const transitionKeyB = getStairTransitionKey(nodeB);
+
+    if (transitionKeyA && transitionKeyB && transitionKeyA !== transitionKeyB) {
+        return false;
+    }
+
+    return true;
+}
+
+function findStairTransitionsBetweenFloors(floorA, floorB) {
+    const graphA = floorGraphCache[floorA];
+    const graphB = floorGraphCache[floorB];
+
+    if (!graphA || !graphB) return [];
+
+    const nodesA = getStairNodesConnectingToFloor(graphA, floorB);
+    const nodesB = getStairNodesConnectingToFloor(graphB, floorA);
+
+    const transitions = [];
+
+    nodesA.forEach(nodeA => {
+        nodesB.forEach(nodeB => {
+            if (!isStairTransitionAllowed(nodeA, nodeB, floorA, floorB)) {
+                return;
+            }
+
+            transitions.push({
+                stairKey: nodeA.stairKey,
+                fromFloor: floorA,
+                toFloor: floorB,
+                startNode: nodeA,
+                endNode: nodeB
+            });
+        });
+    });
+
+    return transitions;
+}
+
 function calculatePolylineLength(points) {
     if (!points || points.length < 2) return 0;
     let length = 0;
@@ -218,6 +325,51 @@ function calculatePolylineLength(points) {
 
 function describeStairKey(stairKey) {
     return STAIR_NAME_MAP[stairKey] || `Stair ${stairKey}`;
+}
+
+const PATH_FLOW_ANIMATION_CLASS = 'path-highlight-animated';
+let pathFlowStylesInjected = false;
+
+function ensurePathFlowAnimationStyles() {
+    if (pathFlowStylesInjected) {
+        return;
+    }
+
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    const existing = document.getElementById('path-flow-animation-style');
+    if (existing) {
+        pathFlowStylesInjected = true;
+        return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'path-flow-animation-style';
+    style.textContent = `
+        @keyframes path-flow {
+            from {
+                stroke-dashoffset: 0px;
+            }
+            to {
+                stroke-dashoffset: calc(-1 * var(--dash-cycle, 15px));
+            }
+        }
+
+        .${PATH_FLOW_ANIMATION_CLASS} {
+            animation-name: path-flow;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+            animation-duration: var(--path-flow-duration, 1.2s);
+        }
+    `;
+
+    const target = document.head || document.body;
+    if (target) {
+        target.appendChild(style);
+        pathFlowStylesInjected = true;
+    }
 }
 
 function setActiveRoute(route) {
@@ -373,9 +525,21 @@ function renderRouteInstructions(route) {
     summary.style.margin = '0 0 10px 0';
     summary.style.fontSize = '14px';
     summary.style.lineHeight = '1.4';
-    let summaryText = route.type === 'multi-floor'
-        ? `Route spans ${totalFloors} floors using the ${describeStairKey(route.stairKey)}.`
-        : 'Single-floor route.';
+    let summaryText = 'Single-floor route.';
+
+    if (route.type === 'multi-floor') {
+        const stairNames = Array.isArray(route.stairSequence) && route.stairSequence.length
+            ? [...new Set(route.stairSequence.map(item => describeStairKey(item.stairKey)))]
+            : (route.stairKey ? [describeStairKey(route.stairKey)] : []);
+
+        if (stairNames.length === 1) {
+            summaryText = `Route spans ${totalFloors} floors using the ${stairNames[0]}.`;
+        } else if (stairNames.length > 1) {
+            summaryText = `Route spans ${totalFloors} floors using ${stairNames.join(', ')}.`;
+        } else {
+            summaryText = `Route spans ${totalFloors} floors.`;
+        }
+    }
     if (totalDistance) {
         summaryText += ` Total path length ≈ ${totalDistance}.`;
     }
@@ -1254,14 +1418,6 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
 
     await Promise.all([...new Set(floorRange)].map(ensureFloorGraphLoaded));
 
-    const sharedStairKeys = getSharedStairKeys(floorRange);
-    if (!sharedStairKeys.length) {
-        console.warn('No shared stair connectors found for floors', floorRange);
-        return null;
-    }
-
-    let bestRoute = null;
-
     const startGraph = floorGraphCache[startFloor];
     const endGraph = floorGraphCache[endFloor];
     const startRoom = startGraph && startGraph.rooms ? startGraph.rooms[startRoomId] : null;
@@ -1269,90 +1425,175 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
     const startPathId = getPrimaryPathIdForRoom(startRoom);
     const endPathId = getPrimaryPathIdForRoom(endRoom);
 
-    let stairKeysToEvaluate = [...sharedStairKeys];
-    const constrainedStairKeys = determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId);
-    if (constrainedStairKeys && constrainedStairKeys.length) {
-        stairKeysToEvaluate = intersectArrays(sharedStairKeys, constrainedStairKeys);
+    const requiresPrimaryPath1 = isPathIdForPrimaryRoute(startPathId, 'path1') || isPathIdForPrimaryRoute(endPathId, 'path1');
+
+    const transitionsPerStep = [];
+    for (let i = 0; i < floorRange.length - 1; i++) {
+        const floorA = floorRange[i];
+        const floorB = floorRange[i + 1];
+        let transitions = findStairTransitionsBetweenFloors(floorA, floorB);
+
+        if (requiresPrimaryPath1 && (floorA === 1 || floorB === 1)) {
+            transitions = transitions.filter(transition =>
+                transition.startNode.roomId === PATH1_PRIMARY_STAIR_ID ||
+                transition.endNode.roomId === PATH1_PRIMARY_STAIR_ID
+            );
+        }
+
+        if (!transitions.length) {
+            console.warn('No stair transitions available between floors', floorA, floorB);
+            return null;
+        }
+        transitionsPerStep.push(transitions);
     }
 
-    if (!stairKeysToEvaluate.length) {
-        console.warn('No permissible stair connectors available under path access rules', {
-            floorRange,
-            sharedStairKeys,
-            constrainedStairKeys,
-            startPathId,
-            endPathId
+    const constrainedStairKeys = determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId);
+    if (constrainedStairKeys && constrainedStairKeys.length) {
+        for (let i = 0; i < transitionsPerStep.length; i++) {
+            transitionsPerStep[i] = transitionsPerStep[i].filter(transition => constrainedStairKeys.includes(transition.stairKey));
+            if (!transitionsPerStep[i].length) {
+                console.warn('No allowable transitions remain after applying path access constraints', {
+                    floorRange,
+                    constrainedStairKeys,
+                    startPathId,
+                    endPathId
+                });
+                return null;
+            }
+        }
+    }
+
+    const createWalkSegment = (floor, description, route, stairKey) => ({
+        type: 'walk',
+        floor,
+        description,
+        points: route.points,
+        distance: route.distance,
+        startDoor: route.startDoor,
+        endDoor: route.endDoor,
+        via: stairKey || null,
+        startPathId: route.startPathId,
+        endPathId: route.endPathId
+    });
+
+    const evaluateTransitions = (stepIndex, currentFloor, currentRoomId, segments, distanceSoFar, stairUsages) => {
+        if (stepIndex >= transitionsPerStep.length) {
+            if (currentFloor !== endFloor) {
+                return null;
+            }
+
+            const finalGraph = floorGraphCache[currentFloor];
+            if (!finalGraph) {
+                return null;
+            }
+
+            const finalRoute = calculateSingleFloorRoute(finalGraph, currentRoomId, endRoomId);
+            if (!finalRoute) {
+                return null;
+            }
+
+            const finalSegments = [...segments];
+            let totalDistance = distanceSoFar;
+
+            if (finalRoute.distance > 0) {
+                finalSegments.push(createWalkSegment(currentFloor, `Floor ${currentFloor}: Continue to ${endRoomId}`, finalRoute));
+                totalDistance += finalRoute.distance;
+            }
+
+            return {
+                segments: finalSegments,
+                totalDistance,
+                stairUsages: [...stairUsages]
+            };
+        }
+
+        const transitions = transitionsPerStep[stepIndex];
+        let bestResult = null;
+
+        transitions.forEach(transition => {
+            const graph = floorGraphCache[currentFloor];
+            if (!graph) {
+                return;
+            }
+
+            const approachRoute = calculateSingleFloorRoute(graph, currentRoomId, transition.startNode.roomId);
+            if (!approachRoute) {
+                return;
+            }
+
+            const updatedSegments = [...segments];
+            let updatedDistance = distanceSoFar;
+
+            if (approachRoute.distance > 0) {
+                const stairLabel = transition.startNode.label || transition.startNode.roomId;
+                updatedSegments.push(createWalkSegment(currentFloor, `Floor ${currentFloor}: Proceed to ${stairLabel}`, approachRoute, transition.stairKey));
+                updatedDistance += approachRoute.distance;
+            }
+
+            const stairName = describeStairKey(transition.stairKey);
+            updatedSegments.push({
+                type: 'stair',
+                stairKey: transition.stairKey,
+                description: `Take ${stairName} to Floor ${transition.toFloor}`,
+                fromFloor: transition.fromFloor,
+                toFloor: transition.toFloor,
+                floors: [transition.fromFloor, transition.toFloor],
+                floorSpan: Math.abs(transition.toFloor - transition.fromFloor),
+                startRoomId: transition.startNode.roomId,
+                endRoomId: transition.endNode.roomId
+            });
+
+            const result = evaluateTransitions(
+                stepIndex + 1,
+                transition.toFloor,
+                transition.endNode.roomId,
+                updatedSegments,
+                updatedDistance,
+                [...stairUsages, transition]
+            );
+
+            if (result) {
+                if (!bestResult || result.totalDistance < bestResult.totalDistance) {
+                    bestResult = result;
+                }
+            }
         });
+
+        return bestResult;
+    };
+
+    const evaluatedRoute = evaluateTransitions(0, startFloor, startRoomId, [], 0, []);
+
+    if (!evaluatedRoute) {
+        console.warn('Unable to evaluate a viable multi-floor route', { startRoomId, endRoomId, floorRange });
         return null;
     }
 
-    stairKeysToEvaluate.forEach(stairKey => {
+    const stairSequence = evaluatedRoute.stairUsages.map(transition => ({
+        stairKey: transition.stairKey,
+        fromFloor: transition.fromFloor,
+        toFloor: transition.toFloor,
+        startRoomId: transition.startNode.roomId,
+        endRoomId: transition.endNode.roomId
+    }));
 
-        const startStair = (startGraph.stairNodes || []).find(node => node.stairKey === stairKey);
-        const endStair = (endGraph.stairNodes || []).find(node => node.stairKey === stairKey);
+    const route = {
+        type: 'multi-floor',
+        startRoomId,
+        endRoomId,
+        floors: floorRange,
+        totalDistance: evaluatedRoute.totalDistance,
+        segments: evaluatedRoute.segments,
+        stairSequence,
+        stairKeys: stairSequence.map(item => item.stairKey)
+    };
 
-        if (!startStair || !endStair) {
-            return;
-        }
+    if (stairSequence.length === 1) {
+        route.stairKey = stairSequence[0].stairKey;
+        route.stairName = describeStairKey(stairSequence[0].stairKey);
+    }
 
-        const startRoute = calculateSingleFloorRoute(startGraph, startRoomId, startStair.roomId);
-        const endRoute = calculateSingleFloorRoute(endGraph, endStair.roomId, endRoomId);
-
-        if (!startRoute || !endRoute) {
-            return;
-        }
-
-        const totalDistance = startRoute.distance + endRoute.distance;
-        const verticalSpan = Math.abs(endFloor - startFloor);
-        const stairName = describeStairKey(stairKey);
-
-        const candidateRoute = {
-            type: 'multi-floor',
-            startRoomId,
-            endRoomId,
-            stairKey,
-            stairName,
-            floors: floorRange,
-            totalDistance,
-            segments: [
-                {
-                    type: 'walk',
-                    floor: startFloor,
-                    description: `Floor ${startFloor}: Proceed to ${stairName}`,
-                    points: startRoute.points,
-                    distance: startRoute.distance,
-                    startDoor: startRoute.startDoor,
-                    endDoor: startRoute.endDoor,
-                    via: stairKey
-                },
-                {
-                    type: 'stair',
-                    stairKey,
-                    description: `Take ${stairName} to Floor ${endFloor}`,
-                    fromFloor: startFloor,
-                    toFloor: endFloor,
-                    floors: floorRange,
-                    floorSpan: verticalSpan
-                },
-                {
-                    type: 'walk',
-                    floor: endFloor,
-                    description: `Floor ${endFloor}: Exit ${stairName} and continue to destination`,
-                    points: endRoute.points,
-                    distance: endRoute.distance,
-                    startDoor: endRoute.startDoor,
-                    endDoor: endRoute.endDoor,
-                    via: stairKey
-                }
-            ]
-        };
-
-        if (!bestRoute || totalDistance < bestRoute.totalDistance) {
-            bestRoute = candidateRoute;
-        }
-    });
-
-    return bestRoute;
+    return route;
 }
 
 async function activateRouteBetweenRooms(startRoomId, endRoomId) {
@@ -1474,9 +1715,15 @@ async function roomClickHandler(event) {
                 return;
             }
 
-            if (route.type === 'multi-floor' && route.stairKey) {
-                const stairName = describeStairKey(route.stairKey);
-                console.log(`Multi-floor route computed using ${stairName}.`);
+            if (route.type === 'multi-floor') {
+                const stairNames = Array.isArray(route.stairSequence) && route.stairSequence.length
+                    ? [...new Set(route.stairSequence.map(item => describeStairKey(item.stairKey)))]
+                    : (route.stairKey ? [describeStairKey(route.stairKey)] : []);
+                if (stairNames.length) {
+                    console.log(`Multi-floor route computed using ${stairNames.join(', ')}.`);
+                } else {
+                    console.log('Multi-floor route computed.');
+                }
             }
         } catch (error) {
             console.error('Error while calculating multi-floor route:', error);
@@ -2030,6 +2277,22 @@ function drawCompletePath(points, options = {}) {
     pathElement.setAttribute('fill', 'none');
     pathElement.setAttribute('stroke-dasharray', '10,5');
     pathElement.setAttribute('vector-effect', 'non-scaling-stroke');
+
+    ensurePathFlowAnimationStyles();
+
+    const dashArrayValue = pathElement.getAttribute('stroke-dasharray') || '10,5';
+    const dashSegments = dashArrayValue
+        .split(/[ ,]+/)
+        .map(segment => parseFloat(segment))
+        .filter(value => Number.isFinite(value) && value > 0);
+    const dashCycleDistance = dashSegments.reduce((sum, value) => sum + value, 0) || 15;
+    const defaultDurationSeconds = 1.2;
+
+    pathElement.classList.add(PATH_FLOW_ANIMATION_CLASS);
+    pathElement.style.setProperty('--dash-cycle', `${dashCycleDistance}px`);
+    pathElement.style.setProperty('--path-flow-duration', `${defaultDurationSeconds}s`);
+    pathElement.style.strokeDashoffset = '0px';
+    pathElement.style.animationDuration = `${defaultDurationSeconds}s`;
     
     console.log('Path element created with attributes:', {
         d: pathData,
@@ -2041,6 +2304,29 @@ function drawCompletePath(points, options = {}) {
     // Add the path to the group
     pathGroup.appendChild(pathElement);
     console.log('Path element added to SVG group');
+
+    try {
+        // Force layout to ensure animations behave consistently across path lengths
+        const totalLength = pathElement.getTotalLength();
+        if (Number.isFinite(totalLength) && totalLength > 0) {
+            const minDurationSeconds = 0.75;
+            const maxDurationSeconds = 6;
+            const flowSpeedUnitsPerSecond = 1000;
+            const durationSeconds = Math.min(
+                Math.max(totalLength / flowSpeedUnitsPerSecond, minDurationSeconds),
+                maxDurationSeconds
+            );
+            const roundedDuration = Math.round(durationSeconds * 100) / 100;
+            pathElement.style.setProperty('--path-flow-duration', `${roundedDuration}s`);
+            pathElement.style.animationDuration = `${roundedDuration}s`;
+            console.log('Adjusted path animation duration based on length', {
+                totalLength,
+                durationSeconds: roundedDuration
+            });
+        }
+    } catch (error) {
+        console.warn('Unable to compute total length for animated path', error);
+    }
     
     // Verify the path was actually added
     const addedPaths = pathGroup.querySelectorAll('path');

@@ -4,7 +4,7 @@ require 'connect_db.php'; // Uses $connect
 
 // --- Configuration ---
 // IMPORTANT: Change this to your actual server address if not running on localhost
-$baseUrl = "http://192.168.68.116/FinalDev/mobileScreen/";
+$baseUrl = "http:// 192.168.254.164/FinalDev/mobileScreen/";
 
 // Function to create a safe filename from a string (like an office name)
 function sanitize_filename($string) {

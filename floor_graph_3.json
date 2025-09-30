@@ -14,8 +14,8 @@
       "type": "stair",
       "stairKey": "west",
       "label": "West Stair",
-      "doorPoints": [{"x": 845, "y": 233, "nearestPathId": "lobby_vertical_1_floor3"}],
-      "nearestPathId": "lobby_vertical_1_floor3",
+      "doorPoints": [{"x": 895, "y": 140, "nearestPathId": "path3_floor3"}],
+      "nearestPathId": "path3_floor3",
       "connectsTo": [2],
       "x": 845,
       "y": 233
@@ -24,20 +24,10 @@
       "type": "stair",
       "stairKey": "central",
       "label": "Central Stair",
-      "doorPoints": [{"x": 975, "y": 233, "nearestPathId": "lobby_vertical_2_floor3"}],
-      "nearestPathId": "lobby_vertical_2_floor3",
+      "doorPoints": [{"x": 1055, "y": 140, "nearestPathId": "path2_floor3"}],
+      "nearestPathId": "path2_floor3",
       "connectsTo": [2],
       "x": 975,
-      "y": 233
-    },
-  "stair_thirdFloor_3-3": {
-      "type": "stair",
-      "stairKey": "east",
-      "label": "East Stair",
-      "doorPoints": [{"x": 1108, "y": 233, "nearestPathId": "lobby_vertical_3_floor3"}],
-      "nearestPathId": "lobby_vertical_3_floor3",
-      "connectsTo": [2],
-      "x": 1108,
       "y": 233
     },
     "room-1-3": {

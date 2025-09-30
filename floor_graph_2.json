@@ -33,14 +33,15 @@
                 {
                     "x": 490,
                     "y": 265   ,
-                    "nearestPathId": "path1_floor2"
+                    "nearestPathId": "path3_floor2"
                 }
             ],
-            "nearestPathId": "path1_floor2",
+            "nearestPathId": "path_floor2",
             "connectsTo": [1],
             "x": 205,
             "y": 210
-        },"stair_master_1-2": {
+        },
+        "stair_master_1-2": {
             "type": "stair",
             "stairKey": "central",
             "label": "Central Stair",
@@ -69,6 +70,38 @@
             ],
             "nearestPathId": "lobby_vertical_2",
             "connectsTo": [1],
+            "x": 970,
+            "y": 255
+        },
+        "stair_thirdFloor_1-2": {
+            "type": "stair",
+            "stairKey": "west",
+            "label": "West Stair",
+            "doorPoints": [
+                {
+                    "x": 906,
+                    "y": 140,
+                    "nearestPathId": "lobby_vertical_2"
+                }
+            ],
+            "nearestPathId": "lobby_vertical_2",
+            "connectsTo": [3],
+            "x": 970,
+            "y": 255
+        },
+        "stair_thirdFloor_2-2": {
+            "type": "stair",
+            "stairKey": "central",
+            "label": "Central Stair",
+            "doorPoints": [
+                {
+                    "x": 1036,
+                    "y": 140,
+                    "nearestPathId": "lobby_vertical_2"
+                }
+            ],
+            "nearestPathId": "lobby_vertical_2",
+            "connectsTo": [3],
             "x": 970,
             "y": 255
         },
@@ -961,6 +994,15 @@
                 {
                     "x": 970,
                     "y": 220,
+                    "isIntersection": true
+                },
+                {
+                    "x": 970,
+                    "y": 180
+                },
+                {
+                    "x": 970,
+                    "y": 140,
                     "isIntersection": true
                 }
             ]
