@@ -1,0 +1,86 @@
+┌─────────────────────────────────────────────────────────────────────┐
+│                  STAIR VARIANT EXCLUSIVITY FIX                      │
+│                     Visual Flow Diagram                             │
+└─────────────────────────────────────────────────────────────────────┘
+
+BEFORE FIX (❌ INCORRECT):
+═══════════════════════════════════════════════════════════════════════
+
+Floor 1:
+    Room 3 (path1) ──→ stair_west_1-1 (variant "1")
+                              │
+                              ↓ (transition to Floor 2)
+Floor 2:                      
+    stair_west_2-2 (variant "2") ❌ WRONG! Should use variant "1"
+            │
+            ↓ (traverse Floor 2)
+            │
+            ↓ (return to Floor 1)
+Floor 1:
+    stair_west_2-1 (variant "2") ❌ WRONG! Should use variant "1"
+            │
+            ↓
+    Room 7 (path1)
+
+
+AFTER FIX (✅ CORRECT):
+═══════════════════════════════════════════════════════════════════════
+
+Floor 1:
+    Room 3 (path1) ──→ stair_west_1-1 (variant "1") ✅
+                              │
+                              ↓ (transition to Floor 2)
+Floor 2:                      
+    stair_west_1-2 (variant "1") ✅ Correct variant enforced!
+            │
+            ↓ (traverse Floor 2)
+            │
+            ↓ (return to Floor 1)
+Floor 1:
+    stair_west_1-1 (variant "1") ✅ Same variant maintained!
+            │
+            ↓
+    Room 7 (path1)
+
+
+KEY ENFORCEMENT POINTS:
+═══════════════════════════════════════════════════════════════════════
+
+1. getRequiredStairVariantForPath(graph, "path1")
+   ↓
+   Returns: {stairKey: "west", variant: "1"}
+
+2. calculateMultiFloorRoute() filters transitions:
+   ├─ First transition: Enforce start variant "1"
+   ├─ Middle transitions: Maintain consistency
+   └─ Last transition: Return via same variant "1"
+
+3. calculateConstrainedSameFloorRoute() filters stairs:
+   ├─ Start stairs: Only variant "1"
+   └─ End stairs: Only variant "1"
+
+
+STAIR NAMING CONVENTION:
+═══════════════════════════════════════════════════════════════════════
+
+Format: stair_{key}_{variant}-{floor}
+
+Examples:
+    stair_west_1-1    → key: "west", variant: "1", floor: 1
+    stair_west_2-1    → key: "west", variant: "2", floor: 1
+    stair_west_1-2    → key: "west", variant: "1", floor: 2
+    stair_west_2-2    → key: "west", variant: "2", floor: 2
+
+
+PATH ACCESS RULES:
+═══════════════════════════════════════════════════════════════════════
+
+path1:
+    ├─ transitionStairKeys: ["west"]
+    └─ enforceTransitions: true
+    
+This means:
+    • Rooms on path1 MUST use west stairs
+    • Variant is determined by which west stair connects to path1
+    • stair_west_1-1 has nearestPathId: "path1" → variant "1" required
+    • stair_west_2-1 has nearestPathId: "path2" → variant "2" (different path)

@@ -3,16 +3,13 @@
         "path1": {
             "transitionStairKeys": ["west"],
             "enforceTransitions": true
-        },
-        "path1_floor2": {
-            "transitionStairKeys": ["west"],
-            "enforceTransitions": true
         }
     },
     "rooms": {
     "stair_west_1-2": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "west_1",
             "label": "West Stair",
             "doorPoints": [
                 {
@@ -28,6 +25,7 @@
         },"stair_west_2-2": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "west_2",
             "label": "West Stair",
             "doorPoints": [
                 {
@@ -44,6 +42,7 @@
         "stair_master_1-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "master_1",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -60,6 +59,7 @@
     "stair_master_2-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "master_2",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -76,6 +76,7 @@
         "stair_thirdFloor_1-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "thirdFloor_1",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -92,6 +93,7 @@
         "stair_thirdFloor_2-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "thirdFloor_2",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -108,6 +110,7 @@
     "stair_east_1-2": {
             "type": "stair",
             "stairKey": "east",
+            "stairGroup": "east_1",
             "label": "East Stair",
             "doorPoints": [
                 {
@@ -124,6 +127,7 @@
     "stair_east_2-2": {
             "type": "stair",
             "stairKey": "east",
+            "stairGroup": "east_2",
             "label": "East Stair",
             "doorPoints": [
                 {

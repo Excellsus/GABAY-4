@@ -1,0 +1,171 @@
+┌──────────────────────────────────────────────────────────────────────┐
+│                   STAIR GROUP CONNECTION MATRIX                      │
+│              Strict Enforcement via stairGroup Property             │
+└──────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════
+FLOOR 1 → FLOOR 2 → FLOOR 3 CONNECTIONS
+══════════════════════════════════════════════════════════════════════
+
+GROUP: west_1
+─────────────
+Floor 1: stair_west_1-1 (path1)
+    ↓
+Floor 2: stair_west_1-2 (path1_floor2)
+    ↓
+Floor 3: —
+
+GROUP: west_2
+─────────────
+Floor 1: stair_west_2-1 (path2)
+    ↓
+Floor 2: stair_west_2-2 (path_floor2)
+    ↓
+Floor 3: —
+
+GROUP: master_1
+───────────────
+Floor 1: stair_master_1-1 (path2)
+    ↓
+Floor 2: stair_master_1-2 (lobby_horizontal_1)
+    ↓
+Floor 3: —
+
+GROUP: master_2
+───────────────
+Floor 1: stair_master_2-1 (path2)
+    ↓
+Floor 2: stair_master_2-2 (lobby_vertical_2)
+    ↓
+Floor 3: —
+
+GROUP: east_1
+─────────────
+Floor 1: stair_east_1-1 (path2)
+    ↓
+Floor 2: stair_east_1-2 (path10_floor2)
+    ↓
+Floor 3: —
+
+GROUP: east_2
+─────────────
+Floor 1: stair_east_2-1 (path2)
+    ↓
+Floor 2: stair_east_2-2 (path18_floor2)
+    ↓
+Floor 3: stair_east_1-3 (path2_floor3)
+
+GROUP: thirdFloor_1
+───────────────────
+Floor 1: —
+    ↓
+Floor 2: stair_thirdFloor_1-2 (lobby_vertical_2)
+    ↓
+Floor 3: stair_thirdFloor_1-3 (path3_floor3)
+
+GROUP: thirdFloor_2
+───────────────────
+Floor 1: —
+    ↓
+Floor 2: stair_thirdFloor_2-2 (lobby_vertical_2)
+    ↓
+Floor 3: stair_thirdFloor_2-3 (path2_floor3)
+
+
+══════════════════════════════════════════════════════════════════════
+VALIDATION RULES
+══════════════════════════════════════════════════════════════════════
+
+✅ ALLOWED: Stairs within the same group can transition
+    Example: stair_west_1-1 → stair_west_1-2 (both in west_1)
+
+❌ BLOCKED: Stairs from different groups cannot transition
+    Example: stair_west_1-1 ⇏ stair_west_2-2 (west_1 ≠ west_2)
+
+✅ ALLOWED: Multi-floor routes through same group
+    Example: stair_east_2-1 → stair_east_2-2 → stair_east_1-3
+
+❌ BLOCKED: Mixing groups during multi-floor routing
+    Example: Cannot start with west_1 and end with west_2
+
+
+══════════════════════════════════════════════════════════════════════
+COMPATIBILITY CHECK LOGIC
+══════════════════════════════════════════════════════════════════════
+
+function areStairNodesCompatible(nodeA, nodeB):
+    1. Extract stairGroup from both nodes
+    2. If BOTH have stairGroup defined:
+       → They MUST match exactly (strict enforcement)
+    3. If stairGroup not defined:
+       → Fall back to legacy stairKey/variant matching
+    4. Return true only if compatible
+
+
+══════════════════════════════════════════════════════════════════════
+USAGE EXAMPLES
+══════════════════════════════════════════════════════════════════════
+
+Example 1: Room 3 (F1) → Room 7 (F1) [Same floor, path1 constraint]
+───────────────────────────────────────────────────────────────────
+Start: Room 3 (nearestPathId: path1)
+    ↓ path1 requires stairGroup: west_1
+    ↓
+Use: stair_west_1-1 (Floor 1, group: west_1)
+    ↓ Transition to Floor 2
+    ↓
+Arrive: stair_west_1-2 (Floor 2, group: west_1) ✅ Same group!
+    ↓ Traverse Floor 2
+    ↓ Return to Floor 1
+    ↓
+Use: stair_west_1-2 → stair_west_1-1
+    ↓
+End: Room 7 (path1)
+
+❌ CANNOT use stair_west_2-2 (group: west_2) - different group!
+
+
+Example 2: Room 14 (F1) → Room 6 (F3) [Multi-floor, east stairs]
+───────────────────────────────────────────────────────────────────
+Start: Room 14 (Floor 1)
+    ↓
+Use: stair_east_2-1 (Floor 1, group: east_2)
+    ↓ Transition to Floor 2
+    ↓
+Arrive: stair_east_2-2 (Floor 2, group: east_2) ✅ Same group!
+    ↓ Transition to Floor 3
+    ↓
+Arrive: stair_east_1-3 (Floor 3, group: east_2) ✅ Same group!
+    ↓
+End: Room 6 (Floor 3)
+
+❌ CANNOT use stair_east_1-2 (group: east_1) - different group!
+
+
+══════════════════════════════════════════════════════════════════════
+IMPLEMENTATION SUMMARY
+══════════════════════════════════════════════════════════════════════
+
+1. Added stairGroup property to ALL stairs in:
+   • floor_graph.json (Floor 1)
+   • floor_graph_2.json (Floor 2)
+   • floor_graph_3.json (Floor 3)
+
+2. Updated areStairNodesCompatible() in pathfinding.js:
+   • Primary check: stairGroup matching (strict)
+   • Fallback: legacy stairKey/variant matching
+
+3. Automatic enforcement via:
+   • findStairTransitionsBetweenFloors()
+   • calculateMultiFloorRoute()
+   • calculateConstrainedSameFloorRoute()
+
+4. No breaking changes:
+   • Backward compatible with undefined stairGroups
+   • All existing routes continue to work
+   • New routes respect strict group boundaries
+
+
+══════════════════════════════════════════════════════════════════════
+STATUS: ✅ IMPLEMENTED & VALIDATED
+══════════════════════════════════════════════════════════════════════

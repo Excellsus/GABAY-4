@@ -17,6 +17,7 @@
   "stair_thirdFloor_1-3": {
       "type": "stair",
       "stairKey": "west",
+      "stairGroup": "thirdFloor_1",
       "label": "West Stair",
       "doorPoints": [{"x": 895, "y": 140, "nearestPathId": "path3_floor3"}],
       "nearestPathId": "path3_floor3",
@@ -27,6 +28,7 @@
   "stair_thirdFloor_2-3": {
       "type": "stair",
       "stairKey": "central",
+      "stairGroup": "thirdFloor_2",
       "label": "Central Stair",
       "doorPoints": [{"x": 1055, "y": 140, "nearestPathId": "path2_floor3"}],
       "nearestPathId": "path2_floor3",
@@ -36,8 +38,9 @@
     },
   "stair_east_1-3": {
       "type": "stair",
-      "stairKey": "central",
-      "label": "Central Stair",
+      "stairKey": "east",
+      "stairGroup": "east_2",
+      "label": "East Stair",
       "doorPoints": [{"x": 1820, "y": 173, "nearestPathId": "path2_floor3"}],
       "nearestPathId": "path2_floor3",
       "connectsTo": [2],

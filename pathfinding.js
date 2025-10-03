@@ -259,6 +259,16 @@ function areStairNodesCompatible(nodeA, nodeB) {
         return false;
     }
 
+    // Primary check: stairGroup must match if both nodes have it defined
+    const groupA = nodeA.room && nodeA.room.stairGroup;
+    const groupB = nodeB.room && nodeB.room.stairGroup;
+    
+    if (groupA && groupB) {
+        // If both have stairGroup defined, they MUST match
+        return groupA === groupB;
+    }
+
+    // Fallback: if stairGroup is not defined, use existing logic
     const infoA = parseStairId(nodeA.roomId);
     const infoB = parseStairId(nodeB.roomId);
 
@@ -289,6 +299,45 @@ function resolveTransitionStairKey(nodeA, nodeB) {
     }
 
     return null;
+}
+
+function getRequiredStairVariantForPath(graph, pathId) {
+    if (!graph || !pathId || !Array.isArray(graph.stairNodes)) return null;
+    
+    const rule = getPathAccessRule(graph, pathId);
+    if (!rule || !rule.enforceTransitions) return null;
+    
+    const allowedKeys = getAllowedTransitionStairKeys(graph, pathId);
+    if (!allowedKeys || !allowedKeys.length) return null;
+    
+    // Find stairs that connect to this path - prefer the one with lowest variant number
+    const connectedStairs = graph.stairNodes.filter(node => {
+        if (!allowedKeys.includes(node.stairKey)) return false;
+        const primaryPath = getPrimaryPathIdForRoom(node.room);
+        return primaryPath === pathId;
+    });
+    
+    if (!connectedStairs.length) return null;
+    
+    // Parse and find the lowest variant for the required stair key
+    const parsedStairs = connectedStairs
+        .map(node => ({node, parsed: parseStairId(node.roomId)}))
+        .filter(item => item.parsed && allowedKeys.includes(item.parsed.key));
+    
+    if (!parsedStairs.length) return null;
+    
+    // Group by stair key and find lowest variant for each
+    const variantsByKey = {};
+    parsedStairs.forEach(item => {
+        const key = item.parsed.key;
+        if (!variantsByKey[key] || item.parsed.variant < variantsByKey[key]) {
+            variantsByKey[key] = item.parsed.variant;
+        }
+    });
+    
+    // Return the first required stair key with its variant
+    const firstKey = allowedKeys[0];
+    return variantsByKey[firstKey] ? {stairKey: firstKey, variant: variantsByKey[firstKey]} : null;
 }
 
 function findStairTransitionsBetweenFloors(floorA, floorB) {
@@ -1228,11 +1277,30 @@ async function calculateConstrainedSameFloorRoute({
         return null;
     }
 
+    // Determine required variants for the start and end paths
+    const requiredStartVariant = getRequiredStairVariantForPath(graph, startPathId);
+    const requiredEndVariant = getRequiredStairVariantForPath(graph, endPathId);
+
     let bestRoute = null;
 
     for (const stairKey of uniqueStairKeys) {
-        const startStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === startPathId);
-        const endStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === endPathId);
+        let startStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === startPathId);
+        let endStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === endPathId);
+        
+        // Filter by required variant if specified
+        if (requiredStartVariant && stairKey === requiredStartVariant.stairKey) {
+            startStairs = startStairs.filter(node => {
+                const parsed = parseStairId(node.roomId);
+                return parsed && parsed.variant === requiredStartVariant.variant;
+            });
+        }
+        
+        if (requiredEndVariant && stairKey === requiredEndVariant.stairKey) {
+            endStairs = endStairs.filter(node => {
+                const parsed = parseStairId(node.roomId);
+                return parsed && parsed.variant === requiredEndVariant.variant;
+            });
+        }
 
         if (!startStairs.length || !endStairs.length) {
             continue;
@@ -1449,13 +1517,47 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
     }
 
     const constrainedStairKeys = determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId);
+    
+    // Check if we need to enforce specific stair variants
+    const requiredStartVariant = getRequiredStairVariantForPath(startGraph, startPathId);
+    const requiredEndVariant = getRequiredStairVariantForPath(endGraph, endPathId);
+    
     if (constrainedStairKeys && constrainedStairKeys.length) {
         for (let i = 0; i < transitionsPerStep.length; i++) {
-            transitionsPerStep[i] = transitionsPerStep[i].filter(transition => constrainedStairKeys.includes(transition.stairKey));
+            const isFirstTransition = i === 0;
+            const isLastTransition = i === transitionsPerStep.length - 1;
+            
+            transitionsPerStep[i] = transitionsPerStep[i].filter(transition => {
+                // Must match allowed stair keys
+                if (!constrainedStairKeys.includes(transition.stairKey)) {
+                    return false;
+                }
+                
+                // For first transition, enforce start room's required variant
+                if (isFirstTransition && requiredStartVariant && transition.stairKey === requiredStartVariant.stairKey) {
+                    const startParsed = parseStairId(transition.startNode.roomId);
+                    if (startParsed && startParsed.variant !== requiredStartVariant.variant) {
+                        return false;
+                    }
+                }
+                
+                // For last transition (when returning to start floor), also enforce start room's variant
+                if (isLastTransition && requiredStartVariant && transition.stairKey === requiredStartVariant.stairKey) {
+                    const endParsed = parseStairId(transition.endNode.roomId);
+                    if (endParsed && endParsed.variant !== requiredStartVariant.variant) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
             if (!transitionsPerStep[i].length) {
                 console.warn('No allowable transitions remain after applying path access constraints', {
                     floorRange,
                     constrainedStairKeys,
+                    requiredStartVariant,
+                    requiredEndVariant,
                     startPathId,
                     endPathId
                 });
