@@ -23,17 +23,11 @@ const STAIR_NAME_MAP = {
 };
 
 const STAIR_ID_PATTERN = /^stair_([^_]+)_(\d+)-(\d+)$/i;
-const PATH1_PRIMARY_STAIR_ID = 'stair_west_1-1';
 
 function getPathIdBase(pathId) {
     if (!pathId) return null;
     const underscoreIndex = pathId.indexOf('_');
     return underscoreIndex === -1 ? pathId : pathId.substring(0, underscoreIndex);
-}
-
-function isPathIdForPrimaryRoute(pathId, baseId) {
-    if (!pathId || !baseId) return false;
-    return getPathIdBase(pathId) === baseId;
 }
 
 function getPathAccessRule(graph, pathId) {
@@ -237,18 +231,6 @@ function isThirdFloorTransition(floorA, floorB) {
     return floorA === 3 || floorB === 3;
 }
 
-function getStairTransitionKey(node) {
-    if (!node) return null;
-    const parsed = parseStairId(node.roomId);
-    if (parsed) {
-        return `${parsed.key.toLowerCase()}:${parsed.variant}`;
-    }
-    if (node.stairKey) {
-        return `${node.stairKey.toLowerCase()}:default`;
-    }
-    return node.roomId ? node.roomId.toLowerCase() : null;
-}
-
 function isStairTransitionAllowed(nodeA, nodeB, floorA, floorB) {
     if (!nodeA || !nodeB) return false;
 
@@ -267,21 +249,46 @@ function isStairTransitionAllowed(nodeA, nodeB, floorA, floorB) {
         if (!isThirdFloorStairNode(nodeA) || !isThirdFloorStairNode(nodeB)) {
             return false;
         }
-        const parsedA = parseStairId(nodeA.roomId);
-        const parsedB = parseStairId(nodeB.roomId);
-        if (!parsedA || !parsedB || parsedA.variant !== parsedB.variant) {
-            return false;
-        }
-    }
-
-    const transitionKeyA = getStairTransitionKey(nodeA);
-    const transitionKeyB = getStairTransitionKey(nodeB);
-
-    if (transitionKeyA && transitionKeyB && transitionKeyA !== transitionKeyB) {
-        return false;
     }
 
     return true;
+}
+
+function areStairNodesCompatible(nodeA, nodeB) {
+    if (!nodeA || !nodeB) {
+        return false;
+    }
+
+    const infoA = parseStairId(nodeA.roomId);
+    const infoB = parseStairId(nodeB.roomId);
+
+    if (infoA && infoB) {
+        if (infoA.key === infoB.key && infoA.variant === infoB.variant) {
+            return true;
+        }
+    }
+
+    if (nodeA.stairKey && nodeB.stairKey && nodeA.stairKey === nodeB.stairKey) {
+        return true;
+    }
+
+    return false;
+}
+
+function resolveTransitionStairKey(nodeA, nodeB) {
+    if (nodeA && nodeB && nodeA.stairKey && nodeA.stairKey === nodeB.stairKey) {
+        return nodeA.stairKey;
+    }
+
+    if (nodeB && nodeB.stairKey) {
+        return nodeB.stairKey;
+    }
+
+    if (nodeA && nodeA.stairKey) {
+        return nodeA.stairKey;
+    }
+
+    return null;
 }
 
 function findStairTransitionsBetweenFloors(floorA, floorB) {
@@ -297,12 +304,16 @@ function findStairTransitionsBetweenFloors(floorA, floorB) {
 
     nodesA.forEach(nodeA => {
         nodesB.forEach(nodeB => {
+            if (!areStairNodesCompatible(nodeA, nodeB)) {
+                return;
+            }
+
             if (!isStairTransitionAllowed(nodeA, nodeB, floorA, floorB)) {
                 return;
             }
 
             transitions.push({
-                stairKey: nodeA.stairKey,
+                stairKey: resolveTransitionStairKey(nodeA, nodeB),
                 fromFloor: floorA,
                 toFloor: floorB,
                 startNode: nodeA,
@@ -1425,21 +1436,11 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
     const startPathId = getPrimaryPathIdForRoom(startRoom);
     const endPathId = getPrimaryPathIdForRoom(endRoom);
 
-    const requiresPrimaryPath1 = isPathIdForPrimaryRoute(startPathId, 'path1') || isPathIdForPrimaryRoute(endPathId, 'path1');
-
     const transitionsPerStep = [];
     for (let i = 0; i < floorRange.length - 1; i++) {
         const floorA = floorRange[i];
         const floorB = floorRange[i + 1];
-        let transitions = findStairTransitionsBetweenFloors(floorA, floorB);
-
-        if (requiresPrimaryPath1 && (floorA === 1 || floorB === 1)) {
-            transitions = transitions.filter(transition =>
-                transition.startNode.roomId === PATH1_PRIMARY_STAIR_ID ||
-                transition.endNode.roomId === PATH1_PRIMARY_STAIR_ID
-            );
-        }
-
+        const transitions = findStairTransitionsBetweenFloors(floorA, floorB);
         if (!transitions.length) {
             console.warn('No stair transitions available between floors', floorA, floorB);
             return null;

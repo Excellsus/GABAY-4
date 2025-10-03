@@ -896,13 +896,13 @@
        transform="translate(19.145794,214.59494)"><path
          style="display:inline;fill:#9e171a;fill-opacity:1;vector-effect:non-scaling-stroke;stroke-width:0.999648;-inkscape-stroke:hairline;paint-order:fill markers stroke"
          d="m 29.228872,180.1978 v 20.32303 h 60.8827 v -20.38346 z"
-         id="stair_thirdFloor_4-3"
-         inkscape:label="stair_thirdFloor_4-3"
+         id="stair_west_4-3"
+         inkscape:label="stair_west_4-3"
          sodipodi:nodetypes="ccccc" /><path
          style="display:inline;fill:#9e171a;fill-opacity:1;vector-effect:non-scaling-stroke;stroke-width:0.999648;-inkscape-stroke:hairline;paint-order:fill markers stroke"
          d="m 1720.8813,180.1978 v 20.32303 h 60.8827 v -20.38346 z"
-         id="stair_thirdFloor_3-3"
-         inkscape:label="stair_thirdFloor_3-3"
+         id="stair_east_3-3"
+         inkscape:label="stair_east_3-3"
          sodipodi:nodetypes="ccccc" /><path
          style="display:inline;fill:#9e171a;fill-opacity:1;stroke-width:1.19002"
          d="M 859.85604,175.41314 H 800.83686 V 140.32351 H 859.7987 Z"

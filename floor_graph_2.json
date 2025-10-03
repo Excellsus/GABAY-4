@@ -75,8 +75,8 @@
         },
         "stair_thirdFloor_1-2": {
             "type": "stair",
-            "stairKey": "west",
-            "label": "West Stair",
+            "stairKey": "central",
+            "label": "Central Stair",
             "doorPoints": [
                 {
                     "x": 906,
@@ -129,10 +129,10 @@
                 {
                     "x": 1820,
                     "y": 180,
-                    "nearestPathId": "path10_floor2"
+                    "nearestPathId": "path18_floor2"
                 }
             ],
-            "nearestPathId": "path10_floor2",
+            "nearestPathId": "path18_floor2",
             "connectsTo": [1, 3],
             "x": 1620,
             "y": 255

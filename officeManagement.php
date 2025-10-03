@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['name']) && isset($_PO
     // --- QR CODE GENERATION ---
     require_once __DIR__ . '/phpqrcode/qrlib.php';
     // Set your base URL (should match generate_qrcodes.php)
-    $baseUrl = "http:// 192.168.254.164/FinalDev/mobileScreen/";
+    $baseUrl = "http:// 10.79.189.249/FinalDev/mobileScreen/";
     $qrDir = __DIR__ . '/qrcodes/';
     if (!file_exists($qrDir)) { mkdir($qrDir, 0777, true); }
     $qrData = $baseUrl . "explore.php?office_id=" . $office_id;
@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
       
       // --- QR CODE GENERATION (AJAX) ---
       require_once __DIR__ . '/phpqrcode/qrlib.php';
-      $baseUrl = "http://192.168.254.164/FinalDev/mobileScreen/";
+      $baseUrl = "http://10.79.189.249/FinalDev/mobileScreen/";
       $qrDir = __DIR__ . '/qrcodes/';
       if (!file_exists($qrDir)) { mkdir($qrDir, 0777, true); }
       $qrData = $baseUrl . "explore.php?office_id=" . $office_id;

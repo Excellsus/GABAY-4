@@ -7,6 +7,10 @@
     "path1_floor3": {
       "transitionStairKeys": ["west"],
       "enforceTransitions": true
+    },
+    "path3_east": {
+      "transitionStairKeys": ["east"],
+      "enforceTransitions": true
     }
   },
   "rooms": {
@@ -30,13 +34,23 @@
       "x": 975,
       "y": 233
     },
+  "stair_east_1-3": {
+      "type": "stair",
+      "stairKey": "central",
+      "label": "Central Stair",
+      "doorPoints": [{"x": 1820, "y": 173, "nearestPathId": "path2_floor3"}],
+      "nearestPathId": "path2_floor3",
+      "connectsTo": [2],
+      "x": 975,
+      "y": 233
+    },
     "room-1-3": {
       "doorPoints": [{"x": 815, "y": 233}],
       "nearestPathId": "lobby_vertical_1_floor3",
       "style": {
         "pointMarker": {
           "type": "circle",
-          "radius": 6,
+          "radius": 8,
           "color": "green",
           "hoverColor": "#44FF44",
           "strokeColor": "#000",
@@ -50,7 +64,7 @@
       "style": {
         "pointMarker": {
           "type": "circle",
-          "radius": 6,
+          "radius": 8,
           "color": "green",
           "hoverColor": "#44FF44",
           "strokeColor": "#000",
@@ -64,8 +78,53 @@
       "style": {
         "pointMarker": {
           "type": "circle",
-          "radius": 6,
+          "radius": 8,
           "color": "green",
+          "hoverColor": "#44FF44",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+    "room-4-3": {
+      "doorPoints": [{"x": 1774, "y": 248}],
+      "nearestPathId": "path_east",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
+          "hoverColor": "#44FF44",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+        "room-5-3": {
+            "doorPoints": [
+                {
+                    "x": 185,
+                    "y": 370
+                }
+            ],
+            "nearestPathId": "path_east",
+            "style": {
+                "pointMarker": {
+                    "type": "circle",
+                    "radius": 8,
+                    "color": "blue",
+                    "hoverColor": "#FF4444"
+                }
+            }
+        },
+    "room-6-3": {
+      "doorPoints": [{"x": 1794, "y": 152}],
+      "nearestPathId": "path_east",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 8,
+          "color": "blue",
           "hoverColor": "#44FF44",
           "strokeColor": "#000",
           "strokeWidth": 2
@@ -270,6 +329,28 @@
         {"x": 1108, "y": 233, "isIntersection": true, "isPano": true, "panoImage": ""},
         {"x": 1108, "y": 180, "isIntersection": true}
       ]
+    },
+    {
+      "id": "path_east",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        { "x": 1820, "y": 173 },
+        { "x": 1794, "y": 173,  "isIntersection": true },
+        { "x": 1773, "y": 173, "isPano": true, "isIntersection": true }
+      ]
     }
   ],
   "lobbyGrid": [
@@ -301,6 +382,7 @@
     "1036,220": ["lobby_horizontal_1_floor3", "lobby_vertical_3_floor3"],
     "906,285": ["lobby_horizontal_3_floor3", "lobby_vertical_1_floor3"],
     "970,285": ["lobby_horizontal_3_floor3", "lobby_vertical_2_floor3"],
-    "1036,285": ["lobby_horizontal_3_floor3", "lobby_vertical_3_floor3"]
+    "1036,285": ["lobby_horizontal_3_floor3", "lobby_vertical_3_floor3"],
+    "1785,173": ["path_east"]
   }
 }
