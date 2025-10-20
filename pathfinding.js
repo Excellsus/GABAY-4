@@ -23,17 +23,11 @@ const STAIR_NAME_MAP = {
 };
 
 const STAIR_ID_PATTERN = /^stair_([^_]+)_(\d+)-(\d+)$/i;
-const PATH1_PRIMARY_STAIR_ID = 'stair_west_1-1';
 
 function getPathIdBase(pathId) {
     if (!pathId) return null;
     const underscoreIndex = pathId.indexOf('_');
     return underscoreIndex === -1 ? pathId : pathId.substring(0, underscoreIndex);
-}
-
-function isPathIdForPrimaryRoute(pathId, baseId) {
-    if (!pathId || !baseId) return false;
-    return getPathIdBase(pathId) === baseId;
 }
 
 function getPathAccessRule(graph, pathId) {
@@ -237,18 +231,6 @@ function isThirdFloorTransition(floorA, floorB) {
     return floorA === 3 || floorB === 3;
 }
 
-function getStairTransitionKey(node) {
-    if (!node) return null;
-    const parsed = parseStairId(node.roomId);
-    if (parsed) {
-        return `${parsed.key.toLowerCase()}:${parsed.variant}`;
-    }
-    if (node.stairKey) {
-        return `${node.stairKey.toLowerCase()}:default`;
-    }
-    return node.roomId ? node.roomId.toLowerCase() : null;
-}
-
 function isStairTransitionAllowed(nodeA, nodeB, floorA, floorB) {
     if (!nodeA || !nodeB) return false;
 
@@ -267,21 +249,127 @@ function isStairTransitionAllowed(nodeA, nodeB, floorA, floorB) {
         if (!isThirdFloorStairNode(nodeA) || !isThirdFloorStairNode(nodeB)) {
             return false;
         }
-        const parsedA = parseStairId(nodeA.roomId);
-        const parsedB = parseStairId(nodeB.roomId);
-        if (!parsedA || !parsedB || parsedA.variant !== parsedB.variant) {
-            return false;
-        }
-    }
-
-    const transitionKeyA = getStairTransitionKey(nodeA);
-    const transitionKeyB = getStairTransitionKey(nodeB);
-
-    if (transitionKeyA && transitionKeyB && transitionKeyA !== transitionKeyB) {
-        return false;
     }
 
     return true;
+}
+
+function areStairNodesCompatible(nodeA, nodeB) {
+    if (!nodeA || !nodeB) {
+        return false;
+    }
+
+    // Primary check: stairGroup must match if both nodes have it defined
+    const groupA = nodeA.room && nodeA.room.stairGroup;
+    const groupB = nodeB.room && nodeB.room.stairGroup;
+    
+    if (groupA && groupB) {
+        // If both have stairGroup defined, they MUST match exactly
+        return groupA === groupB;
+    }
+
+    // Secondary check: If only one has stairGroup, try to match by variant
+    if (groupA || groupB) {
+        const infoA = parseStairId(nodeA.roomId);
+        const infoB = parseStairId(nodeB.roomId);
+        
+        if (infoA && infoB) {
+            // Both must have same stairKey and variant
+            if (infoA.key === infoB.key && infoA.variant === infoB.variant) {
+                return true;
+            }
+        }
+        // If we can't match by variant, they're incompatible
+        return false;
+    }
+
+    // Fallback: if stairGroup is not defined on either, use existing logic
+    const infoA = parseStairId(nodeA.roomId);
+    const infoB = parseStairId(nodeB.roomId);
+
+    if (infoA && infoB) {
+        // STRICT: Both stairKey AND variant must match
+        if (infoA.key === infoB.key && infoA.variant === infoB.variant) {
+            return true;
+        }
+        // Don't allow just stairKey matching - variant must match too
+        return false;
+    }
+
+    // Last resort: check stairKey only if we couldn't parse IDs
+    if (nodeA.stairKey && nodeB.stairKey && nodeA.stairKey === nodeB.stairKey) {
+        // Even here, try to ensure they're the same variant
+        const variantA = nodeA.roomId.match(/(\d+)-\d+$/);
+        const variantB = nodeB.roomId.match(/(\d+)-\d+$/);
+        
+        if (variantA && variantB) {
+            return variantA[1] === variantB[1];
+        }
+        
+        // If we can't determine variant, be conservative
+        console.warn('Could not determine stair variant for compatibility check', {
+            nodeA: nodeA.roomId,
+            nodeB: nodeB.roomId
+        });
+        return false;
+    }
+
+    return false;
+}
+
+function resolveTransitionStairKey(nodeA, nodeB) {
+    if (nodeA && nodeB && nodeA.stairKey && nodeA.stairKey === nodeB.stairKey) {
+        return nodeA.stairKey;
+    }
+
+    if (nodeB && nodeB.stairKey) {
+        return nodeB.stairKey;
+    }
+
+    if (nodeA && nodeA.stairKey) {
+        return nodeA.stairKey;
+    }
+
+    return null;
+}
+
+function getRequiredStairVariantForPath(graph, pathId) {
+    if (!graph || !pathId || !Array.isArray(graph.stairNodes)) return null;
+    
+    const rule = getPathAccessRule(graph, pathId);
+    if (!rule || !rule.enforceTransitions) return null;
+    
+    const allowedKeys = getAllowedTransitionStairKeys(graph, pathId);
+    if (!allowedKeys || !allowedKeys.length) return null;
+    
+    // Find stairs that connect to this path - prefer the one with lowest variant number
+    const connectedStairs = graph.stairNodes.filter(node => {
+        if (!allowedKeys.includes(node.stairKey)) return false;
+        const primaryPath = getPrimaryPathIdForRoom(node.room);
+        return primaryPath === pathId;
+    });
+    
+    if (!connectedStairs.length) return null;
+    
+    // Parse and find the lowest variant for the required stair key
+    const parsedStairs = connectedStairs
+        .map(node => ({node, parsed: parseStairId(node.roomId)}))
+        .filter(item => item.parsed && allowedKeys.includes(item.parsed.key));
+    
+    if (!parsedStairs.length) return null;
+    
+    // Group by stair key and find lowest variant for each
+    const variantsByKey = {};
+    parsedStairs.forEach(item => {
+        const key = item.parsed.key;
+        if (!variantsByKey[key] || item.parsed.variant < variantsByKey[key]) {
+            variantsByKey[key] = item.parsed.variant;
+        }
+    });
+    
+    // Return the first required stair key with its variant
+    const firstKey = allowedKeys[0];
+    return variantsByKey[firstKey] ? {stairKey: firstKey, variant: variantsByKey[firstKey]} : null;
 }
 
 function findStairTransitionsBetweenFloors(floorA, floorB) {
@@ -297,12 +385,16 @@ function findStairTransitionsBetweenFloors(floorA, floorB) {
 
     nodesA.forEach(nodeA => {
         nodesB.forEach(nodeB => {
+            if (!areStairNodesCompatible(nodeA, nodeB)) {
+                return;
+            }
+
             if (!isStairTransitionAllowed(nodeA, nodeB, floorA, floorB)) {
                 return;
             }
 
             transitions.push({
-                stairKey: nodeA.stairKey,
+                stairKey: resolveTransitionStairKey(nodeA, nodeB),
                 fromFloor: floorA,
                 toFloor: floorB,
                 startNode: nodeA,
@@ -1103,6 +1195,265 @@ function getEntryPointsForRoom(room) {
     return [];
 }
 
+/**
+ * Check if a room has restricted access rules
+ * @param {Object} graph - The floor graph
+ * @param {string} roomId - The room ID to check
+ * @returns {Object|null} - The restriction rule or null
+ */
+function getRestrictedAccessRule(graph, roomId) {
+    if (!graph || !graph.restrictedAccessRules || !roomId) {
+        return null;
+    }
+    return graph.restrictedAccessRules[roomId] || null;
+}
+
+/**
+ * Get the mandatory entry point for a restricted room
+ * @param {Object} graph - The floor graph
+ * @param {string} roomId - The room ID
+ * @returns {Object|null} - The entry point room object or null
+ */
+function getMandatoryEntryPoint(graph, roomId) {
+    const rule = getRestrictedAccessRule(graph, roomId);
+    if (!rule || !rule.mandatoryEntryPoint) {
+        return null;
+    }
+    
+    const entryPointId = rule.mandatoryEntryPoint;
+    
+    // Check if entry point is on a different floor
+    if (rule.entryPointFloor && rule.entryPointFloor !== graph.floorNumber) {
+        const entryFloorGraph = floorGraphCache[rule.entryPointFloor];
+        if (!entryFloorGraph) {
+            console.warn(`Entry point floor ${rule.entryPointFloor} not loaded for room ${roomId}`);
+            return null;
+        }
+        
+        const entryRoom = entryFloorGraph.rooms[entryPointId];
+        if (!entryRoom) {
+            console.warn(`Mandatory entry point ${entryPointId} not found on floor ${rule.entryPointFloor} for room ${roomId}`);
+            return null;
+        }
+        
+        return {
+            roomId: entryPointId,
+            room: entryRoom,
+            floor: rule.entryPointFloor
+        };
+    }
+    
+    // Entry point is on the same floor
+    const entryRoom = graph.rooms[entryPointId];
+    
+    if (!entryRoom) {
+        console.warn(`Mandatory entry point ${entryPointId} not found for room ${roomId}`);
+        return null;
+    }
+    
+    return {
+        roomId: entryPointId,
+        room: entryRoom,
+        floor: graph.floorNumber
+    };
+}
+
+/**
+ * Check if both rooms have the same mandatory entry point
+ * @param {Object} graph - The floor graph
+ * @param {string} startRoomId - Start room ID
+ * @param {string} endRoomId - End room ID
+ * @returns {boolean} - True if both have the same mandatory entry point
+ */
+function haveSameMandatoryEntry(graph, startRoomId, endRoomId) {
+    const startRule = getRestrictedAccessRule(graph, startRoomId);
+    const endRule = getRestrictedAccessRule(graph, endRoomId);
+    
+    if (!startRule || !endRule) {
+        return false;
+    }
+    
+    // Check if they point to the same entry point ID
+    if (startRule.mandatoryEntryPoint !== endRule.mandatoryEntryPoint) {
+        return false;
+    }
+    
+    // Also check if they use the same floor for entry
+    const startFloor = startRule.entryPointFloor || graph.floorNumber;
+    const endFloor = endRule.entryPointFloor || graph.floorNumber;
+    
+    return startFloor === endFloor;
+}
+
+function addFloorToRoute(route, floor) {
+    if (!route || floor == null) return;
+    if (!Array.isArray(route.floors)) {
+        route.floors = [];
+    }
+    if (!route.floors.includes(floor)) {
+        route.floors.push(floor);
+        route.floors.sort((a, b) => a - b);
+    }
+}
+
+function getRepresentativePointsForRoom(graph, roomId, limit = 6) {
+    if (!graph || !graph.rooms) return [];
+    const room = graph.rooms[roomId];
+    if (!room) return [];
+
+    const points = [];
+    const pathId = getPrimaryPathIdForRoom(room);
+
+    if (pathId && Array.isArray(graph.walkablePaths)) {
+        const path = graph.walkablePaths.find(p => p.id === pathId);
+        if (path && Array.isArray(path.pathPoints)) {
+            path.pathPoints.slice(0, limit).forEach(pt => {
+                if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
+                    points.push({ x: pt.x, y: pt.y });
+                }
+            });
+        }
+    }
+
+    const entryPoints = getEntryPointsForRoom(room);
+    entryPoints.slice(0, limit).forEach(pt => {
+        if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
+            const exists = points.some(existing => existing.x === pt.x && existing.y === pt.y);
+            if (!exists) {
+                points.push({ x: pt.x, y: pt.y });
+            }
+        }
+    });
+
+    if (!points.length && typeof room.x === 'number' && typeof room.y === 'number') {
+        points.push({ x: room.x, y: room.y });
+    }
+
+    return points;
+}
+
+function augmentRouteWithRestrictedStart({ route, startRoomId, startFloor, entryPoint }) {
+    if (!route) return null;
+
+    const startGraph = floorGraphCache[startFloor];
+    const startRoom = startGraph && startGraph.rooms ? startGraph.rooms[startRoomId] : null;
+    const entryLabel = entryPoint.room?.label || entryPoint.roomId;
+    const roomLabel = startRoom?.label || startRoomId;
+    const points = getRepresentativePointsForRoom(startGraph, startRoomId);
+
+    const segment = {
+        type: points.length ? 'walk' : 'restricted',
+        floor: startFloor,
+        description: `Restricted access: Exit ${roomLabel} via ${entryLabel} on Floor ${entryPoint.floor}.`,
+        distance: null,
+        points,
+        startRoomId,
+        endRoomId: entryPoint.roomId,
+        mandatoryEntry: entryPoint.roomId,
+        restricted: true,
+        restrictionContext: 'start'
+    };
+
+    const existingSegments = Array.isArray(route.segments) ? route.segments.slice() : [];
+    route.segments = [segment, ...existingSegments];
+    route.startRoomId = startRoomId;
+    route.type = 'multi-floor';
+    addFloorToRoute(route, startFloor);
+    route.restrictedStart = {
+        roomId: startRoomId,
+        entryPointId: entryPoint.roomId,
+        entryFloor: entryPoint.floor
+    };
+
+    const entryParsed = parseStairId(entryPoint.roomId);
+    const stairKey = entryPoint.room?.stairKey || entryParsed?.key || null;
+    if (stairKey && entryPoint.floor != null && startFloor != null && entryPoint.floor !== startFloor) {
+        const stairUsage = {
+            stairKey,
+            fromFloor: startFloor,
+            toFloor: entryPoint.floor,
+            startRoomId,
+            endRoomId: entryPoint.roomId,
+            variant: entryParsed?.variant || null
+        };
+        route.stairSequence = Array.isArray(route.stairSequence) ? route.stairSequence.slice() : [];
+        const alreadyRecorded = route.stairSequence.some(seq =>
+            seq.stairKey === stairUsage.stairKey &&
+            seq.fromFloor === stairUsage.fromFloor &&
+            seq.toFloor === stairUsage.toFloor
+        );
+        if (!alreadyRecorded) {
+            route.stairSequence.unshift(stairUsage);
+        }
+    }
+
+    return route;
+}
+
+function augmentRouteWithRestrictedEnd({ route, endRoomId, endGraph, entryPoint, forcedStair }) {
+    if (!route) return null;
+
+    const endFloor = endGraph.floorNumber;
+    const endRoom = endGraph.rooms ? endGraph.rooms[endRoomId] : null;
+    const entryLabel = entryPoint.room?.label || entryPoint.roomId;
+    const roomLabel = endRoom?.label || endRoomId;
+    const entryParsed = parseStairId(entryPoint.roomId);
+    const stairKey = forcedStair?.stairKey || entryPoint.room?.stairKey || entryParsed?.key || null;
+    const stairName = stairKey ? describeStairKey(stairKey) : null;
+
+    const description = stairName
+        ? `Restricted destination: From ${entryLabel}, take the ${stairName} to Floor ${endFloor} and continue to ${roomLabel}.`
+        : `Restricted destination: From ${entryLabel}, use the authorized access route to reach ${roomLabel} on Floor ${endFloor}.`;
+
+    const points = getRepresentativePointsForRoom(endGraph, endRoomId);
+
+    const segment = {
+        type: points.length ? 'walk' : 'restricted',
+        floor: endFloor,
+        description,
+        distance: null,
+        points,
+        startRoomId: entryPoint.roomId,
+        endRoomId: endRoomId,
+        mandatoryEntry: entryPoint.roomId,
+        restricted: true,
+        restrictionContext: 'end'
+    };
+
+    const existingSegments = Array.isArray(route.segments) ? route.segments.slice() : [];
+    route.segments = [...existingSegments, segment];
+    route.endRoomId = endRoomId;
+    route.type = 'multi-floor';
+    addFloorToRoute(route, endFloor);
+    route.restrictedEnd = {
+        entryPointId: entryPoint.roomId,
+        entryFloor: entryPoint.floor,
+        targetRoomId: endRoomId
+    };
+
+    if (stairKey && entryPoint.floor != null && endFloor != null && entryPoint.floor !== endFloor) {
+        const stairUsage = {
+            stairKey,
+            fromFloor: entryPoint.floor,
+            toFloor: endFloor,
+            startRoomId: entryPoint.roomId,
+            endRoomId,
+            variant: forcedStair?.variant || entryParsed?.variant || null
+        };
+        route.stairSequence = Array.isArray(route.stairSequence) ? route.stairSequence.slice() : [];
+        const alreadyRecorded = route.stairSequence.some(seq =>
+            seq.stairKey === stairUsage.stairKey &&
+            seq.fromFloor === stairUsage.fromFloor &&
+            seq.toFloor === stairUsage.toFloor
+        );
+        if (!alreadyRecorded) {
+            route.stairSequence.push(stairUsage);
+        }
+    }
+
+    return route;
+}
+
 function calculateSingleFloorRoute(graph, startRoomId, endRoomId) {
     if (!graph || !graph.rooms) {
         return null;
@@ -1119,18 +1470,115 @@ function calculateSingleFloorRoute(graph, startRoomId, endRoomId) {
         return null;
     }
 
+    // Check for restricted access rules
+    const startRestriction = getRestrictedAccessRule(graph, startRoomId);
+    const endRestriction = getRestrictedAccessRule(graph, endRoomId);
+    
+    console.log(`[calculateSingleFloorRoute] Floor ${graph.floorNumber}: ${startRoomId} -> ${endRoomId}`, {
+        startRestricted: !!startRestriction,
+        endRestricted: !!endRestriction
+    });
+    
+    // Special case: Both rooms share the same mandatory entry point
+    if (startRestriction && endRestriction && 
+        haveSameMandatoryEntry(graph, startRoomId, endRoomId)) {
+        const entryPoint = getMandatoryEntryPoint(graph, startRoomId);
+        if (entryPoint) {
+            console.log(`Both rooms use same mandatory entry: ${entryPoint.roomId} on floor ${entryPoint.floor}`);
+            
+            // If entry point is on a different floor, return minimal route indicating cross-floor requirement
+            if (entryPoint.floor !== graph.floorNumber) {
+                console.log(`Entry point on different floor (${entryPoint.floor}), cannot route on same floor`);
+                // Return a placeholder that indicates both rooms need cross-floor routing
+                return null; // This will trigger multi-floor routing
+            }
+            
+            // Route from entry point to entry point (essentially just the entry point)
+            const entryDoors = getEntryPointsForRoom(entryPoint.room);
+            if (entryDoors.length > 0) {
+                return {
+                    startDoor: entryDoors[0],
+                    endDoor: entryDoors[0],
+                    startPathPoint: entryDoors[0],
+                    endPathPoint: entryDoors[0],
+                    pathBetween: [],
+                    points: [entryDoors[0]],
+                    distance: 0,
+                    startPathId: entryPoint.room.nearestPathId,
+                    endPathId: entryPoint.room.nearestPathId,
+                    restrictedRoute: true,
+                    mandatoryEntry: entryPoint.roomId
+                };
+            }
+        }
+    }
+    
+    // Case: Start room is restricted - route from mandatory entry to destination
+    if (startRestriction && !endRestriction) {
+        const entryPoint = getMandatoryEntryPoint(graph, startRoomId);
+        if (entryPoint) {
+            console.log(`Start room ${startRoomId} restricted, routing from ${entryPoint.roomId} on floor ${entryPoint.floor} to ${endRoomId}`);
+            
+            // If entry point is on a different floor, return null to trigger multi-floor routing
+            if (entryPoint.floor !== graph.floorNumber) {
+                console.log(`Entry point on different floor (${entryPoint.floor}), triggering multi-floor route`);
+                return null;
+            }
+            
+            const routeFromEntry = calculateSingleFloorRoute(graph, entryPoint.roomId, endRoomId);
+            if (routeFromEntry) {
+                routeFromEntry.restrictedRoute = true;
+                routeFromEntry.mandatoryEntry = entryPoint.roomId;
+                return routeFromEntry;
+            }
+        }
+    }
+    
+    // Case: End room is restricted - route from start to mandatory entry
+    if (!startRestriction && endRestriction) {
+        const entryPoint = getMandatoryEntryPoint(graph, endRoomId);
+        if (entryPoint) {
+            console.log(`End room ${endRoomId} restricted, routing from ${startRoomId} to ${entryPoint.roomId} on floor ${entryPoint.floor}`);
+            
+            // If entry point is on a different floor, return null to trigger multi-floor routing
+            if (entryPoint.floor !== graph.floorNumber) {
+                console.log(`Entry point on different floor (${entryPoint.floor}), triggering multi-floor route`);
+                return null;
+            }
+            
+            const routeToEntry = calculateSingleFloorRoute(graph, startRoomId, entryPoint.roomId);
+            if (routeToEntry) {
+                routeToEntry.restrictedRoute = true;
+                routeToEntry.mandatoryEntry = entryPoint.roomId;
+                return routeToEntry;
+            }
+        }
+    }
+
+    // Normal routing logic (no restrictions)
     const startDoors = getEntryPointsForRoom(startRoom);
     const endDoors = getEntryPointsForRoom(endRoom);
+    
+    // Filter out virtual doorPoints for normal routing - virtual points are only for UI selection
+    const realStartDoors = startDoors.filter(door => !door.virtual);
+    const realEndDoors = endDoors.filter(door => !door.virtual);
 
-    if (!startDoors.length || !endDoors.length) {
-        console.warn('No entry points found for rooms', { startRoomId, endRoomId });
+    if (!realStartDoors.length || !realEndDoors.length) {
+        console.warn(`No real (non-virtual) entry points found for rooms on floor ${graph.floorNumber}`, { 
+            startRoomId, 
+            endRoomId,
+            startDoorsTotal: startDoors.length,
+            endDoorsTotal: endDoors.length,
+            realStartDoors: realStartDoors.length,
+            realEndDoors: realEndDoors.length
+        });
         return null;
     }
 
     let bestOption = null;
 
-    for (const startDoor of startDoors) {
-        for (const endDoor of endDoors) {
+    for (const startDoor of realStartDoors) {
+        for (const endDoor of realEndDoors) {
             const startPathId = startDoor.nearestPathId || startRoom.nearestPathId;
             const endPathId = endDoor.nearestPathId || endRoom.nearestPathId;
 
@@ -1196,6 +1644,53 @@ function calculateSingleFloorRoute(graph, startRoomId, endRoomId) {
         }
     }
 
+    if (!bestOption && realStartDoors.length && realEndDoors.length) {
+        let closestPair = null;
+        let bestDistance = Infinity;
+
+        realStartDoors.forEach(startDoor => {
+            realEndDoors.forEach(endDoor => {
+                const distance = getDistance(startDoor, endDoor);
+                if (!Number.isFinite(distance)) {
+                    return;
+                }
+                if (distance < bestDistance) {
+                    closestPair = { startDoor, endDoor };
+                    bestDistance = distance;
+                }
+            });
+        });
+
+        if (closestPair) {
+            const startPathId = closestPair.startDoor.nearestPathId || startRoom.nearestPathId || null;
+            const endPathId = closestPair.endDoor.nearestPathId || endRoom.nearestPathId || null;
+            const points = [
+                { x: closestPair.startDoor.x, y: closestPair.startDoor.y },
+                { x: closestPair.endDoor.x, y: closestPair.endDoor.y }
+            ];
+            const distance = calculatePolylineLength(points);
+
+            bestOption = {
+                startDoor: closestPair.startDoor,
+                endDoor: closestPair.endDoor,
+                startPathPoint: points[0],
+                endPathPoint: points[1],
+                pathBetween: [],
+                points,
+                distance,
+                startPathId,
+                endPathId,
+                synthetic: true
+            };
+
+            console.warn('calculateSingleFloorRoute: using synthetic straight-line fallback between rooms.', {
+                floor: graph.floorNumber,
+                startRoomId,
+                endRoomId
+            });
+        }
+    }
+
     return bestOption;
 }
 
@@ -1217,11 +1712,30 @@ async function calculateConstrainedSameFloorRoute({
         return null;
     }
 
+    // Determine required variants for the start and end paths
+    const requiredStartVariant = getRequiredStairVariantForPath(graph, startPathId);
+    const requiredEndVariant = getRequiredStairVariantForPath(graph, endPathId);
+
     let bestRoute = null;
 
     for (const stairKey of uniqueStairKeys) {
-        const startStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === startPathId);
-        const endStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === endPathId);
+        let startStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === startPathId);
+        let endStairs = findStairNodesBy(graph, room => room.stairKey === stairKey && getPrimaryPathIdForRoom(room) === endPathId);
+        
+        // Filter by required variant if specified
+        if (requiredStartVariant && stairKey === requiredStartVariant.stairKey) {
+            startStairs = startStairs.filter(node => {
+                const parsed = parseStairId(node.roomId);
+                return parsed && parsed.variant === requiredStartVariant.variant;
+            });
+        }
+        
+        if (requiredEndVariant && stairKey === requiredEndVariant.stairKey) {
+            endStairs = endStairs.filter(node => {
+                const parsed = parseStairId(node.roomId);
+                return parsed && parsed.variant === requiredEndVariant.variant;
+            });
+        }
 
         if (!startStairs.length || !endStairs.length) {
             continue;
@@ -1352,7 +1866,16 @@ async function calculateConstrainedSameFloorRoute({
     return bestRoute;
 }
 
-async function calculateMultiFloorRoute(startRoomId, endRoomId) {
+async function calculateMultiFloorRoute(startRoomId, endRoomId, options = {}) {
+    const forcedStair = options && typeof options === 'object' ? options.forcedStair || null : null;
+    const forcedParsed = forcedStair && forcedStair.roomId ? parseStairId(forcedStair.roomId) : null;
+    const forcedStairKey = forcedStair?.stairKey || forcedParsed?.key || null;
+    const forcedStairVariant = forcedStair?.variant || forcedParsed?.variant || null;
+    const forcedAppliesTo = forcedStair?.appliesTo || 'end';
+    const forcedContext = forcedStair?.reason || options?.restrictionContext || null;
+    const forcedKeyActive = Boolean(forcedStairKey);
+    
+    // Parse floor numbers from room IDs
     const startFloor = parseFloorFromRoomId(startRoomId);
     const endFloor = parseFloorFromRoomId(endRoomId);
 
@@ -1361,53 +1884,678 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
         return null;
     }
 
-    if (startFloor === endFloor) {
-        const graph = await ensureFloorGraphLoaded(startFloor);
-        if (!graph) return null;
-
-        const startRoom = graph.rooms ? graph.rooms[startRoomId] : null;
-        const endRoom = graph.rooms ? graph.rooms[endRoomId] : null;
-
-        if (startRoom && endRoom) {
-            const startPathId = getPrimaryPathIdForRoom(startRoom);
+    // Handle restricted rooms for multi-floor routing
+    await ensureFloorGraphLoaded(startFloor);
+    await ensureFloorGraphLoaded(endFloor);
+    
+    const startGraph = floorGraphCache[startFloor];
+    const endGraph = floorGraphCache[endFloor];
+    const skipRestrictedStart = Boolean(options?.skipRestrictedStart);
+    const skipRestrictedEnd = Boolean(options?.skipRestrictedEnd);
+    
+    const startRestriction = skipRestrictedStart ? null : getRestrictedAccessRule(startGraph, startRoomId);
+    const endRestriction = skipRestrictedEnd ? null : getRestrictedAccessRule(endGraph, endRoomId);
+    
+    // CRITICAL: Pre-load Floor 2 if any room has a cross-floor restriction to Floor 2
+    // This ensures getMandatoryEntryPoint can access the floor graph
+    if (startRestriction) {
+        const startRule = getRestrictedAccessRule(startGraph, startRoomId);
+        if (startRule && startRule.entryPointFloor && startRule.entryPointFloor !== startFloor) {
+            console.log(`[Pre-load] Loading Floor ${startRule.entryPointFloor} for restricted start room ${startRoomId}`);
+            await ensureFloorGraphLoaded(startRule.entryPointFloor);
+        }
+    }
+    if (endRestriction) {
+        const endRule = getRestrictedAccessRule(endGraph, endRoomId);
+        if (endRule && endRule.entryPointFloor && endRule.entryPointFloor !== endFloor) {
+            console.log(`[Pre-load] Loading Floor ${endRule.entryPointFloor} for restricted end room ${endRoomId}`);
+            await ensureFloorGraphLoaded(endRule.entryPointFloor);
+        }
+    }
+    
+    // SMART ROUTING FOR RESTRICTED ROOMS (4-3, 5-3, 6-3)
+    // These rooms have virtual doorPoints at stair_east_2-2 (Floor 2)
+    // but should use different stairs based on destination path
+    // ONLY apply this when the room is on a DIFFERENT floor than its entry point
+    
+    if (startRestriction && !skipRestrictedStart) {
+        const startEntry = getMandatoryEntryPoint(startGraph, startRoomId);
+        
+        // Only apply smart routing if:
+        // 1. Entry point is stair_east_2-2 on Floor 2
+        // 2. The start room is on a DIFFERENT floor (Floor 3) than the entry point (Floor 2)
+        if (startEntry && startEntry.floor === 2 && startEntry.roomId === 'stair_east_2-2' && startFloor !== 2) {
+            // This is one of the restricted rooms (4-3, 5-3, or 6-3) on Floor 3
+            console.log(`[Smart Routing] ${startRoomId} (Floor ${startFloor}) starts at ${startEntry.roomId} (Floor 2)`);
+            
+            // Load Floor 2 to check destination path compatibility
+            await ensureFloorGraphLoaded(2);
+            const floor2Graph = floorGraphCache[2];
+            
+            // Get the destination's path - check even if on same floor because virtual location is on Floor 2
+            // Need to check if destination is NOT also a restricted room (to avoid conflicts)
+            const endRoom = endGraph.rooms[endRoomId];
             const endPathId = getPrimaryPathIdForRoom(endRoom);
+            const destinationIsRestricted = endRestriction && !skipRestrictedEnd;
+            
+            console.log(`[Smart Routing] Destination ${endRoomId} on Floor ${endFloor}, path: ${endPathId}, isRestricted: ${destinationIsRestricted}`);
+            
+            // Only apply smart routing if destination is NOT restricted (to avoid conflicts with shared entry point logic)
+            if (!destinationIsRestricted && (endFloor !== startFloor || endFloor === 3)) {
+                // Changed condition: apply if different floor OR if same floor is Floor 3 (to route between restricted and non-restricted)
+                
+                console.log(`[Smart Routing] Processing route with endFloor=${endFloor}, startFloor=${startFloor}`);
+                
+                // Check if destination uses west or central paths - if so, use those exclusive stairs
+                if (endFloor === 3 && endPathId) {
+                    if (endPathId.includes('path1') || endPathId.includes('path3') || endPathId.includes('lobby_vertical_1')) {
+                        // Use west stair (stair_thirdFloor_1-2 on Floor 2)
+                        console.log(`[Smart Routing] Destination uses west path, routing via stair_thirdFloor_1-2`);
+                        
+                        // First, create Floor 2 route from stair_east_2-2 to stair_thirdFloor_1-2
+                        const floor2Route = calculateSingleFloorRoute(floor2Graph, 'stair_east_2-2', 'stair_thirdFloor_1-2');
+                        
+                        // Then route from stair_thirdFloor_1-2 to destination on Floor 3
+                        const downstreamRoute = await calculateMultiFloorRoute('stair_thirdFloor_1-2', endRoomId, {
+                            ...options,
+                            skipRestrictedStart: true,
+                            restrictionContext: 'smart-routing-west'
+                        });
+                        
+                        if (downstreamRoute && floor2Route) {
+                            // Add Floor 2 segment to the beginning
+                            const floor2Segment = {
+                                type: 'walk',
+                                floor: 2,
+                                description: `Floor 2: Navigate to West Stair`,
+                                points: floor2Route.points,
+                                distance: floor2Route.distance,
+                                startDoor: floor2Route.startDoor,
+                                endDoor: floor2Route.endDoor
+                            };
+                            downstreamRoute.segments = [floor2Segment, ...downstreamRoute.segments];
+                            addFloorToRoute(downstreamRoute, 2);
+                            downstreamRoute.totalDistance = (downstreamRoute.totalDistance || 0) + floor2Route.distance;
+                            
+                            return augmentRouteWithRestrictedStart({
+                                route: downstreamRoute,
+                                startRoomId,
+                                startFloor: 3,
+                                entryPoint: { roomId: 'stair_thirdFloor_1-2', floor: 2, room: floor2Graph.rooms['stair_thirdFloor_1-2'] }
+                            });
+                        }
+                        return null;
+                    } else if (endPathId.includes('path2') || endPathId.includes('lobby_vertical_2') || endPathId.includes('lobby_vertical_3')) {
+                        // Use central stair (stair_thirdFloor_2-2 on Floor 2)
+                        console.log(`[Smart Routing] Destination uses central path, routing via stair_thirdFloor_2-2`);
+                        
+                        // First, create Floor 2 route from stair_east_2-2 to stair_thirdFloor_2-2
+                        const floor2Route = calculateSingleFloorRoute(floor2Graph, 'stair_east_2-2', 'stair_thirdFloor_2-2');
+                        
+                        // Then route from stair_thirdFloor_2-2 to destination on Floor 3
+                        const downstreamRoute = await calculateMultiFloorRoute('stair_thirdFloor_2-2', endRoomId, {
+                            ...options,
+                            skipRestrictedStart: true,
+                            restrictionContext: 'smart-routing-central'
+                        });
+                        
+                        if (downstreamRoute && floor2Route) {
+                            // Add Floor 2 segment to the beginning
+                            const floor2Segment = {
+                                type: 'walk',
+                                floor: 2,
+                                description: `Floor 2: Navigate to Central Stair`,
+                                points: floor2Route.points,
+                                distance: floor2Route.distance,
+                                startDoor: floor2Route.startDoor,
+                                endDoor: floor2Route.endDoor
+                            };
+                            downstreamRoute.segments = [floor2Segment, ...downstreamRoute.segments];
+                            addFloorToRoute(downstreamRoute, 2);
+                            downstreamRoute.totalDistance = (downstreamRoute.totalDistance || 0) + floor2Route.distance;
+                            
+                            return augmentRouteWithRestrictedStart({
+                                route: downstreamRoute,
+                                startRoomId,
+                                startFloor: 3,
+                                entryPoint: { roomId: 'stair_thirdFloor_2-2', floor: 2, room: floor2Graph.rooms['stair_thirdFloor_2-2'] }
+                            });
+                        }
+                        return null;
+                    }
+                }
+                
+                // For Floor 2 destinations, route from stair_east_2-2 to destination on Floor 2
+                if (endFloor === 2) {
+                    console.log(`[Smart Routing] Destination on Floor 2, routing via stair_east_2-2 on Floor 2`);
+                    // Route from stair_east_2-2 (Floor 2) to destination on Floor 2 (same floor)
+                    const downstreamRoute = await calculateMultiFloorRoute('stair_east_2-2', endRoomId, {
+                        ...options,
+                        skipRestrictedStart: true,
+                        restrictionContext: 'smart-routing-floor2'
+                    });
+                    
+                    if (downstreamRoute) {
+                        console.log(`[Smart Routing] Successfully created Floor 2 route, augmenting with restricted start`);
+                        return augmentRouteWithRestrictedStart({
+                            route: downstreamRoute,
+                            startRoomId,
+                            startFloor: 3,
+                            entryPoint: startEntry
+                        });
+                    } else {
+                        console.error(`[Smart Routing] Failed to create downstream route from stair_east_2-2 to ${endRoomId} on Floor 2`);
+                        return null;
+                    }
+                }
+                
+                // For Floor 1 destinations or Floor 3 east-side destinations, use stair_east_2-2 → stair_east_2-1
+                if (endFloor === 1) {
+                    console.log(`[Smart Routing] Destination on Floor 1, routing via stair_east_2-2 → stair_east_2-1`);
+                    // Route from stair_east_2-2 (Floor 2) to destination
+                    // The system will naturally use stair_east_2-1 to go down to Floor 1
+                    const downstreamRoute = await calculateMultiFloorRoute('stair_east_2-2', endRoomId, {
+                        ...options,
+                        skipRestrictedStart: true,
+                        restrictionContext: 'smart-routing-floor1'
+                    });
+                    
+                    if (downstreamRoute) {
+                        console.log(`[Smart Routing] Successfully created route, augmenting with restricted start`);
+                        return augmentRouteWithRestrictedStart({
+                            route: downstreamRoute,
+                            startRoomId,
+                            startFloor: 3,
+                            entryPoint: startEntry
+                        });
+                    } else {
+                        console.error(`[Smart Routing] Failed to create downstream route from stair_east_2-2 to ${endRoomId}`);
+                        return null;
+                    }
+                }
+                
+                // If we reach here and haven't returned, it means we couldn't match any special routing
+                // This could be routing between two restricted rooms (handled by shared entry point logic below)
+                console.log(`[Smart Routing] No matching condition, continuing with normal flow`);
+            } else {
+                console.log(`[Smart Routing] Destination is restricted or same restricted floor, skipping smart routing (shared entry point logic will handle)`);
+            }
+        } else {
+            console.log(`[Smart Routing] Start entry point is not stair_east_2-2, continuing with normal flow`);
+        }
+    } else {
+        console.log(`[Smart Routing] No start restriction or already skipped, continuing with normal flow`);
+    }
 
-            if (shouldForceStairTransition(graph, startPathId, endPathId)) {
-                const constrainedRoute = await calculateConstrainedSameFloorRoute({
-                    floorNumber: startFloor,
-                    graph,
-                    startRoomId,
-                    endRoomId,
-                    startPathId,
-                    endPathId
-                });
+// Similar smart routing for when destination is a restricted room
+    // ONLY apply this when the room is on a DIFFERENT floor than its entry point
+    if (endRestriction && !skipRestrictedEnd) {
+        const endEntry = getMandatoryEntryPoint(endGraph, endRoomId);
+        
+        // Only apply smart routing if:
+        // 1. Entry point is stair_east_2-2 on Floor 2
+        // 2. The end room is on a DIFFERENT floor (Floor 3) than the entry point (Floor 2)
+        if (endEntry && endEntry.floor === 2 && endEntry.roomId === 'stair_east_2-2' && endFloor !== 2) {
+            console.log(`[Smart Routing] ${endRoomId} (Floor ${endFloor}) ends at ${endEntry.roomId} (Floor 2)`);
+            
+            // Load Floor 2
+            await ensureFloorGraphLoaded(2);
+            const floor2Graph = floorGraphCache[2];
+            
+            // Check if start room uses west or central paths - check even if on same floor
+            const startRoom = startGraph.rooms[startRoomId];
+            const startPathId = getPrimaryPathIdForRoom(startRoom);
+            const originIsRestricted = startRestriction && !skipRestrictedStart;
+            
+            console.log(`[Smart Routing] Origin ${startRoomId} on Floor ${startFloor}, path: ${startPathId}, isRestricted: ${originIsRestricted}`);
+            
+            // Only apply smart routing if origin is NOT restricted (to avoid conflicts with shared entry point logic)
+            if (!originIsRestricted && (startFloor !== endFloor || startFloor === 3)) {
+                // Changed condition: apply if different floor OR if same floor is Floor 3
+                
+                console.log(`[Smart Routing] Processing reverse route with startFloor=${startFloor}, endFloor=${endFloor}`);
+                
+                if (startFloor === 3 && startPathId) {
+                    if (startPathId.includes('path1') || startPathId.includes('path3') || startPathId.includes('lobby_vertical_1')) {
+                        // Route via west stair
+                        console.log(`[Smart Routing] Origin uses west path, routing via stair_thirdFloor_1-2`);
+                        const downstreamRoute = await calculateMultiFloorRoute(startRoomId, 'stair_thirdFloor_1-2', {
+                            ...options,
+                            skipRestrictedEnd: true,
+                            restrictionContext: 'smart-routing-west-reverse'
+                        });
+                        
+                        if (downstreamRoute) {
+                            // Add Floor 2 route from stair_thirdFloor_1-2 to stair_east_2-2
+                            const floor2Route = calculateSingleFloorRoute(floor2Graph, 'stair_thirdFloor_1-2', 'stair_east_2-2');
+                            
+                            if (floor2Route) {
+                                const floor2Segment = {
+                                    type: 'walk',
+                                    floor: 2,
+                                    description: `Floor 2: From West Stair to restricted room access point`,
+                                    points: floor2Route.points,
+                                    distance: floor2Route.distance,
+                                    startDoor: floor2Route.startDoor,
+                                    endDoor: floor2Route.endDoor
+                                };
+                                downstreamRoute.segments.push(floor2Segment);
+                                addFloorToRoute(downstreamRoute, 2);
+                                downstreamRoute.totalDistance = (downstreamRoute.totalDistance || 0) + floor2Route.distance;
+                            }
+                            
+                            return augmentRouteWithRestrictedEnd({
+                                route: downstreamRoute,
+                                endRoomId,
+                                endGraph,
+                                entryPoint: { roomId: 'stair_thirdFloor_1-2', floor: 2, room: floor2Graph.rooms['stair_thirdFloor_1-2'] },
+                                forcedStair: null
+                            });
+                        }
+                        return null;
+                    } else if (startPathId.includes('path2') || startPathId.includes('lobby_vertical_2') || startPathId.includes('lobby_vertical_3')) {
+                        // Route via central stair
+                        console.log(`[Smart Routing] Origin uses central path, routing via stair_thirdFloor_2-2`);
+                        const downstreamRoute = await calculateMultiFloorRoute(startRoomId, 'stair_thirdFloor_2-2', {
+                            ...options,
+                            skipRestrictedEnd: true,
+                            restrictionContext: 'smart-routing-central-reverse'
+                        });
+                        
+                        if (downstreamRoute) {
+                            // Add Floor 2 route from stair_thirdFloor_2-2 to stair_east_2-2
+                            const floor2Route = calculateSingleFloorRoute(floor2Graph, 'stair_thirdFloor_2-2', 'stair_east_2-2');
+                            
+                            if (floor2Route) {
+                                const floor2Segment = {
+                                    type: 'walk',
+                                    floor: 2,
+                                    description: `Floor 2: From Central Stair to restricted room access point`,
+                                    points: floor2Route.points,
+                                    distance: floor2Route.distance,
+                                    startDoor: floor2Route.startDoor,
+                                    endDoor: floor2Route.endDoor
+                                };
+                                downstreamRoute.segments.push(floor2Segment);
+                                addFloorToRoute(downstreamRoute, 2);
+                                downstreamRoute.totalDistance = (downstreamRoute.totalDistance || 0) + floor2Route.distance;
+                            }
+                            
+                            return augmentRouteWithRestrictedEnd({
+                                route: downstreamRoute,
+                                endRoomId,
+                                endGraph,
+                                entryPoint: { roomId: 'stair_thirdFloor_2-2', floor: 2, room: floor2Graph.rooms['stair_thirdFloor_2-2'] },
+                                forcedStair: null
+                            });
+                        }
+                        return null;
+                    }
+                }
+                
+                // For Floor 2 origins, route from origin to stair_east_2-2 on Floor 2
+                if (startFloor === 2) {
+                    console.log(`[Smart Routing] Origin on Floor 2, routing from ${startRoomId} to stair_east_2-2`);
+                    const downstreamRoute = await calculateMultiFloorRoute(startRoomId, 'stair_east_2-2', {
+                        ...options,
+                        skipRestrictedEnd: true,
+                        restrictionContext: 'smart-routing-floor2-reverse'
+                    });
+                    
+                    if (downstreamRoute) {
+                        console.log(`[Smart Routing] Successfully created Floor 2 route, augmenting with restricted end`);
+                        return augmentRouteWithRestrictedEnd({
+                            route: downstreamRoute,
+                            endRoomId,
+                            endGraph,
+                            entryPoint: endEntry,
+                            forcedStair: null
+                        });
+                    } else {
+                        console.error(`[Smart Routing] Failed to create downstream route from ${startRoomId} to stair_east_2-2 on Floor 2`);
+                        return null;
+                    }
+                }
+                
+                // For Floor 1 origins, use stair_east_2-1 → stair_east_2-2
+                if (startFloor === 1) {
+                    console.log(`[Smart Routing] Origin on Floor 1, routing via stair_east_2-1 → stair_east_2-2`);
+                    const downstreamRoute = await calculateMultiFloorRoute(startRoomId, 'stair_east_2-2', {
+                        ...options,
+                        skipRestrictedEnd: true,
+                        restrictionContext: 'smart-routing-floor1-reverse'
+                    });
+                    
+                    if (downstreamRoute) {
+                        console.log(`[Smart Routing] Successfully created route, augmenting with restricted end`);
+                        return augmentRouteWithRestrictedEnd({
+                            route: downstreamRoute,
+                            endRoomId,
+                            endGraph,
+                            entryPoint: endEntry,
+                            forcedStair: null
+                        });
+                    } else {
+                        console.error(`[Smart Routing] Failed to create downstream route from ${startRoomId} to stair_east_2-2`);
+                        return null;
+                    }
+                }
+                
+                console.log(`[Smart Routing] No matching condition for reverse route, continuing with normal flow`);
+            } else {
+                console.log(`[Smart Routing] Origin is restricted or same restricted floor, skipping smart routing (shared entry point logic will handle)`);
+            }
+        } else {
+            console.log(`[Smart Routing] End entry point is not stair_east_2-2, continuing with normal flow`);
+        }
+    } else {
+        console.log(`[Smart Routing] No end restriction or already skipped, continuing with normal flow`);
+    }
 
-                if (constrainedRoute) {
-                    return constrainedRoute;
+    // SPECIAL CASE: Both rooms share the same cross-floor mandatory entry point
+    // In this case, treat the entry point as the effective location for both rooms
+    // and route on the entry point's floor only (e.g., room-4-3 to room-5-3 routes on Floor 2)
+    if (!skipRestrictedStart && !skipRestrictedEnd && startRestriction && endRestriction) {
+        const startEntry = getMandatoryEntryPoint(startGraph, startRoomId);
+        const endEntry = getMandatoryEntryPoint(endGraph, endRoomId);
+        
+        // Check if both use the same entry point on the same floor
+        if (startEntry && endEntry && 
+            startEntry.roomId === endEntry.roomId && 
+            startEntry.floor === endEntry.floor) {
+            
+            console.log(`Both ${startRoomId} and ${endRoomId} use same entry point ${startEntry.roomId} on Floor ${startEntry.floor} - routing on entry floor only`);
+            
+            await ensureFloorGraphLoaded(startEntry.floor);
+            const entryFloorGraph = floorGraphCache[startEntry.floor];
+            
+            if (entryFloorGraph && entryFloorGraph.rooms[startEntry.roomId]) {
+                const entryRoom = entryFloorGraph.rooms[startEntry.roomId];
+                const entryDoors = getEntryPointsForRoom(entryRoom);
+                
+                if (entryDoors.length > 0) {
+                    // Create a minimal route on the entry point's floor
+                    // Both start and end effectively share the same physical location
+                    const door = entryDoors[0];
+                    
+                    return {
+                        type: startFloor === endFloor ? 'single-floor' : 'multi-floor',
+                        startRoomId,
+                        endRoomId,
+                        floors: [startEntry.floor],
+                        totalDistance: 0,
+                        segments: [{
+                            type: 'walk',
+                            floor: startEntry.floor,
+                            description: `Both rooms accessible via ${startEntry.roomId} on Floor ${startEntry.floor}`,
+                            points: [door],
+                            distance: 0,
+                            startDoor: door,
+                            endDoor: door,
+                            restrictedRoute: true,
+                            sharedMandatoryEntry: startEntry.roomId
+                        }],
+                        restrictedRoute: true,
+                        mandatoryEntry: startEntry.roomId,
+                        sharedEntryPoint: true
+                    };
                 }
             }
         }
+    }
+    
+    // Check if start room has restricted access (already loaded earlier)
+    // IMPORTANT: Skip this if smart routing already handled it
+    if (startRestriction && !skipRestrictedStart) {
+        const entryPoint = getMandatoryEntryPoint(startGraph, startRoomId);
+        
+        // Skip if this is a smart-routed restricted room (rooms 4-3, 5-3, 6-3)
+        if (entryPoint && entryPoint.floor === 2 && entryPoint.roomId === 'stair_east_2-2') {
+            console.log(`[Skip] ${startRoomId} already handled by smart routing`);
+            // Don't process here - smart routing above should have handled it
+            // If we reach here, it means smart routing decided not to handle it (same floor case)
+        } else if (entryPoint) {
+            console.log(`Multi-floor: Start room ${startRoomId} restricted, using entry point ${entryPoint.roomId} on floor ${entryPoint.floor}`);
+            
+            // If entry point is on a different floor, we need to handle it specially
+            if (entryPoint.floor !== startFloor) {
+                // Build route: startRoom's floor -> entry point floor -> destination
+                // For now, just use the entry point as the effective start
+                // The system will naturally route through the entry point floor
+                
+                // Load the entry point floor if needed
+                await ensureFloorGraphLoaded(entryPoint.floor);
+                
+                const downstreamRoute = await calculateMultiFloorRoute(entryPoint.roomId, endRoomId, {
+                    ...(options || {}),
+                    skipRestrictedStart: true
+                });
 
-        const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
-        if (!route) return null;
-        return {
-            type: 'single-floor',
-            startRoomId,
-            endRoomId,
-            floors: [startFloor],
-            totalDistance: route.distance,
-            segments: [
-                {
-                    type: 'walk',
-                    floor: startFloor,
-                    description: `Floor ${startFloor}: Route from ${startRoomId} to ${endRoomId}`,
-                    points: route.points,
-                    distance: route.distance,
-                    startDoor: route.startDoor,
-                    endDoor: route.endDoor
+                if (!downstreamRoute) {
+                    return null;
                 }
-            ]
-        };
+
+                return augmentRouteWithRestrictedStart({
+                    route: downstreamRoute,
+                    startRoomId,
+                    startFloor,
+                    entryPoint
+                });
+            } else {
+                // Entry point is on same floor as start room (normal case)
+                return calculateMultiFloorRoute(entryPoint.roomId, endRoomId, {
+                    ...(options || {}),
+                    skipRestrictedStart: true
+                });
+            }
+        }
+    }
+    
+    // Check if end room has restricted access (already loaded earlier)
+    // IMPORTANT: Skip this if smart routing already handled it
+    if (endRestriction && !skipRestrictedEnd) {
+        const entryPoint = getMandatoryEntryPoint(endGraph, endRoomId);
+        
+        // Skip if this is a smart-routed restricted room (rooms 4-3, 5-3, 6-3)
+        if (entryPoint && entryPoint.floor === 2 && entryPoint.roomId === 'stair_east_2-2') {
+            console.log(`[Skip] ${endRoomId} already handled by smart routing`);
+            // Don't process here - smart routing above should have handled it
+        } else if (entryPoint) {
+            console.log(`Multi-floor: End room ${endRoomId} restricted, using entry point ${entryPoint.roomId} on floor ${entryPoint.floor}`);
+            const entryStairInfo = parseStairId(entryPoint.roomId);
+            const forcedOptions = {
+                ...(options || {}),
+                forcedStair: {
+                    roomId: entryPoint.roomId,
+                    floor: entryPoint.floor,
+                    stairKey: entryPoint.room?.stairKey || entryStairInfo?.key || null,
+                    variant: entryStairInfo?.variant || null,
+                    appliesTo: 'end',
+                    reason: 'mandatory-entry'
+                },
+                skipRestrictedEnd: true
+            };
+
+            await ensureFloorGraphLoaded(entryPoint.floor);
+
+            const routeToEntry = await calculateMultiFloorRoute(startRoomId, entryPoint.roomId, forcedOptions);
+            if (!routeToEntry) {
+                return null;
+            }
+
+            return augmentRouteWithRestrictedEnd({
+                route: routeToEntry,
+                endRoomId,
+                endGraph,
+                entryPoint,
+                forcedStair: forcedOptions.forcedStair
+            });
+        }
+    }
+
+    if (startFloor === endFloor) {
+        const graph = startGraph;
+        if (!graph) return null;
+
+        // Check for restricted access that requires cross-floor routing (use existing variables)
+        // startRestriction and endRestriction already loaded at top of function
+        
+        // CRITICAL: Check if either room requires cross-floor entry BEFORE attempting same-floor routing
+        const startEntry = startRestriction ? getMandatoryEntryPoint(graph, startRoomId) : null;
+        const endEntry = endRestriction ? getMandatoryEntryPoint(graph, endRoomId) : null;
+        const startRequiresCrossFloor = startEntry && startEntry.floor !== startFloor;
+        const endRequiresCrossFloor = endEntry && endEntry.floor !== endFloor;
+        
+        // If ANY room has cross-floor restriction, skip same-floor routing entirely
+        if (startRequiresCrossFloor || endRequiresCrossFloor) {
+            console.log(`Cross-floor restriction detected for same-floor rooms:`, {
+                startRoomId,
+                endRoomId,
+                floor: startFloor,
+                startRequiresCrossFloor,
+                endRequiresCrossFloor,
+                startEntryFloor: startEntry?.floor,
+                endEntryFloor: endEntry?.floor
+            });
+            // Skip all same-floor logic and fall through to multi-floor routing below
+            // (The multi-floor logic after line 2163 will handle this correctly)
+        } else if (startRestriction) {
+            // Start is restricted but entry is on same floor
+            const startEntry = getMandatoryEntryPoint(graph, startRoomId);
+            if (!endRestriction) {
+                // Start is restricted but on same floor, end is not restricted
+                const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
+                if (route) {
+                    return {
+                        type: 'single-floor',
+                        startRoomId,
+                        endRoomId,
+                        floors: [startFloor],
+                        totalDistance: route.distance,
+                        segments: [{
+                            type: 'walk',
+                            floor: startFloor,
+                            description: `Floor ${startFloor}: Route from ${startRoomId} to ${endRoomId}`,
+                            points: route.points,
+                            distance: route.distance,
+                            startDoor: route.startDoor,
+                            endDoor: route.endDoor
+                        }]
+                    };
+                }
+            }
+        } else if (endRestriction) {
+            // End is restricted but entry is on same floor
+            const endEntry = getMandatoryEntryPoint(graph, endRoomId);
+            if (!startRestriction) {
+                // End is restricted but on same floor, start is not restricted
+                const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
+                if (route) {
+                    return {
+                        type: 'single-floor',
+                        startRoomId,
+                        endRoomId,
+                        floors: [startFloor],
+                        totalDistance: route.distance,
+                        segments: [{
+                            type: 'walk',
+                            floor: startFloor,
+                            description: `Floor ${startFloor}: Route from ${startRoomId} to ${endRoomId}`,
+                            points: route.points,
+                            distance: route.distance,
+                            startDoor: route.startDoor,
+                            endDoor: route.endDoor
+                        }]
+                    };
+                }
+            }
+        } else if (startRestriction && endRestriction) {
+            // Both restricted with same-floor entries
+            const startEntry = getMandatoryEntryPoint(graph, startRoomId);
+            const endEntry = getMandatoryEntryPoint(graph, endRoomId);
+            
+            if (startEntry && endEntry && 
+                startEntry.floor === startFloor && 
+                endEntry.floor === endFloor) {
+                // Both on same floor with same-floor entries
+                const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
+                if (route) {
+                    return {
+                        type: 'single-floor',
+                        startRoomId,
+                        endRoomId,
+                        floors: [startFloor],
+                        totalDistance: route.distance,
+                        segments: [{
+                            type: 'walk',
+                            floor: startFloor,
+                            description: `Floor ${startFloor}: Route from ${startRoomId} to ${endRoomId}`,
+                            points: route.points,
+                            distance: route.distance,
+                            startDoor: route.startDoor,
+                            endDoor: route.endDoor
+                        }]
+                    };
+                }
+            }
+        }
+        
+        // No restrictions or restrictions don't require cross-floor - try normal same-floor route
+        if (!startRestriction && !endRestriction) {
+            const startRoom = graph.rooms ? graph.rooms[startRoomId] : null;
+            const endRoom = graph.rooms ? graph.rooms[endRoomId] : null;
+
+            if (startRoom && endRoom) {
+                const startPathId = getPrimaryPathIdForRoom(startRoom);
+                const endPathId = getPrimaryPathIdForRoom(endRoom);
+
+                if (shouldForceStairTransition(graph, startPathId, endPathId)) {
+                    const constrainedRoute = await calculateConstrainedSameFloorRoute({
+                        floorNumber: startFloor,
+                        graph,
+                        startRoomId,
+                        endRoomId,
+                        startPathId,
+                        endPathId
+                    });
+
+                    if (constrainedRoute) {
+                        return constrainedRoute;
+                    }
+                }
+            }
+
+            const route = calculateSingleFloorRoute(graph, startRoomId, endRoomId);
+            if (route) {
+                return {
+                    type: 'single-floor',
+                    startRoomId,
+                    endRoomId,
+                    floors: [startFloor],
+                    totalDistance: route.distance,
+                    segments: [{
+                        type: 'walk',
+                        floor: startFloor,
+                        description: `Floor ${startFloor}: Route from ${startRoomId} to ${endRoomId}`,
+                        points: route.points,
+                        distance: route.distance,
+                        startDoor: route.startDoor,
+                        endDoor: route.endDoor
+                    }]
+                };
+            }
+        }
+        
+        // If we reach here and have cross-floor restrictions, fall through to multi-floor logic below
+        // Otherwise, return null as we couldn't find a route
+        const hasCrossFloorRestriction = 
+            (startRestriction && getMandatoryEntryPoint(graph, startRoomId)?.floor !== startFloor) ||
+            (endRestriction && getMandatoryEntryPoint(graph, endRoomId)?.floor !== endFloor);
+        
+        if (!hasCrossFloorRestriction) {
+            return null;
+        }
+        // Fall through to multi-floor routing logic
     }
 
     const floorRange = [];
@@ -1418,28 +2566,17 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
 
     await Promise.all([...new Set(floorRange)].map(ensureFloorGraphLoaded));
 
-    const startGraph = floorGraphCache[startFloor];
-    const endGraph = floorGraphCache[endFloor];
+    // Use the already declared startGraph and endGraph from above
     const startRoom = startGraph && startGraph.rooms ? startGraph.rooms[startRoomId] : null;
     const endRoom = endGraph && endGraph.rooms ? endGraph.rooms[endRoomId] : null;
     const startPathId = getPrimaryPathIdForRoom(startRoom);
     const endPathId = getPrimaryPathIdForRoom(endRoom);
 
-    const requiresPrimaryPath1 = isPathIdForPrimaryRoute(startPathId, 'path1') || isPathIdForPrimaryRoute(endPathId, 'path1');
-
     const transitionsPerStep = [];
     for (let i = 0; i < floorRange.length - 1; i++) {
         const floorA = floorRange[i];
         const floorB = floorRange[i + 1];
-        let transitions = findStairTransitionsBetweenFloors(floorA, floorB);
-
-        if (requiresPrimaryPath1 && (floorA === 1 || floorB === 1)) {
-            transitions = transitions.filter(transition =>
-                transition.startNode.roomId === PATH1_PRIMARY_STAIR_ID ||
-                transition.endNode.roomId === PATH1_PRIMARY_STAIR_ID
-            );
-        }
-
+        const transitions = findStairTransitionsBetweenFloors(floorA, floorB);
         if (!transitions.length) {
             console.warn('No stair transitions available between floors', floorA, floorB);
             return null;
@@ -1447,14 +2584,116 @@ async function calculateMultiFloorRoute(startRoomId, endRoomId) {
         transitionsPerStep.push(transitions);
     }
 
-    const constrainedStairKeys = determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId);
+    let constrainedStairKeys = determineCandidateStairKeys(startGraph, startPathId, endGraph, endPathId);
+    if (!constrainedStairKeys || !constrainedStairKeys.length) {
+        constrainedStairKeys = null;
+    }
+    const requiredStartVariant = getRequiredStairVariantForPath(startGraph, startPathId);
+    const rawRequiredEndVariant = getRequiredStairVariantForPath(endGraph, endPathId);
+    const effectiveEndVariant = forcedStairVariant
+        ? { stairKey: forcedStairKey, variant: forcedStairVariant }
+        : rawRequiredEndVariant;
+
+    if (forcedKeyActive && forcedStairKey) {
+        if (constrainedStairKeys && !constrainedStairKeys.includes(forcedStairKey)) {
+            constrainedStairKeys = [...constrainedStairKeys, forcedStairKey];
+        } else if (!constrainedStairKeys) {
+            // Leave unconstrained when we have no existing restrictions; forcing here would block valid transitions.
+            console.log('Forced stair provided without existing constraints; keeping transitions unconstrained.', {
+                forcedStairKey,
+                context: forcedContext || forcedAppliesTo
+            });
+        }
+    }
+
+    console.log('Multi-floor pathfinding constraints:', {
+        startRoomId,
+        endRoomId,
+        startPathId,
+        endPathId,
+        constrainedStairKeys,
+        requiredStartVariant,
+        requiredEndVariant: rawRequiredEndVariant,
+        effectiveEndVariant,
+        forcedStairKey,
+        forcedStairVariant,
+        forcedContext: forcedKeyActive ? (forcedContext || forcedAppliesTo) : null
+    });
+    
     if (constrainedStairKeys && constrainedStairKeys.length) {
         for (let i = 0; i < transitionsPerStep.length; i++) {
-            transitionsPerStep[i] = transitionsPerStep[i].filter(transition => constrainedStairKeys.includes(transition.stairKey));
+            const isFirstTransition = i === 0;
+            const isLastTransition = i === transitionsPerStep.length - 1;
+            const enforceStartVariant = !(forcedKeyActive && forcedAppliesTo !== 'start' && requiredStartVariant && requiredStartVariant.stairKey !== forcedStairKey);
+            
+            transitionsPerStep[i] = transitionsPerStep[i].filter(transition => {
+                // Must match allowed stair keys
+                if (!constrainedStairKeys.includes(transition.stairKey)) {
+                    console.log(`Rejecting transition ${transition.startNode.roomId} -> ${transition.endNode.roomId}: stairKey ${transition.stairKey} not in allowed keys`, constrainedStairKeys);
+                    return false;
+                }
+                
+                // For first transition, enforce start room's required variant
+                if (isFirstTransition && enforceStartVariant && requiredStartVariant && transition.stairKey === requiredStartVariant.stairKey) {
+                    const startParsed = parseStairId(transition.startNode.roomId);
+                    if (!startParsed || startParsed.variant !== requiredStartVariant.variant) {
+                        console.log(`Rejecting first transition ${transition.startNode.roomId}: variant ${startParsed?.variant} doesn't match required ${requiredStartVariant.variant}`);
+                        return false;
+                    }
+                }
+
+                // For last transition, enforce destination room's required variant
+                if (isLastTransition && effectiveEndVariant && transition.stairKey === effectiveEndVariant.stairKey) {
+                    const endParsed = parseStairId(transition.endNode.roomId);
+                    if (!endParsed || endParsed.variant !== effectiveEndVariant.variant) {
+                        console.log(`Rejecting last transition ${transition.endNode.roomId}: variant ${endParsed?.variant} doesn't match required ${effectiveEndVariant.variant}`);
+                        return false;
+                    }
+                }
+                
+                // ENHANCED: For multi-step transitions, enforce variant consistency throughout
+                // If we have a required variant from the start, use it for ALL transitions
+                if (enforceStartVariant && requiredStartVariant && transition.stairKey === requiredStartVariant.stairKey) {
+                    const startParsed = parseStairId(transition.startNode.roomId);
+                    const endParsed = parseStairId(transition.endNode.roomId);
+                    
+                    // Both ends of the transition should match the required variant
+                    if (startParsed && startParsed.variant !== requiredStartVariant.variant) {
+                        console.log(`Rejecting transition start ${transition.startNode.roomId}: variant ${startParsed.variant} doesn't match required ${requiredStartVariant.variant}`);
+                        return false;
+                    }
+                    if (endParsed && endParsed.variant !== requiredStartVariant.variant) {
+                        console.log(`Rejecting transition end ${transition.endNode.roomId}: variant ${endParsed.variant} doesn't match required ${requiredStartVariant.variant}`);
+                        return false;
+                    }
+                }
+                
+                // Similarly for end variant if different from start
+                if (effectiveEndVariant && effectiveEndVariant.stairKey !== requiredStartVariant?.stairKey && transition.stairKey === effectiveEndVariant.stairKey) {
+                    const startParsed = parseStairId(transition.startNode.roomId);
+                    const endParsed = parseStairId(transition.endNode.roomId);
+                    
+                    if (startParsed && startParsed.variant !== effectiveEndVariant.variant) {
+                        console.log(`Rejecting transition start ${transition.startNode.roomId}: variant ${startParsed.variant} doesn't match end required ${effectiveEndVariant.variant}`);
+                        return false;
+                    }
+                    if (endParsed && endParsed.variant !== effectiveEndVariant.variant) {
+                        console.log(`Rejecting transition end ${transition.endNode.roomId}: variant ${endParsed.variant} doesn't match end required ${effectiveEndVariant.variant}`);
+                        return false;
+                    }
+                }
+                
+                console.log(`Accepting transition ${transition.startNode.roomId} -> ${transition.endNode.roomId}`);
+                return true;
+            });
+            
             if (!transitionsPerStep[i].length) {
                 console.warn('No allowable transitions remain after applying path access constraints', {
                     floorRange,
                     constrainedStairKeys,
+                    requiredStartVariant,
+                    requiredEndVariant: rawRequiredEndVariant,
+                    effectiveEndVariant,
                     startPathId,
                     endPathId
                 });
@@ -1659,49 +2898,70 @@ async function roomClickHandler(event) {
 
     const entryPoints = getEntryPointsForRoom(clickedRoom);
 
-    if (entryPoints.length === 0) {
-        console.error('No entry points found for this room');
-        return;
-    }
-
-    // Find the nearest entry point on the clicked room to the click event
-    const rect = this.getBoundingClientRect();
-    const svg = this.closest('svg');
-    const pt = svg.createSVGPoint();
-    pt.x = event.clientX;
-    pt.y = event.clientY;
-    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    // For restricted rooms with no entry points on this floor, allow selection
+    // The routing logic will handle them via their mandatory entry point
+    const isRestrictedRoom = getRestrictedAccessRule(graph, roomId) !== null;
     
-    let nearestEntryPoint = entryPoints[0];
-    if (entryPoints.length > 1) {
-        let minDistance = Infinity;
-        entryPoints.forEach(entryPoint => {
-            const distance = getDistance({x: svgP.x, y: svgP.y}, entryPoint);
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestEntryPoint = entryPoint;
-            }
-        });
-    }
-
-    // Find nearest point on the path for clicked room
-    const clickedPath = graph.walkablePaths.find(p => p.id === clickedRoom.nearestPathId);
-    if (!clickedPath) {
-        console.error('Path not found');
+    if (entryPoints.length === 0 && !isRestrictedRoom) {
+        console.error('No entry points found for this room and no restriction rules');
         return;
     }
+    
+    // Filter out virtual doorPoints - these are for UI selection only, not actual routing
+    const realEntryPoints = entryPoints.filter(ep => !ep.virtual);
+    
+    // For restricted rooms, we may have no real entry points on this floor
+    // The routing will use the mandatory entry point from another floor
+    const entryPointsToUse = realEntryPoints.length > 0 ? realEntryPoints : entryPoints;
 
-    const clickedPathPoint = findNearestPointOnPath(nearestEntryPoint, clickedPath.pathPoints);
+    // Only process entry point selection if we have entry points on this floor
+    let nearestEntryPoint = null;
+    let clickedPathPoint = null;
+    
+    if (entryPointsToUse.length > 0) {
+        // Find the nearest entry point on the clicked room to the click event
+        const rect = this.getBoundingClientRect();
+        const svg = this.closest('svg');
+        const pt = svg.createSVGPoint();
+        pt.x = event.clientX;
+        pt.y = event.clientY;
+        const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+        
+        nearestEntryPoint = entryPointsToUse[0];
+        if (entryPointsToUse.length > 1) {
+            let minDistance = Infinity;
+            entryPointsToUse.forEach(entryPoint => {
+                const distance = getDistance({x: svgP.x, y: svgP.y}, entryPoint);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestEntryPoint = entryPoint;
+                }
+            });
+        }
+
+        // Find nearest point on the path for clicked room (if path exists)
+        if (clickedRoom.nearestPathId) {
+            const clickedPath = graph.walkablePaths.find(p => p.id === clickedRoom.nearestPathId);
+            if (clickedPath && nearestEntryPoint) {
+                clickedPathPoint = findNearestPointOnPath(nearestEntryPoint, clickedPath.pathPoints);
+            }
+        }
+    }
 
     // Clear existing paths
     clearAllPaths();
 
     if (selectedRooms.length === 1) {
-        // Just show connection to nearest path for first room
-        drawCompletePath([
-            nearestEntryPoint,
-            clickedPathPoint
-        ]);
+        // For rooms with real entry points and valid paths, show connection
+        if (clickedPathPoint && nearestEntryPoint && !nearestEntryPoint.virtual) {
+            drawCompletePath([
+                nearestEntryPoint,
+                clickedPathPoint
+            ]);
+        } else {
+            console.log('First room selected (restricted or no path on this floor):', roomId);
+            // Don't draw anything for virtual entry points - wait for second selection
+        }
     } else if (selectedRooms.length === 2) {
         const [startRoomId, endRoomId] = selectedRooms;
         console.log('Attempting to compute route between rooms:', startRoomId, '->', endRoomId);

@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>GABAY Split-Screen Panorama Viewer</title>
+
+    <!-- Photo Sphere Viewer -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.1.5/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/markers-plugin@5.1.5/index.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.1.5/index.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/markers-plugin@5.1.5/index.min.css"
+    />
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        touch-action: pan-x pan-y;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        background: #1a1a1a;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      /* Prevent iOS Safari bounce */
+      body {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+      }
+
+      #viewer {
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* Split-screen optimized styles */
+      .split-screen-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1000;
+      }
+
+      /* .split-info-bar {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 8px 12px;
+        border-radius: 8px;
+        pointer-events: all;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(4, 170, 109, 0.3);
+        font-size: 12px;
+        color: white;
+      } */
+
+      .split-info-title {
+        color: #04aa6d;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .split-info-desc {
+        opacity: 0.8;
+        font-size: 11px;
+      }
+
+      .split-controls {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        display: flex;
+        gap: 8px;
+        pointer-events: all;
+      }
+
+      .split-control-btn {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(4, 170, 109, 0.3);
+        min-width: 60px;
+      }
+
+      .split-control-btn:hover {
+        background: rgba(4, 170, 109, 0.2);
+        border-color: #04aa6d;
+      }
+
+      /* Compact marker styles for split-screen */
+      .split-video-marker {
+        width: 60px;
+        height: 60px;
+        border: 2px solid #04aa6d;
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 20px rgba(4, 170, 109, 0.4);
+      }
+
+      .split-video-marker:hover {
+        transform: scale(1.15);
+        border-color: #ffd700;
+        box-shadow: 0 6px 30px rgba(255, 215, 0, 0.6);
+      }
+
+      .split-video-marker video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 8px;
+      }
+
+      .split-gif-marker {
+        width: 60px;
+        height: 60px;
+        border: 2px solid #ff6b6b;
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
+      }
+
+      .split-gif-marker:hover {
+        transform: scale(1.15);
+        border-color: #ffd700;
+        box-shadow: 0 6px 30px rgba(255, 215, 0, 0.6);
+      }
+
+      .split-gif-marker img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .split-nav-marker {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border: 2px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        position: relative;
+        overflow: visible;
+      }
+
+      .split-nav-marker:hover {
+        transform: scale(1.2);
+      }
+
+      .split-nav-marker.panorama-nav {
+        background: linear-gradient(135deg, #04aa6d, #028a56);
+        box-shadow: 0 4px 15px rgba(4, 170, 109, 0.5);
+      }
+
+      .split-nav-marker.office-nav {
+        background: linear-gradient(135deg, #ff6b6b, #e55555);
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.5);
+      }
+
+      .split-nav-marker.cross-floor {
+        background: linear-gradient(135deg, #ffd700, #ffb347);
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.6);
+      }
+
+      .nav-icon {
+        position: relative;
+        z-index: 2;
+      }
+
+      .nav-pulse {
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border-radius: 50%;
+        background: inherit;
+        opacity: 0.6;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scale(1.3);
+          opacity: 0.2;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+      }
+
+      .split-nav-marker:hover .nav-pulse {
+        animation-duration: 1s;
+      }
+
+      /* Hide Photo Sphere Viewer navbar for clean split-screen */
+      .psv-navbar {
+        display: none !important;
+      }
+
+      /* Loading indicator */
+      .loading-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #04aa6d;
+        font-size: 14px;
+        z-index: 2000;
+      }
+
+      .loading-spinner {
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(4, 170, 109, 0.2);
+        border-top: 3px solid #04aa6d;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Responsive adjustments for split-screen */
+      @media (max-width: 600px) {
+        .split-control-btn {
+          padding: 6px 10px;
+          font-size: 10px;
+          min-width: 50px;
+        }
+
+        .split-video-marker,
+        .split-gif-marker {
+          width: 50px;
+          height: 50px;
+        }
+
+        .split-nav-marker {
+          width: 40px;
+          height: 40px;
+          font-size: 16px;
+        }
+      }
+
+      /* Enhanced hotspot loading and fallback styles */
+      .hotspot-loading-indicator {
+        position: absolute !important;
+        top: 20px !important;
+        right: 20px !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        color: white !important;
+        padding: 12px 16px !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        z-index: 1000 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif !important;
+      }
+
+      .loading-spinner {
+        width: 16px !important;
+        height: 16px !important;
+        border: 2px solid #555 !important;
+        border-top: 2px solid #fff !important;
+        border-radius: 50% !important;
+        animation: spin 1s linear infinite !important;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Enhanced fallback styles for failed assets */
+      .video-fallback,
+      .gif-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+        font-size: 24px;
+        border-radius: 50%;
+        border: 2px solid #ddd;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .video-fallback:hover,
+      .gif-fallback:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: scale(1.1);
+      }
+
+      /* Enhanced marker visibility and error recovery */
+      .split-video-marker,
+      .split-gif-marker,
+      .split-nav-marker {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        transition: opacity 0.3s ease !important;
+      }
+
+      /* Marker loading state */
+      .split-video-marker.loading,
+      .split-gif-marker.loading,
+      .split-nav-marker.loading {
+        opacity: 0.6 !important;
+        animation: pulse 1.5s ease-in-out infinite !important;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 0.9;
+        }
+      }
+
+      /* Error state styling */
+      .split-video-marker.error,
+      .split-gif-marker.error,
+      .split-nav-marker.error {
+        border: 2px dashed #ff6b6b !important;
+        background: rgba(255, 107, 107, 0.1) !important;
+      }
+
+      /* Enhanced visibility for small screens */
+      .split-video-marker video,
+      .split-gif-marker img {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: cover !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading" class="loading-indicator">
+      <div class="loading-spinner"></div>
+      <div>Loading panorama...</div>
+    </div>
+
+    <div id="viewer"></div>
+
+    <div class="split-screen-overlay">
+      <div class="split-controls">
+        <button class="split-control-btn" onclick="resetView()">
+          🔄 Reset
+        </button>
+        <button class="split-control-btn" onclick="toggleFullscreen()">
+          📱 Full
+        </button>
+      </div>
+    </div>
+
+    <script>
+      class GABAYSplitScreenPanorama {
+        constructor() {
+          this.viewer = null;
+          this.markersPlugin = null;
+          this.hotspots = [];
+          this.pathId = null;
+          this.pointIndex = null;
+          this.floorNumber = null;
+          this.panoramaImage = null;
+
+          this.parseURLParams();
+          this.setupParentCommunication();
+          this.init();
+        }
+
+        setupParentCommunication() {
+          // Set up communication with parent window for floor plan updates
+          console.log("🔗 Setting up parent communication");
+
+          // Make this instance available globally for parent access
+          window.splitViewer = this;
+
+          // Send initial location to parent on load
+          if (this.pathId && this.pointIndex && this.floorNumber) {
+            setTimeout(() => {
+              this.updateParentFloorPlan(
+                this.pathId,
+                this.pointIndex,
+                this.floorNumber
+              );
+            }, 1000); // Delay to ensure parent is ready
+          }
+        }
+
+        parseURLParams() {
+          const urlParams = new URLSearchParams(window.location.search);
+          this.pathId = urlParams.get("path_id") || "path1";
+          this.pointIndex = urlParams.get("point_index") || "1";
+          this.floorNumber = urlParams.get("floor_number") || "1";
+
+          console.log("🔍 Split-screen parameters:", {
+            pathId: this.pathId,
+            pointIndex: this.pointIndex,
+            floorNumber: this.floorNumber,
+          });
+        }
+
+        async init() {
+          try {
+            // First load panorama metadata
+            await this.loadPanoramaMetadata();
+
+            // Setup viewer
+            this.setupViewer();
+
+            // Load hotspots
+            this.loadHotspots();
+          } catch (error) {
+            console.error("Split-screen panorama init error:", error);
+            this.showError("Failed to load panorama");
+          }
+        }
+
+        async loadPanoramaMetadata() {
+          try {
+            const response = await fetch(
+              `../panorama_api.php?action=get&path_id=${this.pathId}&point_index=${this.pointIndex}&floor_number=${this.floorNumber}`
+            );
+            const data = await response.json();
+
+            if (data.success && data.panorama) {
+              this.panoramaImage = `../Pano/${data.panorama.image_filename}`;
+
+              // Update UI (split-info-bar removed)
+              // document.getElementById("pano-title").textContent =
+              //   data.panorama.title ||
+              //   `Floor ${this.floorNumber} - Point ${this.pointIndex}`;
+              // document.getElementById("pano-desc").textContent =
+              //   data.panorama.description || "Interactive 360° panoramic view";
+
+              console.log("✅ Panorama metadata loaded:", data.panorama);
+            } else {
+              throw new Error("Panorama not found");
+            }
+          } catch (error) {
+            console.error("Error loading panorama metadata:", error);
+            // Use fallback image path
+            this.panoramaImage = `../Pano/${this.pathId}/point_${this.pointIndex}.jpg`;
+
+            // Split-info-bar elements removed
+            // document.getElementById(
+            //   "pano-title"
+            // ).textContent = `Floor ${this.floorNumber} - Point ${this.pointIndex}`;
+            // document.getElementById("pano-desc").textContent =
+            //   "Interactive 360° view";
+          }
+        }
+
+        setupViewer() {
+          if (!this.panoramaImage) {
+            this.showError("No panorama image available");
+            return;
+          }
+
+          try {
+            this.viewer = new PhotoSphereViewer.Viewer({
+              container: document.querySelector("#viewer"),
+              panorama: this.panoramaImage,
+              caption: `GABAY Split-Screen View - Floor ${this.floorNumber}`,
+              loadingImg:
+                "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+              navbar: false, // No navbar for split-screen
+              defaultZoomLvl: 60,
+              minFov: 30,
+              maxFov: 90,
+              mousewheel: true,
+              mousemove: true,
+              touchmoveTwoFingers: false, // Enable single finger pan
+              mousewheelCtrlKey: false, // Allow zoom without Ctrl key
+              plugins: [
+                [
+                  PhotoSphereViewer.MarkersPlugin,
+                  {
+                    markers: [],
+                  },
+                ],
+              ],
+            });
+
+            this.markersPlugin = this.viewer.getPlugin(
+              PhotoSphereViewer.MarkersPlugin
+            );
+
+            // Handle ready event
+            this.viewer.addEventListener("ready", () => {
+              console.log("✅ Split-screen panorama viewer ready");
+              document.getElementById("loading").style.display = "none";
+
+              // Update parent floor plan to show current location
+              this.updateParentFloorPlan(
+                this.pathId,
+                this.pointIndex,
+                this.floorNumber
+              );
+            });
+
+            // Handle marker clicks
+            this.markersPlugin.addEventListener("select-marker", (e) => {
+              const marker = e.marker;
+              this.handleMarkerClick(marker);
+            });
+
+            // Handle errors
+            this.viewer.addEventListener("panorama-error", (e) => {
+              console.error("Split-screen panorama error:", e);
+              this.showError("Failed to load panorama image");
+            });
+          } catch (error) {
+            console.error("Viewer setup error:", error);
+            this.showError("Failed to initialize panorama viewer");
+          }
+        }
+
+        async waitForViewerReady() {
+          const maxWaitTime = 10000; // 10 seconds max wait
+          const checkInterval = 100; // Check every 100ms
+          let waitTime = 0;
+
+          return new Promise((resolve, reject) => {
+            const checkReady = () => {
+              if (this.viewer && this.markersPlugin) {
+                // Additional checks for complete readiness
+                try {
+                  // Test if viewer is fully initialized by checking core properties
+                  const isFullyReady =
+                    this.viewer.state &&
+                    this.viewer.state.ready &&
+                    this.markersPlugin.clearMarkers !== undefined;
+
+                  if (isFullyReady) {
+                    console.log("✅ Split-screen viewer confirmed ready");
+                    resolve(true);
+                    return;
+                  }
+                } catch (error) {
+                  // Viewer not fully ready yet
+                }
+              }
+
+              waitTime += checkInterval;
+              if (waitTime >= maxWaitTime) {
+                console.error(
+                  "❌ Timeout waiting for split-screen viewer readiness"
+                );
+                reject(new Error("Viewer readiness timeout"));
+                return;
+              }
+
+              setTimeout(checkReady, checkInterval);
+            };
+
+            checkReady();
+          });
+        }
+
+        async loadHotspotsWithRetry() {
+          const maxRetries = 5;
+          const baseDelay = 500;
+
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              console.log(
+                `🔄 Split-screen hotspot loading attempt ${attempt}/${maxRetries}`
+              );
+
+              const response = await fetch(
+                `../panorama_api.php?action=get_hotspots&path_id=${
+                  this.pathId
+                }&point_index=${this.pointIndex}&floor_number=${
+                  this.floorNumber
+                }&t=${Date.now()}`
+              );
+
+              if (!response.ok) {
+                throw new Error(
+                  `HTTP ${response.status}: ${response.statusText}`
+                );
+              }
+
+              const data = await response.json();
+
+              if (!data.success) {
+                throw new Error(data.error || "API returned failure status");
+              }
+
+              // Successfully got data
+              console.log("📥 Split-screen hotspot data received:", {
+                hotspots_count: data.hotspots ? data.hotspots.length : 0,
+                attempt: attempt,
+              });
+
+              return data.hotspots || [];
+            } catch (error) {
+              console.error(
+                `❌ Split-screen hotspot fetch attempt ${attempt} failed:`,
+                error
+              );
+
+              if (attempt === maxRetries) {
+                throw new Error(
+                  `All ${maxRetries} hotspot fetch attempts failed. Last error: ${error.message}`
+                );
+              }
+
+              // Progressive delay with jitter
+              const jitter = Math.random() * 200; // 0-200ms random jitter
+              const delay = baseDelay * Math.pow(1.5, attempt - 1) + jitter;
+              console.log(`⏳ Retrying in ${Math.round(delay)}ms...`);
+
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
+        }
+
+        async createSplitScreenMarkerSafe(hotspot, attemptNumber = 1) {
+          const maxAttempts = 3;
+
+          try {
+            // Validate hotspot data
+            if (!hotspot || !hotspot.id) {
+              throw new Error("Invalid hotspot data");
+            }
+
+            // Ensure markers plugin is available
+            if (!this.markersPlugin) {
+              throw new Error("Markers plugin not available");
+            }
+
+            // Create the marker
+            this.createSplitScreenMarker(hotspot);
+
+            // Verify marker was created by checking if it exists
+            await new Promise((resolve) => setTimeout(resolve, 50)); // Small delay to ensure DOM updates
+
+            const markers = this.markersPlugin.getMarkers();
+            const markerExists = markers.some(
+              (marker) => marker.id === hotspot.id
+            );
+
+            if (!markerExists) {
+              throw new Error(
+                `Marker ${hotspot.id} was not successfully created`
+              );
+            }
+
+            console.log(
+              `✅ Split-screen marker verified: ${hotspot.title || hotspot.id}`
+            );
+            return true;
+          } catch (error) {
+            console.error(
+              `❌ Split-screen marker creation attempt ${attemptNumber} failed:`,
+              hotspot.id,
+              error
+            );
+
+            if (attemptNumber < maxAttempts) {
+              console.log(
+                `🔄 Retrying marker creation for ${hotspot.id} (attempt ${
+                  attemptNumber + 1
+                }/${maxAttempts})`
+              );
+
+              // Progressive delay
+              const delay = attemptNumber * 200;
+              await new Promise((resolve) => setTimeout(resolve, delay));
+
+              return this.createSplitScreenMarkerSafe(
+                hotspot,
+                attemptNumber + 1
+              );
+            } else {
+              console.error(
+                `❌ Failed to create marker ${hotspot.id} after ${maxAttempts} attempts`
+              );
+              return false;
+            }
+          }
+        }
+
+        async verifyAndFixHotspots() {
+          // Wait a moment for any pending DOM operations
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          const expectedCount = this.hotspots.length;
+          const actualMarkers = this.markersPlugin.getMarkers();
+          const actualCount = actualMarkers.length;
+
+          console.log(
+            `� Split-screen hotspot verification: Expected ${expectedCount}, Found ${actualCount}`
+          );
+
+          if (actualCount < expectedCount) {
+            console.warn(
+              "⚠️ Some split-screen hotspots are missing, attempting recovery..."
+            );
+
+            // Find missing hotspots and recreate them
+            const existingMarkerIds = actualMarkers.map((marker) => marker.id);
+            const missingHotspots = this.hotspots.filter(
+              (hotspot) => !existingMarkerIds.includes(hotspot.id)
+            );
+
+            console.log(
+              `🔧 Recreating ${missingHotspots.length} missing split-screen hotspots...`
+            );
+
+            let recoveredCount = 0;
+            for (const hotspot of missingHotspots) {
+              const success = await this.createSplitScreenMarkerSafe(hotspot);
+              if (success) recoveredCount++;
+            }
+
+            console.log(
+              `✅ Recovered ${recoveredCount}/${missingHotspots.length} missing split-screen hotspots`
+            );
+            return recoveredCount === missingHotspots.length;
+          }
+
+          return true;
+        }
+
+        async loadHotspots() {
+          if (!this.pathId || !this.pointIndex) {
+            console.log(
+              "📭 No path/point specified, skipping split-screen hotspot loading"
+            );
+            return;
+          }
+
+          try {
+            // Show loading indicator
+            this.showHotspotLoadingIndicator(true);
+
+            // Step 1: Wait for viewer to be completely ready
+            console.log("🕐 Waiting for split-screen viewer readiness...");
+            await this.waitForViewerReady();
+
+            // Step 2: Clear any existing markers
+            if (this.markersPlugin) {
+              this.markersPlugin.clearMarkers();
+              this.hotspots = [];
+            }
+
+            // Step 3: Fetch hotspot data with retry logic
+            console.log("📡 Fetching split-screen hotspot data...");
+            const hotspots = await this.loadHotspotsWithRetry();
+
+            if (!hotspots || hotspots.length === 0) {
+              console.log("📭 No hotspots found for split-screen panorama");
+              return;
+            }
+
+            console.log(
+              `📥 Processing ${hotspots.length} split-screen hotspots...`
+            );
+
+            // Step 4: Process hotspots sequentially to avoid race conditions
+            let successfullyLoaded = 0;
+            let skippedHotspots = 0;
+
+            for (const hotspot of hotspots) {
+              console.log("🔍 Processing hotspot:", {
+                id: hotspot.id,
+                title: hotspot.title,
+                video_path: hotspot.video_hotspot_path,
+                gif_path: hotspot.animated_icon_path,
+                target_office: hotspot.target_office_id,
+                target_path: hotspot.target_path_id,
+                target_point: hotspot.target_point_index,
+                target_floor: hotspot.target_floor,
+                link_path: hotspot.link_path_id,
+                link_point: hotspot.link_point_index,
+                link_floor: hotspot.link_floor_number,
+              });
+
+              // Check if hotspot has valid asset data
+              const hasValidAsset =
+                hotspot.video_hotspot_path ||
+                hotspot.animated_icon_path ||
+                hotspot.animated_icon_id ||
+                hotspot.target_office_id ||
+                hotspot.target_path_id ||
+                hotspot.link_path_id;
+
+              if (hasValidAsset) {
+                const success = await this.createSplitScreenMarkerSafe(hotspot);
+                if (success) {
+                  successfullyLoaded++;
+                } else {
+                  skippedHotspots++;
+                }
+              } else {
+                console.warn(
+                  "⚠️ Skipping split-screen hotspot without valid asset:",
+                  hotspot.id,
+                  hotspot
+                );
+                skippedHotspots++;
+              }
+
+              // Small delay between marker creation to prevent overwhelming the system
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            // Step 5: Verify all hotspots loaded correctly
+            console.log("🔍 Verifying split-screen hotspot loading...");
+            const verificationSuccess = await this.verifyAndFixHotspots();
+
+            // Step 6: Final summary
+            console.log(
+              `📊 Split-screen Loading Complete: ${successfullyLoaded} loaded, ${skippedHotspots} skipped, Verification: ${
+                verificationSuccess ? "PASS" : "PARTIAL"
+              }`
+            );
+
+            // Step 7: Monitor visibility for a short period
+            setTimeout(() => {
+              this.monitorHotspotVisibility();
+            }, 1000);
+          } catch (error) {
+            console.error(
+              "💥 Critical error in split-screen hotspot loading:",
+              error
+            );
+
+            // Show user-friendly error
+            this.showError(
+              "Failed to load hotspots. The panorama is available but interactive elements may not be visible."
+            );
+
+            // Attempt one final recovery after a delay
+            setTimeout(() => {
+              console.log(
+                "🔄 Attempting final split-screen hotspot recovery..."
+              );
+              this.loadHotspots();
+            }, 3000);
+          } finally {
+            // Always hide loading indicator
+            this.showHotspotLoadingIndicator(false);
+          }
+        }
+
+        monitorHotspotVisibility() {
+          const markers = this.markersPlugin.getMarkers();
+          console.log(
+            `👁️ Monitoring visibility of ${markers.length} split-screen hotspots...`
+          );
+
+          // Check if markers are visible in the DOM
+          let visibleCount = 0;
+          markers.forEach((marker) => {
+            try {
+              // Try to find the marker element in the DOM
+              const markerElement = document.querySelector(
+                `[data-marker-id="${marker.id}"]`
+              );
+              if (markerElement && markerElement.offsetParent !== null) {
+                visibleCount++;
+              }
+            } catch (error) {
+              // Ignore visibility check errors
+            }
+          });
+
+          console.log(
+            `� Split-screen hotspot visibility: ${visibleCount}/${markers.length} visible`
+          );
+
+          if (visibleCount < markers.length && markers.length > 0) {
+            console.warn("⚠️ Some split-screen hotspots may not be visible");
+
+            // Trigger a gentle refresh of the markers plugin
+            setTimeout(() => {
+              try {
+                this.markersPlugin.render();
+                console.log("🔄 Split-screen markers plugin refreshed");
+              } catch (error) {
+                console.error(
+                  "❌ Failed to refresh split-screen markers plugin:",
+                  error
+                );
+              }
+            }, 500);
+          }
+        }
+
+        showHotspotLoadingIndicator(show) {
+          const existingIndicator = document.querySelector(
+            ".hotspot-loading-indicator"
+          );
+
+          if (show) {
+            if (!existingIndicator) {
+              const indicator = document.createElement("div");
+              indicator.className = "hotspot-loading-indicator";
+              indicator.innerHTML = `
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Loading interactive hotspots...</div>
+              `;
+              indicator.style.cssText = `
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-size: 12px;
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              `;
+
+              const spinner = indicator.querySelector(".loading-spinner");
+              spinner.style.cssText = `
+                width: 16px;
+                height: 16px;
+                border: 2px solid #333;
+                border-top: 2px solid #fff;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+              `;
+
+              // Add spinner animation if not exists
+              if (!document.querySelector("#spinner-animation")) {
+                const style = document.createElement("style");
+                style.id = "spinner-animation";
+                style.textContent =
+                  "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+                document.head.appendChild(style);
+              }
+
+              document.body.appendChild(indicator);
+            }
+          } else {
+            if (existingIndicator) {
+              existingIndicator.remove();
+            }
+          }
+        }
+
+        createSplitScreenMarker(hotspot) {
+          try {
+            // Validate input data
+            if (!hotspot || !hotspot.id) {
+              throw new Error("Invalid hotspot data - missing ID");
+            }
+
+            if (!hotspot.position) {
+              throw new Error(`Hotspot ${hotspot.id} missing position data`);
+            }
+
+            // Validate markers plugin
+            if (
+              !this.markersPlugin ||
+              typeof this.markersPlugin.addMarker !== "function"
+            ) {
+              throw new Error("Markers plugin not properly initialized");
+            }
+
+            // Convert position to yaw/pitch with validation
+            let spherical;
+            try {
+              spherical = this.convertPositionToYawPitch(hotspot.position);
+              if (
+                !spherical ||
+                typeof spherical.yaw !== "number" ||
+                typeof spherical.pitch !== "number"
+              ) {
+                throw new Error("Invalid position conversion result");
+              }
+            } catch (posError) {
+              console.error(
+                `Position conversion failed for hotspot ${hotspot.id}:`,
+                posError
+              );
+              throw new Error(
+                `Failed to convert position for hotspot ${hotspot.id}`
+              );
+            }
+
+            let markerHTML = "";
+            let markerClass = "";
+            let assetUrl = "";
+
+            // Check for animated assets with enhanced validation
+            if (hotspot.video_hotspot_path) {
+              assetUrl = hotspot.video_hotspot_path;
+              // Ensure proper path construction
+              if (
+                assetUrl &&
+                !assetUrl.startsWith("http") &&
+                !assetUrl.startsWith("../")
+              ) {
+                assetUrl = "../" + assetUrl;
+              }
+
+              // Video hotspot with better error handling
+              markerHTML = `
+                            <div class="split-video-marker" title="${
+                              hotspot.title || "Video Hotspot"
+                            }" data-hotspot-id="${hotspot.id}">
+                                <video autoplay loop muted playsinline preload="auto"
+                                       onloadstart="console.log('Video loading:', '${assetUrl}')"
+                                       onerror="console.warn('Split-screen video failed to load:', '${assetUrl}')">
+                                    <source src="${assetUrl}" type="video/mp4">
+                                    <div class="video-fallback">📹</div>
+                                </video>
+                            </div>
+                        `;
+              markerClass = "split-video-hotspot";
+            } else if (hotspot.animated_icon_path) {
+              assetUrl = hotspot.animated_icon_path;
+              // Ensure proper path construction
+              if (
+                assetUrl &&
+                !assetUrl.startsWith("http") &&
+                !assetUrl.startsWith("../")
+              ) {
+                assetUrl = "../" + assetUrl;
+              }
+
+              // GIF hotspot with enhanced fallback
+              markerHTML = `
+                            <div class="split-gif-marker" title="${
+                              hotspot.title || "Animated Hotspot"
+                            }" data-hotspot-id="${hotspot.id}">
+                                <img src="${assetUrl}" alt="${
+                hotspot.title || "Animated Hotspot"
+              }"
+                                     onload="console.log('GIF loaded:', '${assetUrl}')"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block'; console.warn('Split-screen GIF failed to load:', '${assetUrl}')">
+                                <div class="gif-fallback" style="display:none;">🎬</div>
+                            </div>
+                        `;
+              markerClass = "split-gif-hotspot";
+            } else {
+              // Navigation or info hotspot (default)
+              let icon = "ℹ️";
+              let title = hotspot.title || "Interactive Hotspot";
+              let extraClass = "";
+
+              if (hotspot.target_office_id) {
+                icon = "🏢";
+                title = hotspot.title || "Go to Office";
+                extraClass = " office-nav";
+              } else if (hotspot.target_path_id || hotspot.link_path_id) {
+                icon = "🧭";
+                title = hotspot.title || "Navigate to Point";
+                extraClass = " panorama-nav";
+
+                // Add floor indicator if different floor
+                const targetFloor =
+                  hotspot.target_floor || hotspot.link_floor_number;
+                if (targetFloor && targetFloor !== parseInt(this.floorNumber)) {
+                  icon = "🏢";
+                  extraClass += " cross-floor";
+                }
+              }
+
+              markerHTML = `
+                            <div class="split-nav-marker${extraClass}" title="${title}" data-hotspot-id="${hotspot.id}">
+                                <div class="nav-icon">${icon}</div>
+                                <div class="nav-pulse"></div>
+                            </div>
+                        `;
+              markerClass = "split-nav-hotspot";
+            }
+
+            // Validate marker configuration
+            if (!markerHTML || !markerClass) {
+              throw new Error(
+                `Failed to generate marker HTML for hotspot ${hotspot.id}`
+              );
+            }
+
+            const marker = {
+              id: hotspot.id,
+              position: { yaw: spherical.yaw, pitch: spherical.pitch },
+              html: markerHTML,
+              anchor: "center center",
+              className: markerClass,
+              tooltip: {
+                content: hotspot.title || "Interactive Hotspot",
+                position: "top center",
+                className: "split-tooltip",
+              },
+              data: hotspot,
+            };
+
+            // Validate marker object
+            if (!marker.id || !marker.position || !marker.html) {
+              throw new Error(
+                `Invalid marker configuration for hotspot ${hotspot.id}`
+              );
+            }
+
+            // Add marker with error handling
+            try {
+              this.markersPlugin.addMarker(marker);
+            } catch (addError) {
+              console.error(
+                `Failed to add marker to plugin for hotspot ${hotspot.id}:`,
+                addError
+              );
+              throw new Error(
+                `Marker plugin rejected hotspot ${hotspot.id}: ${addError.message}`
+              );
+            }
+
+            // Store hotspot data
+            if (!this.hotspots) {
+              this.hotspots = [];
+            }
+            this.hotspots.push(hotspot);
+
+            console.log(
+              `✅ Split-screen marker created: ${
+                hotspot.title || hotspot.id
+              } (${markerClass}) at yaw:${spherical.yaw.toFixed(
+                2
+              )}, pitch:${spherical.pitch.toFixed(2)}`
+            );
+          } catch (error) {
+            console.error(
+              "❌ Error creating split-screen marker:",
+              hotspot.id,
+              error
+            );
+            throw error; // Re-throw to be caught by caller
+          }
+        }
+
+        handleMarkerClick(marker) {
+          const hotspot = marker.data;
+
+          console.log("🔗 Split-screen hotspot clicked:", hotspot);
+          console.log("🔍 Hotspot navigation check:", {
+            target_path_id: hotspot.target_path_id,
+            target_point_index: hotspot.target_point_index,
+            link_path_id: hotspot.link_path_id,
+            link_point_index: hotspot.link_point_index,
+            target_office_id: hotspot.target_office_id,
+          });
+
+          // Handle different types of hotspot clicks
+          const isNav = this.isNavigationHotspot(hotspot);
+          console.log("🎯 Is navigation hotspot:", isNav);
+
+          if (isNav) {
+            console.log("✅ Calling navigateToPanorama");
+            this.navigateToPanorama(hotspot);
+          } else if (hotspot.target_office_id) {
+            console.log("✅ Calling navigateToOffice");
+            this.navigateToOffice(hotspot);
+          } else {
+            console.log("✅ Calling showHotspotInfo");
+            this.showHotspotInfo(hotspot);
+          }
+        }
+
+        isNavigationHotspot(hotspot) {
+          // More flexible navigation detection - handle both snake_case and camelCase
+          const hasTargetPath =
+            (hotspot.target_path_id || hotspot.targetPathId) &&
+            (hotspot.target_path_id || hotspot.targetPathId)
+              .toString()
+              .trim() !== "";
+          const hasTargetPoint =
+            (hotspot.target_point_index !== null &&
+              hotspot.target_point_index !== undefined) ||
+            (hotspot.targetPointIndex !== null &&
+              hotspot.targetPointIndex !== undefined);
+
+          const hasLinkPath =
+            (hotspot.link_path_id || hotspot.linkPathId) &&
+            (hotspot.link_path_id || hotspot.linkPathId).toString().trim() !==
+              "";
+          const hasLinkPoint =
+            (hotspot.link_point_index !== null &&
+              hotspot.link_point_index !== undefined) ||
+            (hotspot.linkPointIndex !== null &&
+              hotspot.linkPointIndex !== undefined);
+
+          const hasTargetNav = hasTargetPath && hasTargetPoint;
+          const hasLinkNav = hasLinkPath && hasLinkPoint;
+
+          // Also consider if it's marked as navigation type
+          const isMarkedAsNav =
+            hotspot.is_navigation === true ||
+            hotspot.type === "navigation" ||
+            hotspot.purpose === "navigation";
+
+          console.log("🔍 Navigation check details:", {
+            snake_case: {
+              target_path_id: hotspot.target_path_id,
+              target_point_index: hotspot.target_point_index,
+              link_path_id: hotspot.link_path_id,
+              link_point_index: hotspot.link_point_index,
+            },
+            camel_case: {
+              targetPathId: hotspot.targetPathId,
+              targetPointIndex: hotspot.targetPointIndex,
+              linkPathId: hotspot.linkPathId,
+              linkPointIndex: hotspot.linkPointIndex,
+            },
+            flags: {
+              is_navigation: hotspot.is_navigation,
+              isNavigation: hotspot.isNavigation,
+              type: hotspot.type,
+              purpose: hotspot.purpose,
+            },
+            results: {
+              hasTargetNav,
+              hasLinkNav,
+              isMarkedAsNav,
+            },
+          });
+
+          return hasTargetNav || hasLinkNav || isMarkedAsNav;
+        }
+
+        navigateToPanorama(hotspot) {
+          // Get target panorama details with robust fallbacks (handle both snake_case and camelCase)
+          const targetPath =
+            hotspot.target_path_id ||
+            hotspot.targetPathId ||
+            hotspot.link_path_id ||
+            hotspot.linkPathId ||
+            "path1";
+          const targetPoint =
+            hotspot.target_point_index ||
+            hotspot.targetPointIndex ||
+            hotspot.link_point_index ||
+            hotspot.linkPointIndex ||
+            1;
+          const targetFloor =
+            hotspot.target_floor ||
+            hotspot.targetFloor ||
+            hotspot.link_floor_number ||
+            hotspot.linkFloorNumber ||
+            this.floorNumber ||
+            1;
+
+          // Convert to proper types
+          const path = targetPath.toString();
+          const point = parseInt(targetPoint) || 1;
+          const floor = parseInt(targetFloor) || 1;
+          const currentFloor = parseInt(this.floorNumber) || 1;
+
+          console.log("🧭 Navigating to panorama:", {
+            original_data_snake_case: {
+              target_path_id: hotspot.target_path_id,
+              target_point_index: hotspot.target_point_index,
+              target_floor: hotspot.target_floor,
+              link_path_id: hotspot.link_path_id,
+              link_point_index: hotspot.link_point_index,
+              link_floor_number: hotspot.link_floor_number,
+            },
+            original_data_camel_case: {
+              targetPathId: hotspot.targetPathId,
+              targetPointIndex: hotspot.targetPointIndex,
+              targetFloor: hotspot.targetFloor,
+              linkPathId: hotspot.linkPathId,
+              linkPointIndex: hotspot.linkPointIndex,
+              linkFloorNumber: hotspot.linkFloorNumber,
+            },
+            final_values: { path, point, floor },
+            current_floor: currentFloor,
+            is_cross_floor: floor !== currentFloor,
+            title: hotspot.title,
+          });
+
+          // Validate we have valid data
+          if (!path || point < 1) {
+            console.error("❌ Invalid navigation data:", {
+              path,
+              point,
+              floor,
+            });
+            this.showHotspotInfo({
+              ...hotspot,
+              title: "Navigation Error",
+              description: "Invalid navigation target data",
+            });
+            return;
+          }
+
+          // Enhanced navigation loading with floor context
+          const isCrossFloor = floor !== currentFloor;
+          const loadingTitle = isCrossFloor
+            ? `Moving to Floor ${floor}...`
+            : `Navigating to Point ${point}...`;
+
+          this.showNavigationLoading(loadingTitle);
+
+          // Send enhanced navigation message to parent window
+          this.sendEnhancedNavigationMessage(
+            path,
+            point,
+            floor,
+            hotspot.title,
+            isCrossFloor
+          );
+
+          // Update parent window's floor plan and URL with enhanced timing
+          this.updateParentFloorPlan(path, point, floor);
+
+          // Enhanced timing based on navigation type
+          const navigationDelay = isCrossFloor ? 1200 : 600; // More time for cross-floor
+
+          setTimeout(() => {
+            const newUrl = `pano_photosphere.html?path_id=${path}&point_index=${point}&floor_number=${floor}`;
+            console.log(
+              `🔗 Navigating iframe to URL (${
+                isCrossFloor ? "cross-floor" : "same-floor"
+              }):`,
+              newUrl
+            );
+            window.location.href = newUrl;
+          }, navigationDelay);
+        }
+
+        sendNavigationMessage(pathId, pointIndex, floorNumber) {
+          console.log("📧 Sending navigation message to parent:", {
+            pathId,
+            pointIndex,
+            floorNumber,
+          });
+
+          try {
+            // Send message to parent window (mobile explore.php)
+            if (window.parent && window.parent !== window) {
+              const navigationMessage = {
+                type: "panoramaNavigation",
+                targetPathId: pathId.toString(),
+                targetPointIndex: pointIndex.toString(),
+                targetFloorNumber: floorNumber.toString(),
+                updateURL: true, // Flag to tell parent to update URL like camera click
+                source: "hotspotNavigation", // Identify this as hotspot navigation
+              };
+
+              console.log("📤 Sending navigation message:", navigationMessage);
+              window.parent.postMessage(navigationMessage, "*");
+              console.log("✅ Navigation message sent to parent");
+
+              // Also try to directly update parent URL if possible
+              this.updateParentURL(pathId, pointIndex, floorNumber);
+            } else {
+              console.warn(
+                "❌ No parent window available for navigation message"
+              );
+            }
+          } catch (error) {
+            console.warn("❌ Failed to send navigation message:", error);
+          }
+        }
+
+        sendEnhancedNavigationMessage(
+          pathId,
+          pointIndex,
+          floorNumber,
+          title,
+          isCrossFloor
+        ) {
+          console.log("📧 Sending enhanced navigation message to parent:", {
+            pathId,
+            pointIndex,
+            floorNumber,
+            title,
+            isCrossFloor,
+          });
+
+          try {
+            // Send message to parent window (mobile explore.php)
+            if (window.parent && window.parent !== window) {
+              const enhancedMessage = {
+                type: "panoramaNavigation",
+                targetPathId: pathId.toString(),
+                targetPointIndex: pointIndex.toString(),
+                targetFloorNumber: floorNumber.toString(),
+                updateURL: true,
+                source: "enhancedHotspotNavigation",
+                highlightCamera: true,
+                // Enhanced data for smooth navigation
+                navigationContext: {
+                  title: title || `Point ${pointIndex}`,
+                  isCrossFloor: isCrossFloor,
+                  currentFloor: this.floorNumber,
+                  targetFloor: floorNumber,
+                  smoothTransition: true,
+                  timestamp: Date.now(),
+                },
+              };
+
+              console.log(
+                "📤 Sending enhanced navigation message:",
+                enhancedMessage
+              );
+              window.parent.postMessage(enhancedMessage, "*");
+              console.log("✅ Enhanced navigation message sent to parent");
+
+              // Also trigger immediate parent updates for smooth UX
+              this.updateParentURL(pathId, pointIndex, floorNumber);
+
+              // If same floor, try immediate highlighting
+              if (!isCrossFloor) {
+                setTimeout(() => {
+                  this.updateParentFloorPlan(pathId, pointIndex, floorNumber);
+                }, 100);
+              }
+            } else {
+              console.warn(
+                "❌ No parent window available for enhanced navigation message"
+              );
+            }
+          } catch (error) {
+            console.warn(
+              "❌ Failed to send enhanced navigation message:",
+              error
+            );
+          }
+        }
+
+        updateParentFloorPlan(pathId, pointIndex, floorNumber) {
+          console.log("🔄 Updating parent floor plan:", {
+            pathId,
+            pointIndex,
+            floorNumber,
+          });
+
+          try {
+            // Check if we're in an iframe and have access to parent
+            if (window.parent && window.parent !== window) {
+              // Try multiple methods to update the parent floor plan
+
+              // Method 1: Direct function call (if parent has the function)
+              if (typeof window.parent.updateCameraHighlight === "function") {
+                window.parent.updateCameraHighlight(
+                  pathId,
+                  pointIndex,
+                  floorNumber
+                );
+                console.log(
+                  "✅ Updated parent via updateCameraHighlight function"
+                );
+                return;
+              }
+
+              // Method 2: Post message to parent window
+              const navigationData = {
+                type: "panoramaNavigation",
+                targetPathId: pathId.toString(),
+                targetPointIndex: pointIndex.toString(),
+                targetFloorNumber: floorNumber.toString(),
+                highlightCamera: true, // Flag to specifically trigger camera highlighting
+                source: "cameraUpdate",
+                timestamp: Date.now(),
+              };
+
+              window.parent.postMessage(navigationData, "*");
+              console.log(
+                "📨 Posted navigation message to parent (fixed format):",
+                navigationData
+              );
+
+              // Method 3: Reset all cameras first, then highlight target
+              this.resetAllCamerasInParent();
+
+              // Method 4: Call parent's highlighting function directly
+              if (typeof window.parent.highlightPanoramaMarker === "function") {
+                console.log(
+                  "🎯 Calling parent's highlightPanoramaMarker function"
+                );
+                window.parent.highlightPanoramaMarker(
+                  pathId,
+                  pointIndex,
+                  floorNumber
+                );
+                console.log(
+                  "✅ Called parent highlighting function successfully"
+                );
+              }
+
+              // Method 4: Try to access parent's camera selection directly
+              if (window.parent.document) {
+                // Look for camera elements in parent document with various selectors
+                const possibleSelectors = [
+                  `[data-path-id="${pathId}"][data-point-index="${pointIndex}"]`,
+                  `.camera-circle[data-path-id="${pathId}"][data-point-index="${pointIndex}"]`,
+                  `.point-marker[data-path-id="${pathId}"][data-point-index="${pointIndex}"]`,
+                  `.path-marker[data-path-id="${pathId}"][data-point-index="${pointIndex}"]`,
+                ];
+
+                let cameraElement = null;
+                for (const selector of possibleSelectors) {
+                  cameraElement =
+                    window.parent.document.querySelector(selector);
+                  if (cameraElement) {
+                    console.log(
+                      `✅ Found camera element with selector: ${selector}`
+                    );
+                    break;
+                  }
+                }
+
+                if (cameraElement) {
+                  // Remove existing highlights from all camera markers
+                  const allCameraMarkers =
+                    window.parent.document.querySelectorAll(
+                      ".camera-circle, .point-marker, .path-marker"
+                    );
+                  allCameraMarkers.forEach((cam) => {
+                    cam.classList.remove("selected", "active", "highlighted");
+                    // Also reset camera background if it exists
+                    const bg = cam.querySelector(".camera-bg");
+                    if (bg) {
+                      bg.setAttribute("r", "12");
+                      bg.setAttribute("fill", "#2563eb");
+                      bg.setAttribute("stroke", "#ffffff");
+                      bg.removeAttribute("filter");
+                    }
+                  });
+
+                  // Add highlight to new camera
+                  cameraElement.classList.add(
+                    "selected",
+                    "highlighted",
+                    "active"
+                  );
+
+                  // Update camera background styling
+                  const bg = cameraElement.querySelector(".camera-bg");
+                  if (bg) {
+                    bg.setAttribute("r", "15");
+                    bg.setAttribute("fill", "#fbbf24"); // yellow active color
+                    bg.setAttribute("stroke", "#ffffff");
+                  }
+
+                  console.log(
+                    "✅ Updated camera highlight directly in parent DOM"
+                  );
+                  return;
+                }
+              }
+
+              // Method 4: Try jQuery if available in parent
+              if (window.parent.$ && window.parent.jQuery) {
+                window.parent
+                  .$(".camera-circle")
+                  .removeClass("selected active highlighted");
+                window.parent
+                  .$(
+                    `[data-path-id="${pathId}"][data-point-index="${pointIndex}"]`
+                  )
+                  .addClass("selected highlighted");
+                console.log("✅ Updated camera highlight via parent jQuery");
+                return;
+              }
+            } else {
+              console.log("ℹ️ Not in iframe or no parent access");
+            }
+          } catch (error) {
+            console.error("❌ Error updating parent floor plan:", error);
+          }
+
+          // Fallback: Try to update any local indicators
+          this.updateLocalIndicators(pathId, pointIndex, floorNumber);
+        }
+
+        updateLocalIndicators(pathId, pointIndex, floorNumber) {
+          console.log("🔄 Updating local indicators:", {
+            pathId,
+            pointIndex,
+            floorNumber,
+          });
+
+          // Update the info bar in split-screen (split-info-bar removed)
+          // const titleElement = document.getElementById("pano-title");
+          // const descElement = document.getElementById("pano-desc");
+
+          // if (titleElement) {
+          //   titleElement.textContent = `Floor ${floorNumber} - Point ${pointIndex}`;
+          // }
+
+          // if (descElement) {
+          //   descElement.textContent = `Path: ${pathId} | Interactive 360° view`;
+          // }
+
+          // Update URL without reloading (for history)
+          if (window.history && window.history.replaceState) {
+            const newUrl = `${window.location.pathname}?path_id=${pathId}&point_index=${pointIndex}&floor_number=${floorNumber}`;
+            window.history.replaceState(
+              { pathId, pointIndex, floorNumber },
+              "",
+              newUrl
+            );
+            console.log("📍 Updated URL state:", newUrl);
+          }
+        }
+
+        updateParentURL(pathId, pointIndex, floorNumber) {
+          console.log("🔗 Attempting to update parent URL:", {
+            pathId,
+            pointIndex,
+            floorNumber,
+          });
+
+          try {
+            // Check if we can access parent window
+            if (window.parent && window.parent !== window) {
+              // Try to update parent URL using pushState (like camera click does)
+              if (window.parent.history && window.parent.history.pushState) {
+                // Construct URL parameters like camera click does
+                const params = new URLSearchParams();
+                params.set("path_id", pathId);
+                params.set("point_index", pointIndex);
+                params.set("floor_number", floorNumber);
+
+                // Check if office_id exists in current parent URL and preserve it
+                if (window.parent.location.search) {
+                  const currentParams = new URLSearchParams(
+                    window.parent.location.search
+                  );
+                  const officeId = currentParams.get("office_id");
+                  if (officeId) {
+                    params.set("office_id", officeId);
+                  }
+                }
+
+                const newParentURL = `${
+                  window.parent.location.pathname
+                }?${params.toString()}`;
+
+                window.parent.history.pushState(
+                  {
+                    pathId: pathId,
+                    pointIndex: pointIndex,
+                    floorNumber: floorNumber,
+                    source: "hotspotNavigation",
+                  },
+                  "",
+                  newParentURL
+                );
+
+                console.log(
+                  "✅ Updated parent URL via pushState:",
+                  newParentURL
+                );
+                return true;
+              }
+
+              // Fallback: Try to call parent's URL update function if it exists
+              if (typeof window.parent.updatePanoramaURL === "function") {
+                window.parent.updatePanoramaURL(
+                  pathId,
+                  pointIndex,
+                  floorNumber
+                );
+                console.log(
+                  "✅ Updated parent URL via updatePanoramaURL function"
+                );
+                return true;
+              }
+
+              console.log("🔄 Would update parent URL with params:", {
+                pathId,
+                pointIndex,
+                floorNumber,
+              });
+            } else {
+              console.log("ℹ️ No parent window access for URL update");
+            }
+          } catch (error) {
+            console.error("❌ Error updating parent URL:", error);
+          }
+
+          return false;
+        }
+
+        navigateToOffice(hotspot) {
+          console.log("🏢 Navigating to office:", hotspot.target_office_id);
+
+          // For mobile, we might want to navigate to the office details page
+          if (window.parent && window.parent.location) {
+            window.parent.location.href = `../mobileScreen/explore.php?office_id=${hotspot.target_office_id}`;
+          } else {
+            // Fallback to direct navigation
+            window.location.href = `../mobileScreen/explore.php?office_id=${hotspot.target_office_id}`;
+          }
+        }
+
+        showHotspotInfo(hotspot) {
+          const message =
+            hotspot.info_text ||
+            hotspot.description ||
+            hotspot.title ||
+            "Interactive hotspot";
+          console.log("ℹ️ Hotspot info:", message);
+
+          // Show a temporary info overlay with navigation option
+          this.showInfoOverlay(message, hotspot.title, hotspot);
+        }
+
+        showNavigationLoading(title) {
+          // Remove existing loading overlay if present
+          const existingOverlay = document.getElementById("navigation-loading");
+          if (existingOverlay) {
+            existingOverlay.remove();
+          }
+
+          const overlay = document.createElement("div");
+          overlay.id = "navigation-loading";
+          overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(26, 86, 50, 0.3));
+            backdrop-filter: blur(8px);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: inherit;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+          `;
+
+          // Enhanced loading content with better animations
+          const isCrossFloor = title.includes("Floor");
+          const icon = isCrossFloor ? "🏢" : "🧭";
+          const mainText = isCrossFloor ? "Switching Floors" : "Navigating";
+
+          overlay.innerHTML = `
+            <div style="text-align: center; max-width: 300px; padding: 30px;">
+              <div style="font-size: 3.5em; margin-bottom: 20px; animation: ${
+                isCrossFloor ? "bounce" : "spin"
+              } 1.5s ease-in-out infinite;">
+                ${icon}
+              </div>
+              <div style="font-size: 1.3em; font-weight: 600; margin-bottom: 10px; color: #04aa6d;">
+                ${mainText}
+              </div>
+              <div style="font-size: 1em; opacity: 0.9; margin-bottom: 15px;">
+                ${title}
+              </div>
+              <div style="width: 200px; height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; margin: 0 auto;">
+                <div style="width: 100%; height: 100%; background: linear-gradient(90deg, #04aa6d, #fbbf24); animation: progress 2s ease-in-out infinite;"></div>
+              </div>
+            </div>
+            <style>
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes bounce {
+                0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+                40% { transform: translateY(-10px); }
+                60% { transform: translateY(-5px); }
+              }
+              @keyframes progress {
+                0% { transform: translateX(-100%); }
+                50% { transform: translateX(0%); }
+                100% { transform: translateX(100%); }
+              }
+            </style>
+          `;
+
+          document.body.appendChild(overlay);
+
+          // Animate in
+          requestAnimationFrame(() => {
+            overlay.style.opacity = "1";
+          });
+        }
+
+        showInfoOverlay(message, title, hotspot = null) {
+          const overlay = document.createElement("div");
+          overlay.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            z-index: 5000;
+            max-width: 350px;
+            text-align: center;
+            font-family: inherit;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          `;
+
+          let debugButtons = "";
+          if (hotspot) {
+            debugButtons = `
+              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px;">Debug Controls:</div>
+                <button onclick="window.splitViewer.forceNavigate('${
+                  hotspot.target_path_id || hotspot.link_path_id || "path2"
+                }', '${
+              hotspot.target_point_index || hotspot.link_point_index || 2
+            }', '${hotspot.target_floor || hotspot.link_floor_number || 1}')" 
+                        style="background: #04aa6d; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin: 2px; cursor: pointer; font-size: 11px;">
+                  🧭 Force Navigate
+                </button>
+                <button onclick="console.log('Hotspot data:', ${JSON.stringify(
+                  hotspot
+                ).replace(/"/g, "&quot;")})" 
+                        style="background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin: 2px; cursor: pointer; font-size: 11px;">
+                  📊 Log Data
+                </button>
+                <button onclick="document.body.removeChild(this.closest('div[style*=\"position: fixed\"]'))" 
+                        style="background: #ff6b6b; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin: 2px; cursor: pointer; font-size: 11px;">
+                  ✖️ Close
+                </button>
+              </div>
+            `;
+          }
+
+          overlay.innerHTML = `
+            ${
+              title
+                ? `<div style="font-weight: 600; margin-bottom: 10px;">${title}</div>`
+                : ""
+            }
+            <div style="opacity: 0.9; margin-bottom: 10px;">${message}</div>
+            ${debugButtons}
+          `;
+
+          document.body.appendChild(overlay);
+
+          // Remove after longer time if no debug buttons
+          if (!hotspot) {
+            setTimeout(() => {
+              if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+              }
+            }, 3000);
+          }
+        }
+
+        // Force navigation method for debugging
+        forceNavigate(pathId, pointIndex, floorNumber) {
+          console.log("🚀 Force navigating to:", {
+            pathId,
+            pointIndex,
+            floorNumber,
+          });
+
+          const path = pathId || "path2";
+          const point = parseInt(pointIndex) || 2;
+          const floor = parseInt(floorNumber) || 1;
+
+          this.showNavigationLoading(`Force Navigate to Point ${point}`);
+
+          setTimeout(() => {
+            const newUrl = `pano_photosphere.html?path_id=${path}&point_index=${point}&floor_number=${floor}`;
+            console.log("🔗 Force navigating to URL:", newUrl);
+            window.location.href = newUrl;
+          }, 800);
+        }
+
+        resetAllCamerasInParent() {
+          console.log("🔄 Resetting all camera highlights in parent");
+
+          try {
+            // Method 1: Call parent's reset function if it exists
+            if (typeof window.parent.resetAllCameraHighlights === "function") {
+              window.parent.resetAllCameraHighlights();
+              console.log("✅ Reset cameras via parent function");
+              return;
+            }
+
+            // Method 2: Direct DOM access to reset all cameras
+            if (window.parent.document) {
+              const allCameraSelectors = [
+                ".camera-circle",
+                ".point-marker",
+                ".path-marker",
+                '[class*="camera"]',
+                "[data-path-id]",
+              ];
+
+              let resetCount = 0;
+              allCameraSelectors.forEach((selector) => {
+                const cameras =
+                  window.parent.document.querySelectorAll(selector);
+                cameras.forEach((cam) => {
+                  // Remove highlight classes
+                  cam.classList.remove("selected", "active", "highlighted");
+
+                  // Reset camera background styling
+                  const bg = cam.querySelector(".camera-bg");
+                  if (bg) {
+                    bg.setAttribute("r", "12");
+                    bg.setAttribute("fill", "#2563eb"); // blue inactive color
+                    bg.setAttribute("stroke", "#ffffff");
+                    bg.removeAttribute("filter");
+                  }
+
+                  // Reset any other visual indicators
+                  const icon = cam.querySelector(".camera-icon");
+                  if (icon) {
+                    icon.style.color = "#ffffff";
+                  }
+
+                  resetCount++;
+                });
+              });
+
+              console.log(`✅ Reset ${resetCount} camera elements via DOM`);
+            }
+
+            // Method 3: jQuery fallback
+            if (window.parent.$ && window.parent.jQuery) {
+              window.parent
+                .$(".camera-circle, .point-marker, .path-marker")
+                .removeClass("selected active highlighted")
+                .find(".camera-bg")
+                .attr("r", "12")
+                .attr("fill", "#2563eb")
+                .attr("stroke", "#ffffff")
+                .removeAttr("filter");
+              console.log("✅ Reset cameras via jQuery");
+            }
+          } catch (error) {
+            console.warn("❌ Error resetting camera highlights:", error);
+          }
+        }
+
+        convertPositionToYawPitch(position) {
+          // Convert Cartesian coordinates to spherical
+          const x = position.x || 0;
+          const y = position.y || 0;
+          const z = position.z || -10;
+
+          const radius = Math.sqrt(x * x + y * y + z * z);
+          const yaw = Math.atan2(x, -z) * (180 / Math.PI);
+          const pitch = Math.asin(y / radius) * (180 / Math.PI);
+
+          return { yaw, pitch };
+        }
+
+        showError(message) {
+          document.getElementById("loading").innerHTML = `
+                    <div style="color: #ff6b6b; text-align: center;">
+                        <div style="font-size: 2em; margin-bottom: 10px;">⚠️</div>
+                        <div>${message}</div>
+                    </div>
+                `;
+        }
+      }
+
+      // Control functions
+      function resetView() {
+        if (window.splitViewer && window.splitViewer.viewer) {
+          window.splitViewer.viewer.animate({ yaw: 0, pitch: 0, zoom: 60 });
+        }
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch((err) => {
+            console.log("Fullscreen not supported:", err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      }
+
+      // Initialize split-screen viewer
+      document.addEventListener("DOMContentLoaded", () => {
+        window.splitViewer = new GABAYSplitScreenPanorama();
+      });
+
+      // Handle page visibility for performance
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+          // Pause videos when page is hidden
+          const videos = document.querySelectorAll("video");
+          videos.forEach((video) => video.pause());
+        } else {
+          // Resume videos when page is visible
+          const videos = document.querySelectorAll("video");
+          videos.forEach((video) => video.play());
+        }
+      });
+    </script>
+  </body>
+</html>

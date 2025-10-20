@@ -1,49 +1,62 @@
 {
     "pathAccessRules": {
         "path1": {
-            "transitionStairKeys": ["west"],
+            "transitionStairKeys": [
+                "west"
+            ],
             "enforceTransitions": true
         },
         "path1_floor2": {
-            "transitionStairKeys": ["west"],
+            "transitionStairKeys": [
+                "west"
+            ],
             "enforceTransitions": true
         }
     },
     "rooms": {
-    "stair_west_1-2": {
+        "stair_west_1-2": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "west_1",
             "label": "West Stair",
             "doorPoints": [
                 {
                     "x": 120,
-                    "y": 182   ,
+                    "y": 182,
                     "nearestPathId": "path1_floor2"
                 }
             ],
             "nearestPathId": "path1_floor2",
-            "connectsTo": [1, 3],
+            "connectsTo": [
+                1,
+                3
+            ],
             "x": 205,
             "y": 210
-        },"stair_west_2-2": {
+        },
+        "stair_west_2-2": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "west_2",
             "label": "West Stair",
             "doorPoints": [
                 {
                     "x": 490,
-                    "y": 265   ,
+                    "y": 265,
                     "nearestPathId": "path3_floor2"
                 }
             ],
             "nearestPathId": "path_floor2",
-            "connectsTo": [1],
+            "connectsTo": [
+                1
+            ],
             "x": 205,
             "y": 210
         },
         "stair_master_1-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "master_1",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -53,13 +66,16 @@
                 }
             ],
             "nearestPathId": "lobby_horizontal_1",
-            "connectsTo": [1],
+            "connectsTo": [
+                1
+            ],
             "x": 906,
             "y": 220
         },
-    "stair_master_2-2": {
+        "stair_master_2-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "master_2",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -69,13 +85,16 @@
                 }
             ],
             "nearestPathId": "lobby_vertical_2",
-            "connectsTo": [1],
+            "connectsTo": [
+                1
+            ],
             "x": 970,
             "y": 255
         },
         "stair_thirdFloor_1-2": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "thirdFloor_1",
             "label": "West Stair",
             "doorPoints": [
                 {
@@ -85,13 +104,16 @@
                 }
             ],
             "nearestPathId": "lobby_vertical_2",
-            "connectsTo": [3],
+            "connectsTo": [
+                3
+            ],
             "x": 970,
             "y": 255
         },
         "stair_thirdFloor_2-2": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "thirdFloor_2",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -101,39 +123,48 @@
                 }
             ],
             "nearestPathId": "lobby_vertical_2",
-            "connectsTo": [3],
+            "connectsTo": [
+                3
+            ],
             "x": 970,
             "y": 255
         },
-    "stair_east_1-2": {
+        "stair_east_1-2": {
             "type": "stair",
             "stairKey": "east",
+            "stairGroup": "east_1",
             "label": "East Stair",
             "doorPoints": [
                 {
-                    "x": 1452,
-                    "y": 270,
+                    "x": 1453,
+                    "y": 265,   
                     "nearestPathId": "path10_floor2"
                 }
             ],
             "nearestPathId": "path10_floor2",
-            "connectsTo": [1],
+            "connectsTo": [
+                1
+            ],
             "x": 1620,
             "y": 255
         },
-    "stair_east_2-2": {
+        "stair_east_2-2": {
             "type": "stair",
             "stairKey": "east",
+            "stairGroup": "east_2",
             "label": "East Stair",
             "doorPoints": [
                 {
-                    "x": 1820,
+                    "x": 1825,
                     "y": 180,
-                    "nearestPathId": "path10_floor2"
+                    "nearestPathId": "path18_floor2"
                 }
             ],
-            "nearestPathId": "path10_floor2",
-            "connectsTo": [1, 3],
+            "nearestPathId": "path18_floor2",
+            "connectsTo": [
+                1,
+                3
+            ],
             "x": 1620,
             "y": 255
         },
@@ -458,7 +489,7 @@
                 }
             }
         },
-        "room-19    -2": {
+        "room-19-2": {
             "doorPoints": [
                 {
                     "x": 1660,
@@ -539,10 +570,7 @@
                 {
                     "x": 170,
                     "y": 185,
-                    "isPano": true,
-                    "panoImage": "pano_path1_floor2_0_1757954203_68c8409bb4002.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 205,
@@ -703,10 +731,7 @@
                     "x": 235,
                     "y": 255,
                     "isPano": true,
-                    "isIntersection": true,
-                    "panoImage": "pano_path5_floor2_1_1758206405_68cc19c5e754f.jpg",
-                    "panoTitle": "Gwa Capitol",
-                    "panoDescription": "Kami sa gwa"
+                    "isIntersection": true
                 }
             ]
         },
@@ -1108,31 +1133,32 @@
                 },
                 {
                     "x": 1200,
-                    "y": 310,
+                    "y": 305,
                     "isPano": true
                 },
                 {
                     "x": 1256,
-                    "y": 310,
+                    "y": 305,
                     "isPano": true
                 },
                 {
                     "x": 1397,
-                    "y": 310,
+                    "y": 305,
                     "isPano": true
                 },
                 {
                     "x": 1452,
-                    "y": 310,
+                    "y": 305,
+                    "isPano": true,
+                    "isIntersection": true
+                },
+                {
+                    "x": 1495,
+                    "y": 305,
                     "isPano": true
                 },
                 {
-                    "x": 1490,
-                    "y": 310,
-                    "isPano": true
-                },
-                {
-                    "x": 1490,
+                    "x": 1495,
                     "y": 255,
                     "isPano": true
                 },

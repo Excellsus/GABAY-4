@@ -146,43 +146,90 @@ if (isset($_GET['selectRoom'])) {
       });
     }
 
+        function labelBelongsToRoom(tspanEl, roomNumber) {
+            if (!tspanEl) return false;
+            const parentText = tspanEl.closest('text');
+            if (!parentText || !parentText.id) return false;
+            const parentId = parentText.id.trim();
+            if (!parentId.startsWith('text-')) return false;
+            if (parentId === `text-${roomNumber}`) return true;
+            return parentId.startsWith(`text-${roomNumber}-`);
+        }
+
+        function findLabelTspanForRoom(roomNumber) {
+            const directMatch = document.getElementById(`roomlabel-${roomNumber}`);
+            if (labelBelongsToRoom(directMatch, roomNumber)) {
+                return directMatch;
+            }
+
+            const textMatches = document.querySelectorAll(`text[id^="text-${roomNumber}"]`);
+            for (const textNode of textMatches) {
+                const tspanCandidate = textNode.querySelector('tspan');
+                if (tspanCandidate) {
+                    return tspanCandidate;
+                }
+            }
+
+            const allLabels = document.querySelectorAll('tspan[id^="roomlabel-"]');
+            for (const candidate of allLabels) {
+                if (labelBelongsToRoom(candidate, roomNumber)) {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        function getLabelTextFromGroup(group) {
+            if (!group) return '';
+            const textEl = group.querySelector('text');
+            if (!textEl) return '';
+            const tspans = textEl.querySelectorAll('tspan');
+            if (tspans.length) {
+                return Array.from(tspans)
+                    .map(t => (t.textContent || '').trim())
+                    .filter(Boolean)
+                    .join(' ') || '';
+            }
+            return (textEl.textContent || '').trim();
+        }
+
     function updateRoomLabelMain(group, officeName) {
       // First try to find existing text element in the SVG by roomlabel ID
       const roomElement = group.querySelector("path, rect");
       if (!roomElement || !roomElement.id) return;
       
-      const roomMatch = roomElement.id.match(/room-(\d+)(-\d+)?/);
+            const roomMatch = roomElement.id.match(/room-(\d+)(?:-(\d+))?/);
       if (!roomMatch) return;
       
-      const roomNumber = roomMatch[1];
-      const fullRoomId = roomMatch[0]; // e.g., "room-1-2"
-      
-      // Look for existing roomlabel by room number (works for 1st floor: room-1-1 -> roomlabel-1)
-      let labelId = `roomlabel-${roomNumber}`;
-      let tspanEl = document.querySelector(`#${labelId}`);
-      
-      // If not found and this is 2nd floor, look for labels containing the room number in their text
-      if (!tspanEl && fullRoomId.includes('-2')) {
-          // Find tspan elements that contain "Room" + the room number
-          const targetText = `Room${roomNumber}`;
-          const allTspans = document.querySelectorAll('tspan[id*="roomlabel"]');
-          for (let tspan of allTspans) {
-              if (tspan.textContent && tspan.textContent.trim() === targetText) {
-                  tspanEl = tspan;
-                  labelId = tspan.id;
-                  break;
-              }
-          }
-      }
-      
-      let textEl = null;
-      let originalX, originalY;
-      
-      if (tspanEl && tspanEl.tagName === 'tspan') {
-        // Found existing tspan, get its parent text element and preserve coordinates
-        textEl = tspanEl.parentElement;
-        originalX = parseFloat(textEl.getAttribute("x")) || parseFloat(tspanEl.getAttribute("x"));
-        originalY = parseFloat(textEl.getAttribute("y")) || parseFloat(tspanEl.getAttribute("y"));
+            const roomNumber = roomMatch[1];
+            const fullRoomId = roomMatch[0];
+            let labelId = `roomlabel-${roomNumber}`;
+            let tspanEl = findLabelTspanForRoom(roomNumber);
+            let textEl = null;
+            let originalX;
+            let originalY;
+
+            if (!tspanEl) {
+                const groupTspan = group.querySelector('text tspan');
+                if (groupTspan) {
+                    tspanEl = groupTspan;
+                }
+            }
+
+            if (tspanEl && tspanEl.tagName === 'tspan') {
+                labelId = tspanEl.id || labelId;
+                const parentText = tspanEl.closest('text');
+                if (parentText) {
+                    textEl = parentText;
+                    const referenceTspan = parentText.querySelector('tspan') || tspanEl;
+                    originalX = parseFloat(referenceTspan.getAttribute('x')) || parseFloat(parentText.getAttribute('x'));
+                    originalY = parseFloat(referenceTspan.getAttribute('y')) || parseFloat(parentText.getAttribute('y'));
+                } else {
+                    textEl = tspanEl.parentElement;
+                    originalX = parseFloat(tspanEl.getAttribute('x'));
+                    originalY = parseFloat(tspanEl.getAttribute('y'));
+                }
       } else {
         // Look for existing text element within the group first (more reliable)
         textEl = group.querySelector("text");
@@ -220,8 +267,8 @@ if (isset($_GET['selectRoom'])) {
 
         // Use room center as fallback if no original coordinates found
         const bbox = roomElement.getBBox();
-        originalX = originalX || (bbox.x + bbox.width/2);
-        originalY = originalY || (bbox.y + bbox.height/2);
+    originalX = originalX || (bbox.x + bbox.width/2);
+    originalY = originalY || (bbox.y + bbox.height/2);
         
         textEl.setAttribute("x", originalX);
         textEl.setAttribute("y", originalY);
@@ -255,6 +302,9 @@ if (isset($_GET['selectRoom'])) {
         if (index > 0) {
           newTspan.setAttribute("dy", lineHeight);
         }
+                if (index === 0) {
+                    newTspan.setAttribute("id", labelId);
+                }
         textEl.appendChild(newTspan);
       });
 
@@ -319,42 +369,29 @@ if (isset($_GET['selectRoom'])) {
           
           el.addEventListener('click', function(e) {
             e.stopPropagation();
-            let id = el.id;
-            let label = id;
-            // Try to get label from associated roomlabel element using smart detection
-            const rm = el.id.match(/^room-(\d+)(?:-\d+)?$/);
-            if (rm) {
-              let roomNum = rm[1];
-              let fullRoomId = el.id; // e.g., "room-1-2"
-              
-              // First try direct mapping (works for 1st floor)
-              let labelEl = svg.querySelector('#roomlabel-' + roomNum);
-              
-              // If not found and this is 2nd floor, search by placeholder text
-              if (!labelEl && fullRoomId.includes('-2')) {
-                const targetText = `Room${roomNum}`;
-                const allTspans = svg.querySelectorAll('tspan[id*="roomlabel"]');
-                for (let tspan of allTspans) {
-                  if (tspan.textContent && tspan.textContent.trim() === targetText) {
-                    labelEl = tspan;
-                    break;
-                  }
-                }
-              }
-              
-              // Get the label text
-              if (labelEl) {
-                label = labelEl.textContent.trim();
-              } else {
-                // Try to find the office name from officesData if label not found
-                const office = officesData.find(o => o.location === fullRoomId);
-                if (office) {
-                  label = office.name;
-                } else {
-                  label = `Room ${roomNum}`;
-                }
-              }
-            }
+                        const id = el.id;
+                        let label = '';
+                        const rm = id.match(/^room-(\d+)(?:-(\d+))?$/);
+
+                        if (rm) {
+                            const roomNum = rm[1];
+                            const fullRoomId = id;
+                            const parentGroup = el.closest('g[id^="room-"]') || el.closest('g');
+                            label = getLabelTextFromGroup(parentGroup);
+
+                                            if (!label) {
+                                                const office = officesData.find(o => o.location === fullRoomId);
+                                                if (office) {
+                                                    label = office.name;
+                                                } else {
+                                                    label = `Room ${roomNum}`;
+                                                }
+                                            }
+                        }
+
+                        if (!label) {
+                            label = id;
+                        }
             // Highlight selection
             svg.querySelectorAll('.selectable-room').forEach(x=>x.classList.remove('selected'));
             el.classList.add('selected');
@@ -505,6 +542,9 @@ if (isset($_GET['selectRoom'])) {
             <button id="edit-floorplan-btn" class="absolute top-4 right-4 z-10 bg-negros-green text-white px-3 py-1 rounded-md text-sm hover:bg-negros-dark transition-colors cursor-pointer">
               Edit
           </button>
+                        <button id="cancel-edit-floorplan-btn" class="absolute top-4 right-20 z-10 bg-gray-500 text-white px-3 py-1 rounded-md text-sm hover:bg-gray-600 transition-colors cursor-pointer hidden">
+                            Cancel
+                        </button>
           
           <!-- Removed invalid XML declaration -->
           <!-- Created with Inkscape (http://www.inkscape.org/) -->
@@ -556,7 +596,7 @@ if (isset($_GET['selectRoom'])) {
 
     <!-- Panorama Editor Modal -->
     <div id="panorama-editor-modal" class="modal-overlay">
-        <div class="modal-dialog" style="max-width: 500px;">
+        <div class="modal-dialog" style="max-width: 600px;">
             <div class="modal-header">
                 <h3 class="modal-title">Edit Panorama Point</h3>
                 <button id="close-panorama-modal-btn" class="modal-close">&times;</button>
@@ -564,6 +604,23 @@ if (isset($_GET['selectRoom'])) {
             <div class="modal-body">
                 <div id="panorama-point-info" class="mb-4 text-sm text-gray-600 bg-gray-100 p-2 rounded">
                     <!-- Point info will be populated by JS -->
+                </div>
+
+                <!-- Panorama Status Toggle -->
+                <div class="mb-4 p-3 bg-gray-50 rounded-lg border">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-700">Panorama Status</h4>
+                            <p class="text-xs text-gray-500">Toggle panorama visibility and accessibility</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span id="panorama-status-text" class="text-sm font-medium text-gray-600">Active</span>
+                            <label class="switch">
+                                <input type="checkbox" id="panorama-active-toggle" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="mb-4">
@@ -575,7 +632,16 @@ if (isset($_GET['selectRoom'])) {
                     <span class="text-gray-400">Image preview</span>
                 </div>
 
+                <!-- QR Code Download (Simple like office system) -->
+                <div id="panorama-qr-download" class="mb-4" style="display: none;">
+                    <button id="download-panorama-qr-btn" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+                        <img src="./srcImage/qr-code.png" alt="QR Code" style="width: 16px; height: 16px;">
+                        Download QR Code
+                    </button>
+                </div>
+
                 <div class="flex justify-end gap-3">
+                    <button id="edit-hotspots-btn" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm font-medium" style="display: none;">🔗 Edit Hotspots</button>
                     <button id="remove-panorama-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium">Remove</button>
                     <button id="cancel-panorama-upload-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors text-sm font-medium">Cancel</button>
                     <button id="upload-panorama-btn" class="px-4 py-2 bg-negros-green text-white rounded-md hover:bg-negros-dark transition-colors text-sm font-medium">Upload Image</button>
@@ -590,48 +656,110 @@ if (isset($_GET['selectRoom'])) {
         // Pass PHP office data to JavaScript
         const officesData = <?php echo json_encode($offices); ?>;
         console.log("Offices Data Loaded:", officesData); // For debugging
-        
+
+        function applyConsistentFontStyling(container) {
+            if (!container) return;
+            container.querySelectorAll('text, tspan').forEach(el => {
+                el.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+                el.style.fontWeight = "600";
+                el.style.fontSize = "14px";
+                el.style.fill = "#1a1a1a";
+                el.style.stroke = "#ffffff";
+                el.style.strokeWidth = "3px";
+                el.style.strokeLinejoin = "round";
+                el.style.paintOrder = "stroke fill";
+                el.style.vectorEffect = "non-scaling-stroke";
+                el.setAttribute('text-anchor', 'middle');
+                el.setAttribute('dominant-baseline', 'central');
+                el.classList.add('room-label');
+            });
+        }
+
+        function labelBelongsToRoom(tspanEl, roomNumber) {
+            if (!tspanEl) return false;
+            const parentText = tspanEl.closest('text');
+            if (!parentText || !parentText.id) return false;
+            const parentId = parentText.id.trim();
+            if (!parentId.startsWith('text-')) return false;
+            if (parentId === `text-${roomNumber}`) return true;
+            return parentId.startsWith(`text-${roomNumber}-`);
+        }
+
+        function findLabelTspanForRoom(roomNumber) {
+            const directMatch = document.getElementById(`roomlabel-${roomNumber}`);
+            if (labelBelongsToRoom(directMatch, roomNumber)) {
+                return directMatch;
+            }
+
+            const textMatches = document.querySelectorAll(`text[id^="text-${roomNumber}"]`);
+            for (const textNode of textMatches) {
+                const tspanCandidate = textNode.querySelector('tspan');
+                if (tspanCandidate) {
+                    return tspanCandidate;
+                }
+            }
+
+            const allLabels = document.querySelectorAll('tspan[id^="roomlabel-"]');
+            for (const candidate of allLabels) {
+                if (labelBelongsToRoom(candidate, roomNumber)) {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
       // Function to update room labels with proper centering
         function updateRoomLabelMain(group, officeName) {
             // First try to find existing text element in the SVG by roomlabel ID
             const roomElement = group.querySelector("path, rect");
             if (!roomElement || !roomElement.id) return;
             
-            const roomMatch = roomElement.id.match(/room-(\d+)(-\d+)?/);
+            const roomMatch = roomElement.id.match(/room-(\d+)(?:-(\d+))?/);
             if (!roomMatch) return;
             
             const roomNumber = roomMatch[1];
-            const fullRoomId = roomMatch[0]; // e.g., "room-1-2"
-            
-            // Look for existing roomlabel by room number (works for 1st floor: room-1-1 -> roomlabel-1)
+            const fullRoomId = roomMatch[0];
             let labelId = `roomlabel-${roomNumber}`;
-            let tspanEl = document.querySelector(`#${labelId}`);
+            let tspanEl = findLabelTspanForRoom(roomNumber);
             let textEl = null;
-            
-            // If not found and this is 2nd floor, look for labels containing the room number in their text
-            if (!tspanEl && fullRoomId.includes('-2')) {
-                // Find tspan elements that contain "Room" + the room number
-                const targetText = `Room${roomNumber}`;
-                const allTspans = document.querySelectorAll('tspan[id*="roomlabel"]');
-                for (let tspan of allTspans) {
-                    if (tspan.textContent && tspan.textContent.trim() === targetText) {
-                        tspanEl = tspan;
-                        labelId = tspan.id;
-                        break;
-                    }
+            let originalX;
+            let originalY;
+
+            if (!tspanEl) {
+                const groupTspan = group.querySelector('text tspan');
+                if (groupTspan) {
+                    tspanEl = groupTspan;
                 }
             }
-            
+
             if (tspanEl && tspanEl.tagName === 'tspan') {
-                // Found existing tspan, get its parent text element
-                textEl = tspanEl.parentElement;
+                labelId = tspanEl.id || labelId;
+                const parentText = tspanEl.closest('text');
+                if (parentText) {
+                    textEl = parentText;
+                    const referenceTspan = parentText.querySelector('tspan') || tspanEl;
+                    originalX = parseFloat(referenceTspan.getAttribute('x')) || parseFloat(parentText.getAttribute('x'));
+                    originalY = parseFloat(referenceTspan.getAttribute('y')) || parseFloat(parentText.getAttribute('y'));
+                } else {
+                    textEl = tspanEl.parentElement;
+                    originalX = parseFloat(tspanEl.getAttribute('x'));
+                    originalY = parseFloat(tspanEl.getAttribute('y'));
+                }
             } else {
                 // Look for existing text element within the group first (more reliable)
                 textEl = group.querySelector("text");
-                
-                // If no text in group, try to find by roomlabel ID pattern (1st floor pattern)  
+                if (textEl) {
+                    originalX = parseFloat(textEl.getAttribute("x"));
+                    originalY = parseFloat(textEl.getAttribute("y"));
+                }
+
                 if (!textEl) {
                     textEl = document.querySelector(`#${labelId}`);
+                    if (textEl) {
+                        originalX = parseFloat(textEl.getAttribute("x"));
+                        originalY = parseFloat(textEl.getAttribute("y"));
+                    }
                 }
             }
 
@@ -642,24 +770,31 @@ if (isset($_GET['selectRoom'])) {
 
                 // Create inside the group so any transforms apply correctly
                 console.warn(`No existing text element found for ${fullRoomId}, creating new one`);
-        textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        textEl.setAttribute("class", "room-label");
-        textEl.setAttribute("id", labelId);
-                
-        // Get the room path/rect to position the label at its center
-        const bbox = roomElement.getBBox();
-        textEl.setAttribute("x", bbox.x + bbox.width/2);
-        textEl.setAttribute("y", bbox.y + bbox.height/2);
-                
-        // Append to the room group
-        group.appendChild(textEl);
-      }
+                textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                textEl.setAttribute("class", "room-label");
+                textEl.setAttribute("id", labelId);
 
-            // Store original x coordinate for centering
-            const originalX = parseFloat(textEl.getAttribute("x")) || 0;
+                // Get the room path/rect to position the label at its center
+                const bbox = roomElement.getBBox();
+                originalX = bbox.x + bbox.width / 2;
+                originalY = bbox.y + bbox.height / 2;
+                textEl.setAttribute("x", originalX);
+                textEl.setAttribute("y", originalY);
+
+                // Append to the room group
+                group.appendChild(textEl);
+            }
+
+            if (typeof originalX !== 'number' || Number.isNaN(originalX)) {
+                originalX = parseFloat(textEl.getAttribute("x")) || 0;
+            }
+            if (typeof originalY !== 'number' || Number.isNaN(originalY)) {
+                originalY = parseFloat(textEl.getAttribute("y")) || 0;
+            }
 
             // Set text-anchor to middle for automatic centering. This is key.
             textEl.setAttribute("text-anchor", "middle");
+            textEl.setAttribute("dominant-baseline", "central");
 
             // Clear existing content
             textEl.textContent = "";
@@ -683,8 +818,16 @@ if (isset($_GET['selectRoom'])) {
                 if (index > 0) {
                     newTspan.setAttribute("dy", lineHeight);
                 }
+                if (index === 0) {
+                    newTspan.setAttribute("id", labelId);
+                }
                 textEl.appendChild(newTspan);
             });
+
+            textEl.setAttribute("x", originalX);
+            textEl.setAttribute("y", originalY);
+
+            applyConsistentFontStyling(group);
         }
         
         // Function to update room labels with office names (using updateRoomLabelMain for centering)
@@ -694,10 +837,11 @@ if (isset($_GET['selectRoom'])) {
             
             console.log('updateRoomLabels called, processing rooms...');
             
-      svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
-        const match = el.id.match(/^room-(\d+)(?:-\d+)?$/);
+            svg.querySelectorAll('path[id^="room-"]').forEach(function(el) {
+                const match = el.id.match(/^room-(\d+)(?:-(\d+))?$/);
         if (!match) return;
-        const roomNum = match[1];
+                const roomNum = match[1];
+                const floorNum = match[2] || '';
 
         // Match by exact id first, then by common variants across floors
         const office = officesData.find(o => o.location === el.id);
@@ -708,12 +852,58 @@ if (isset($_GET['selectRoom'])) {
           // Find the parent group and text element
           const parentGroup = el.closest('g[id^="room-"]') || el.closest('g');
           if (parentGroup) {
+                        // Mark room metadata for drag/drop and status toggles
+                        parentGroup.setAttribute('data-room', 'true');
+                        parentGroup.dataset.roomNumber = roomNum;
+                        if (floorNum) {
+                            parentGroup.dataset.floorNumber = floorNum;
+                        } else {
+                            delete parentGroup.dataset.floorNumber;
+                        }
+
+                        parentGroup.dataset.officeId = office.id;
+
+                        const roomElement = parentGroup.querySelector('path, rect');
+                        if (roomElement) {
+                            roomElement.dataset.officeId = office.id;
+                            roomElement.dataset.roomNumber = roomNum;
+                            if (floorNum) {
+                                roomElement.dataset.floorNumber = floorNum;
+                            } else {
+                                delete roomElement.dataset.floorNumber;
+                            }
+                        }
+
             // Use the updateRoomLabelMain function for proper centering
             updateRoomLabelMain(parentGroup, office.name);
             console.log(`Updated label for room ${roomNum} to "${office.name}" with centering`);
           } else {
             console.log(`No parent group found for room ${roomNum}`);
           }
+                } else {
+                    const parentGroup = el.closest('g[id^="room-"]') || el.closest('g');
+                    if (parentGroup) {
+                        parentGroup.setAttribute('data-room', 'true');
+                        parentGroup.dataset.roomNumber = roomNum;
+                        if (floorNum) {
+                            parentGroup.dataset.floorNumber = floorNum;
+                        } else {
+                            delete parentGroup.dataset.floorNumber;
+                        }
+
+                        delete parentGroup.dataset.officeId;
+
+                        const roomElement = parentGroup.querySelector('path, rect');
+                        if (roomElement) {
+                            delete roomElement.dataset.officeId;
+                            roomElement.dataset.roomNumber = roomNum;
+                            if (floorNum) {
+                                roomElement.dataset.floorNumber = floorNum;
+                            } else {
+                                delete roomElement.dataset.floorNumber;
+                            }
+                        }
+                    }
         }
       });
         }
@@ -724,11 +914,32 @@ if (isset($_GET['selectRoom'])) {
             setTimeout(() => {
                 console.log('Initializing room labels for embedded SVG...');
                 updateRoomLabels();
+                if (typeof window.refreshDragDropRooms === 'function') {
+                    window.refreshDragDropRooms();
+                }
                 console.log('Room label initialization complete');
+                
+                // Also apply panorama status for the initial floor
+                setTimeout(() => {
+                    const initialFloor = 1; // Default floor
+                    applyPanoramaStatusToMarkers(initialFloor);
+                }, 300);
             }, 200); // Increased delay to ensure SVG is ready
+        });
+
+        // Also handle full page load as backup
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const currentFloor = (typeof window.getCurrentFloor === 'function') ? window.getCurrentFloor() : 1;
+                console.log('Page fully loaded, applying panorama status for floor', currentFloor);
+                applyPanoramaStatusToMarkers(currentFloor);
+            }, 500);
         });
      </script>
    <script>
+        // Global panorama status cache to persist across tab switches
+        window.panoramaStatusCache = {};
+        
         // Floor switching functionality
         document.addEventListener('DOMContentLoaded', function() {
             const floorButtons = document.querySelectorAll('.floor-select-btn');
@@ -749,6 +960,10 @@ if (isset($_GET['selectRoom'])) {
                 if (!container) {
                     console.error('Floor plan container not found');
                     return;
+                }
+
+                if (typeof window.forceExitDragDropEditMode === 'function') {
+                    window.forceExitDragDropEditMode();
                 }
 
                 // Destroy any existing panZoom instance before loading new SVG
@@ -786,6 +1001,19 @@ if (isset($_GET['selectRoom'])) {
                             editButton.textContent = 'Edit';
                             container.appendChild(editButton);
 
+                            const cancelButton = document.createElement('button');
+                            cancelButton.id = 'cancel-edit-floorplan-btn';
+                            cancelButton.className = 'absolute top-4 right-20 z-10 bg-gray-500 text-white px-3 py-1 rounded-md text-sm hover:bg-gray-600 transition-colors cursor-pointer hidden';
+                            cancelButton.textContent = 'Cancel';
+                            container.appendChild(cancelButton);
+
+                            if (typeof window.initializeDragDropEditButton === 'function') {
+                                window.initializeDragDropEditButton(editButton);
+                            }
+                            if (typeof window.initializeDragDropCancelButton === 'function') {
+                                window.initializeDragDropCancelButton(cancelButton);
+                            }
+
                             // Initialize SVG attributes
                             svg.setAttribute('width', '100%');
                             svg.setAttribute('height', '100%');
@@ -798,6 +1026,9 @@ if (isset($_GET['selectRoom'])) {
                             
                             // Update room labels with office names
                             updateRoomLabels(svg);
+                            if (typeof window.refreshDragDropRooms === 'function') {
+                                window.refreshDragDropRooms();
+                            }
                             
                             // Initialize pan-zoom functionality
                             if (typeof svgPanZoom !== 'undefined') {
@@ -821,21 +1052,26 @@ if (isset($_GET['selectRoom'])) {
                                         // Apply non-scaling labels after a short delay
                                         setTimeout(() => applyNonScalingLabels(panZoomInstance, svg), 150);
 
-                                        // Dispatch event for pathfinding.js
-                                        window.dispatchEvent(new CustomEvent('floorMapLoaded', { detail: { floor: parseInt(floor, 10) } }));
-                                        
-                                    } catch (e) {
-                                        console.warn('SVG Pan-Zoom initialization error:', e);
-                                        // Still dispatch event if pan-zoom fails
-                                        window.dispatchEvent(new CustomEvent('floorMapLoaded', { detail: { floor: parseInt(floor, 10) } }));
-                                    }
-                                }, 100);
-                            } else {
-                                // Dispatch event even if pan-zoom is not available
-                                window.dispatchEvent(new CustomEvent('floorMapLoaded', { detail: { floor: parseInt(floor, 10) } }));
-                            }
+                            // Dispatch event for pathfinding.js
+                            window.dispatchEvent(new CustomEvent('floorMapLoaded', { detail: { floor: parseInt(floor, 10) } }));
                             
-                            // Initialize additional functionality
+                            // Apply panorama status after markers are created
+                            setTimeout(() => applyPanoramaStatusToMarkers(parseInt(floor, 10)), 300);
+                            
+                        } catch (e) {
+                            console.warn('SVG Pan-Zoom initialization error:', e);
+                            // Still dispatch event if pan-zoom fails
+                            window.dispatchEvent(new CustomEvent('floorMapLoaded', { detail: { floor: parseInt(floor, 10) } }));
+                            // Apply panorama status even if pan-zoom fails
+                            setTimeout(() => applyPanoramaStatusToMarkers(parseInt(floor, 10)), 300);
+                        }
+                    }, 100);
+                } else {
+                    // Dispatch event even if pan-zoom is not available
+                    window.dispatchEvent(new CustomEvent('floorMapLoaded', { detail: { floor: parseInt(floor, 10) } }));
+                    // Apply panorama status without pan-zoom
+                    setTimeout(() => applyPanoramaStatusToMarkers(parseInt(floor, 10)), 300);
+                }                            // Initialize additional functionality
                             if (typeof initializeLabels === 'function') {
                                 initializeLabels();
                             }
@@ -867,6 +1103,39 @@ if (isset($_GET['selectRoom'])) {
             let currentFloor = '1';
             // Expose current floor globally for other scripts (panorama, pathfinding, etc.)
             window.getCurrentFloor = function() { return parseInt(currentFloor, 10); };
+
+            // Handle browser tab/window focus events to reapply panorama states
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    // Tab/window became visible again, reapply panorama states
+                    console.log('Tab became visible, reapplying panorama states...');
+                    setTimeout(() => {
+                        const floor = parseInt(currentFloor, 10);
+                        applyPanoramaStatusToMarkers(floor);
+                    }, 200);
+                }
+            });
+
+            // Also handle window focus event as a backup
+            window.addEventListener('focus', function() {
+                console.log('Window focused, reapplying panorama states...');
+                setTimeout(() => {
+                    const floor = parseInt(currentFloor, 10);
+                    applyPanoramaStatusToMarkers(floor);
+                }, 200);
+            });
+
+            // Periodic check to ensure panorama states are maintained (every 30 seconds)
+            setInterval(() => {
+                if (!document.hidden) { // Only when tab is visible
+                    const floor = parseInt(currentFloor, 10);
+                    const markers = document.querySelectorAll('.panorama-marker');
+                    if (markers.length > 0) {
+                        console.log('Periodic check: reapplying panorama states...');
+                        applyPanoramaStatusToMarkers(floor);
+                    }
+                }
+            }, 30000); // Every 30 seconds
 
             floorButtons.forEach(button => {
                 button.addEventListener('click', function() {
@@ -907,6 +1176,8 @@ if (isset($_GET['selectRoom'])) {
     const previewContainer = document.getElementById('panorama-preview-container');
     const uploadBtn = document.getElementById('upload-panorama-btn');
     const removeBtn = document.getElementById('remove-panorama-btn');
+    const panoramaActiveToggle = document.getElementById('panorama-active-toggle');
+    const panoramaStatusText = document.getElementById('panorama-status-text');
 
     let currentPanoData = {};
 
@@ -927,18 +1198,55 @@ if (isset($_GET['selectRoom'])) {
       }
     } catch(e) { console.warn('Could not derive panorama point coordinates:', e); }
 
-    currentPanoData = { pathId, pointIndex, currentImage, pointX, pointY, floor: floorNum };
+        currentPanoData = { pathId, pointIndex, currentImage, pointX, pointY, floor: floorNum };
         
-        panoramaPointInfo.innerHTML = `
-            <strong>Path ID:</strong> ${pathId}<br>
-      <strong>Point Index:</strong> ${pointIndex}<br>
-      <strong>Floor:</strong> ${floorNum}
-        `;
+                // Populate basic point info and placeholders for Title/Description
+                panoramaPointInfo.innerHTML = `
+                        <div style="font-size:14px;margin-bottom:6px;">
+                            <strong>Path ID:</strong> ${pathId}<br>
+                            <strong>Point Index:</strong> ${pointIndex}<br>
+                            <strong>Floor:</strong> ${floorNum}
+                        </div>
+                        <div id="panorama-meta" style="font-size:13px;color:#333;">
+                            <div><strong>Title:</strong> <span id="panorama-title" style="font-weight:600;color:#111;">Loading...</span></div>
+                            <div style="margin-top:6px;"><strong>Description:</strong>
+                                <div id="panorama-description" style="margin-top:4px;color:#444;">Loading...</div>
+                            </div>
+                        </div>
+                `;
 
-    if (currentImage) {
-      previewContainer.innerHTML = `<img src="Pano/${currentImage}" class="max-w-full max-h-48 object-contain">`;
-      removeBtn.style.display = 'inline-block';
-    } else {
+        // Fetch current panorama status and update toggle
+        fetchPanoramaStatus(pathId, pointIndex, floorNum);
+
+        if (currentImage) {
+            previewContainer.innerHTML = `<img src="Pano/${currentImage}" class="max-w-full max-h-48 object-contain">`;
+            removeBtn.style.display = 'inline-block';
+            document.getElementById('edit-hotspots-btn').style.display = 'inline-block';
+            // Fetch metadata (title/description) for the panorama and populate fields
+            (function(){
+                const metaParams = new URLSearchParams({ action: 'get', path_id: pathId, point_index: pointIndex, floor_number: floorNum });
+                fetch('panorama_api.php?' + metaParams.toString())
+                    .then(r => r.json())
+                    .then(data => {
+                        const titleEl = document.getElementById('panorama-title');
+                        const descEl = document.getElementById('panorama-description');
+                        if (data && data.success && data.panorama) {
+                            if (titleEl) titleEl.textContent = data.panorama.title || '(no title)';
+                            if (descEl) descEl.textContent = data.panorama.description || '(no description)';
+                        } else {
+                            if (titleEl) titleEl.textContent = '(no title)';
+                            if (descEl) descEl.textContent = '(no description)';
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('Failed to fetch panorama metadata:', err);
+                        const titleEl = document.getElementById('panorama-title');
+                        const descEl = document.getElementById('panorama-description');
+                        if (titleEl) titleEl.textContent = '(error)';
+                        if (descEl) descEl.textContent = '(error)';
+                    });
+            })();
+        } else {
       // Attempt a just-in-time fetch in case JSON not yet refreshed (multi-floor timing)
       previewContainer.innerHTML = '<span class="text-gray-400">Checking for existing panorama...</span>';
       removeBtn.style.display = 'none';
@@ -955,13 +1263,28 @@ if (isset($_GET['selectRoom'])) {
             currentPanoData.currentImage = data.panorama.image_filename;
             previewContainer.innerHTML = `<img src="Pano/${data.panorama.image_filename}" class="max-w-full max-h-48 object-contain">`;
             removeBtn.style.display = 'inline-block';
+            document.getElementById('edit-hotspots-btn').style.display = 'inline-block';
+                        // Populate metadata fields if available
+                        const titleEl = document.getElementById('panorama-title');
+                        const descEl = document.getElementById('panorama-description');
+                        if (titleEl) titleEl.textContent = data.panorama.title || '(no title)';
+                        if (descEl) descEl.textContent = data.panorama.description || '(no description)';
           } else {
             previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
+            document.getElementById('edit-hotspots-btn').style.display = 'none';
+                        const titleEl = document.getElementById('panorama-title');
+                        const descEl = document.getElementById('panorama-description');
+                        if (titleEl) titleEl.textContent = '(no title)';
+                        if (descEl) descEl.textContent = '(no description)';
           }
         })
         .catch(err => {
           console.warn('Fallback pano fetch failed:', err);
           previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
+                    const titleEl = document.getElementById('panorama-title');
+                    const descEl = document.getElementById('panorama-description');
+                    if (titleEl) titleEl.textContent = '(error)';
+                    if (descEl) descEl.textContent = '(error)';
         });
     }
 
@@ -1000,6 +1323,57 @@ if (isset($_GET['selectRoom'])) {
     closePanoramaBtn.addEventListener('click', closePanoramaModal);
     cancelPanoramaBtn.addEventListener('click', closePanoramaModal);
     fileInput.addEventListener('change', previewFile);
+    
+    // Edit Hotspots button functionality
+    document.getElementById('edit-hotspots-btn').addEventListener('click', () => {
+        if (!currentPanoData.currentImage) {
+            alert('No panorama image available. Please upload a panorama first.');
+            return;
+        }
+        
+        // Open hotspot editor in new window (using the fixed photosphere editor)
+        const editorUrl = new URL('panorama_viewer_photosphere.html', window.location.origin + window.location.pathname.replace(/[^\/]*$/, ''));
+        editorUrl.searchParams.set('image', `Pano/${currentPanoData.currentImage}`);
+        editorUrl.searchParams.set('pathId', currentPanoData.pathId);
+        editorUrl.searchParams.set('pointIndex', currentPanoData.pointIndex);
+        editorUrl.searchParams.set('floor', currentPanoData.floor || 1);
+        
+        // Open editor in new window with cache-buster to avoid stale cached scripts
+        const cacheBustedUrl = editorUrl.toString() + (editorUrl.toString().includes('?') ? '&' : '?') + 'cb=' + Date.now();
+        const editorWindow = window.open(cacheBustedUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+
+        if (!editorWindow) {
+            alert('Please allow pop-ups for this site to use the hotspot editor.');
+            return;
+        }
+
+        // Poll the popup for the reloadPhotosphereHotspots API and call it when available.
+        const maxPollMs = 5000; // stop after 5s
+        const start = Date.now();
+        const pollInterval = 250;
+        const pollHandle = setInterval(() => {
+            try {
+                if (editorWindow && !editorWindow.closed && typeof editorWindow.reloadPhotosphereHotspots === 'function') {
+                    try {
+                        editorWindow.reloadPhotosphereHotspots();
+                    } catch (e) {
+                        // ignore errors calling cross-window function
+                    }
+                    clearInterval(pollHandle);
+                }
+                // If popup navigated and defines the function on a nested window, try accessing its window object
+                if (editorWindow && !editorWindow.closed && editorWindow.window && typeof editorWindow.window.reloadPhotosphereHotspots === 'function') {
+                    try { editorWindow.window.reloadPhotosphereHotspots(); } catch (e) {}
+                    clearInterval(pollHandle);
+                }
+            } catch (err) {
+                // Accessing popup may throw until it's fully loaded; ignore
+            }
+            if (Date.now() - start > maxPollMs) {
+                clearInterval(pollHandle);
+            }
+        }, pollInterval);
+    });
 
     // Panorama upload functionality
     uploadBtn.addEventListener('click', () => {
@@ -1057,6 +1431,9 @@ if (isset($_GET['selectRoom'])) {
           previewContainer.innerHTML = `<img src="Pano/${data.filename}" class="max-w-full max-h-48 object-contain">`;
           removeBtn.style.display = 'inline-block';
           currentPanoData.currentImage = data.filename;
+          
+          // Generate QR code automatically (like office system)
+          generatePanoramaQR();
         }
         // Refresh graph in-memory to reflect pano assignment without full page reload
         const floorReload = currentPanoData.floor || 1;
@@ -1107,6 +1484,10 @@ if (isset($_GET['selectRoom'])) {
         previewContainer.innerHTML = '<span class="text-gray-400">No panorama image assigned.</span>';
         removeBtn.style.display = 'none';
         currentPanoData.currentImage = '';
+        
+        // Delete QR code automatically (like office system)
+        deletePanoramaQR();
+        
         // Reload floor graph to update markers
         const floorReload = currentPanoData.floor || 1;
         if (typeof initPathfinding === 'function') {
@@ -1125,6 +1506,355 @@ if (isset($_GET['selectRoom'])) {
             removeBtn.disabled = false;
         });
     });
+
+    // --- Simple QR Code Management (like office system) ---
+    const qrDownloadSection = document.getElementById('panorama-qr-download');
+    const downloadPanoramaQRBtn = document.getElementById('download-panorama-qr-btn');
+
+    // Show QR download button when panorama exists
+    function updateQRDownloadButton() {
+        if (currentPanoData.currentImage) {
+            qrDownloadSection.style.display = 'block';
+        } else {
+            qrDownloadSection.style.display = 'none';
+        }
+    }
+
+    // Generate QR code automatically (like office system)
+    function generatePanoramaQR() {
+        const formData = new FormData();
+        formData.append('action', 'generate');
+        formData.append('path_id', currentPanoData.pathId);
+        formData.append('point_index', currentPanoData.pointIndex);
+        formData.append('floor_number', currentPanoData.floor || 1);
+
+        fetch('panorama_qr_api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('QR code generated automatically for panorama');
+            } else {
+                console.warn('QR generation failed:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('QR generation error:', error);
+        });
+    }
+
+    // Delete QR code automatically (like office system)
+    function deletePanoramaQR() {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('path_id', currentPanoData.pathId);
+        formData.append('point_index', currentPanoData.pointIndex);
+        formData.append('floor_number', currentPanoData.floor || 1);
+
+        fetch('panorama_qr_api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('QR code deleted automatically for panorama');
+            } else {
+                console.warn('QR deletion failed:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('QR deletion error:', error);
+        });
+    }
+
+    // Download QR code (direct download like office system)
+    downloadPanoramaQRBtn.addEventListener('click', () => {
+        const params = new URLSearchParams({
+            action: 'download',
+            path_id: currentPanoData.pathId,
+            point_index: currentPanoData.pointIndex,
+            floor_number: currentPanoData.floor || 1
+        });
+        
+        // Create download link
+        const downloadUrl = 'panorama_qr_api.php?' + params.toString();
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `panorama_qr_floor${currentPanoData.floor}_path${currentPanoData.pathId}_point${currentPanoData.pointIndex}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // Function to fetch current panorama status
+    function fetchPanoramaStatus(pathId, pointIndex, floorNum) {
+        const params = new URLSearchParams({
+            action: 'get_status',
+            path_id: pathId,
+            point_index: pointIndex,
+            floor_number: floorNum
+        });
+        
+        fetch('panorama_api.php?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Prioritize is_active field from database
+                    let isActive = true; // default
+                    if (data.hasOwnProperty('is_active') && data.is_active !== null) {
+                        isActive = data.is_active === 1 || data.is_active === '1' || data.is_active === true;
+                    } else if (data.hasOwnProperty('status') && data.status !== null) {
+                        // Fallback to status field
+                        isActive = data.status === 'active';
+                    }
+                    
+                    panoramaActiveToggle.checked = isActive;
+                    panoramaStatusText.textContent = isActive ? 'Active' : 'Inactive';
+                    panoramaStatusText.style.color = isActive ? '#4caf50' : '#f44336';
+                    console.log(`Fetched panorama status: is_active=${data.is_active}, final=${isActive}`);
+                } else {
+                    // Default to active if no record exists
+                    panoramaActiveToggle.checked = true;
+                    panoramaStatusText.textContent = 'Active';
+                    panoramaStatusText.style.color = '#4caf50';
+                }
+            })
+            .catch(error => {
+                console.warn('Error fetching panorama status:', error);
+                // Default to active on error
+                panoramaActiveToggle.checked = true;
+                panoramaStatusText.textContent = 'Active';
+                panoramaStatusText.style.color = '#4caf50';
+            });
+    }
+
+    // Function to update panorama status
+    function updatePanoramaStatus(pathId, pointIndex, floorNum, isActive) {
+        const formData = new FormData();
+        formData.append('action', 'update_status');
+        formData.append('path_id', pathId);
+        formData.append('point_index', pointIndex);
+        formData.append('floor_number', floorNum);
+        formData.append('is_active', isActive ? '1' : '0'); // Send as 1/0 for database
+        formData.append('status', isActive ? 'active' : 'inactive'); // Keep status field for compatibility
+
+        fetch('panorama_api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Panorama status updated successfully');
+                panoramaStatusText.textContent = isActive ? 'Active' : 'Inactive';
+                panoramaStatusText.style.color = isActive ? '#4caf50' : '#f44336';
+                
+                // Clear the cached status data for this floor to force refresh
+                const currentFloor = (typeof window.getCurrentFloor === 'function') ? window.getCurrentFloor() : 1;
+                const cacheKey = `floor_${currentFloor}`;
+                if (window.panoramaStatusCache && window.panoramaStatusCache[cacheKey]) {
+                    delete window.panoramaStatusCache[cacheKey];
+                    console.log(`Cleared cache for ${cacheKey} due to status update`);
+                }
+                
+                // Update panorama marker visibility on the floor plan immediately
+                updatePanoramaMarkerVisibility(pathId, pointIndex, isActive);
+                
+                // Also update the floor graph to persist changes
+                if (typeof initPathfinding === 'function') {
+                    setTimeout(() => { 
+                        initPathfinding(currentFloor); 
+                        // Reapply status after graph reload (will fetch fresh data)
+                        setTimeout(() => applyPanoramaStatusToMarkers(currentFloor), 200);
+                    }, 300);
+                }
+            } else {
+                alert('Failed to update panorama status: ' + (data.error || 'Unknown error'));
+                // Revert toggle state on error
+                panoramaActiveToggle.checked = !isActive;
+            }
+        })
+        .catch(error => {
+            console.error('Error updating panorama status:', error);
+            alert('Error updating panorama status: ' + error.message);
+            // Revert toggle state on error
+            panoramaActiveToggle.checked = !isActive;
+        });
+    }
+
+    // Function to update panorama marker visibility on floor plan
+    function updatePanoramaMarkerVisibility(pathId, pointIndex, isActive) {
+        const markerSelector = `.panorama-marker[data-path-id="${pathId}"][data-point-index="${pointIndex}"]`;
+        const marker = document.querySelector(markerSelector);
+        
+        if (marker) {
+            const bgCircle = marker.querySelector('.camera-bg');
+            const cameraIcon = marker.querySelector('.camera-icon');
+            
+            if (isActive) {
+                marker.style.opacity = '1';
+                marker.classList.remove('inactive');
+                marker.style.cursor = 'pointer';
+                if (bgCircle) {
+                    bgCircle.setAttribute('fill', '#2563eb'); // Blue for active
+                    bgCircle.setAttribute('stroke', '#ffffff');
+                }
+                if (cameraIcon) {
+                    cameraIcon.setAttribute('fill', '#ffffff');
+                }
+            } else {
+                marker.style.opacity = '0.5';
+                marker.classList.add('inactive');
+                marker.style.cursor = 'not-allowed';
+                if (bgCircle) {
+                    bgCircle.setAttribute('fill', '#9ca3af'); // Gray for inactive
+                    bgCircle.setAttribute('stroke', '#6b7280');
+                }
+                if (cameraIcon) {
+                    cameraIcon.setAttribute('fill', '#d1d5db');
+                }
+            }
+            
+            // Force browser to recognize the changes
+            marker.style.transform = 'translateZ(0)';
+            setTimeout(() => {
+                marker.style.transform = '';
+            }, 1);
+        } else {
+            console.warn(`Marker not found: ${markerSelector}`);
+        }
+    }
+
+    // Function to apply panorama status to all markers on current floor
+    function applyPanoramaStatusToMarkers(floorNumber, retryCount = 0) {
+        console.log(`Applying panorama status for floor ${floorNumber} (attempt ${retryCount + 1})`);
+        
+        // Get all panorama markers on the current floor
+        const markers = document.querySelectorAll('.panorama-marker');
+        if (markers.length === 0 && retryCount < 5) {
+            console.log(`No panorama markers found, retrying in ${500 + (retryCount * 200)}ms...`);
+            setTimeout(() => applyPanoramaStatusToMarkers(floorNumber, retryCount + 1), 500 + (retryCount * 200));
+            return;
+        }
+        
+        // Check if we have cached data for this floor
+        const cacheKey = `floor_${floorNumber}`;
+        if (window.panoramaStatusCache[cacheKey]) {
+            console.log(`Using cached panorama status data for floor ${floorNumber}`);
+            applyStatusFromCache(floorNumber, markers);
+            return;
+        }
+        
+        // Fetch status for all panoramas on this floor
+        fetch(`panorama_api.php?action=list&floor_number=${floorNumber}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.panoramas) {
+                    console.log(`Found ${data.panoramas.length} panoramas for floor ${floorNumber}`);
+                    
+                    // Create a map of panorama statuses based on is_active column and cache it
+                    const statusMap = {};
+                    data.panoramas.forEach(pano => {
+                        const key = `${pano.path_id}_${pano.point_index}`;
+                        // Prioritize is_active column from database
+                        let isActive = true; // default to active
+                        if (pano.hasOwnProperty('is_active') && pano.is_active !== null) {
+                            isActive = pano.is_active === 1 || pano.is_active === '1' || pano.is_active === true;
+                        } else if (pano.hasOwnProperty('status') && pano.status !== null) {
+                            // Fallback to status field if is_active not available
+                            isActive = pano.status === 'active';
+                        }
+                        statusMap[key] = isActive;
+                        console.log(`Panorama ${key}: is_active = ${pano.is_active}, final state = ${isActive}`);
+                    });
+                    
+                    // Cache the status data
+                    window.panoramaStatusCache[cacheKey] = statusMap;
+                    
+                    // Apply status to each marker
+                    console.log('Applying status from is_active field to markers:', statusMap);
+                    applyStatusToMarkers(markers, statusMap);
+                } else {
+                    console.warn('Failed to fetch panorama statuses:', data.error || 'Unknown error');
+                    // On error, check cache or assume all are active
+                    if (window.panoramaStatusCache[cacheKey]) {
+                        applyStatusFromCache(floorNumber, markers);
+                    } else {
+                        applyDefaultActiveStatus(markers);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching panorama statuses:', error);
+                // On error, check cache or assume all are active
+                if (window.panoramaStatusCache[cacheKey]) {
+                    console.log('Using cached data due to fetch error');
+                    applyStatusFromCache(floorNumber, markers);
+                } else {
+                    applyDefaultActiveStatus(markers);
+                }
+            });
+    }
+
+    // Helper function to apply status from cache
+    function applyStatusFromCache(floorNumber, markers) {
+        const cacheKey = `floor_${floorNumber}`;
+        const statusMap = window.panoramaStatusCache[cacheKey];
+        if (statusMap) {
+            applyStatusToMarkers(markers, statusMap);
+        }
+    }
+
+    // Helper function to apply status to markers
+    function applyStatusToMarkers(markers, statusMap) {
+        markers.forEach(marker => {
+            const pathId = marker.getAttribute('data-path-id');
+            const pointIndex = marker.getAttribute('data-point-index');
+            const key = `${pathId}_${pointIndex}`;
+            
+            // Check if we have status data for this marker
+            if (statusMap.hasOwnProperty(key)) {
+                const isActive = statusMap[key];
+                console.log(`Applying is_active status to ${pathId} point ${pointIndex}: ${isActive ? 'active' : 'inactive'} (based on database is_active column)`);
+                updatePanoramaMarkerVisibility(pathId, pointIndex, isActive);
+            } else {
+                // No status data found, assume active (default)
+                console.log(`No is_active data for ${pathId} point ${pointIndex}, assuming active`);
+                updatePanoramaMarkerVisibility(pathId, pointIndex, true);
+            }
+        });
+    }
+
+    // Helper function to apply default active status
+    function applyDefaultActiveStatus(markers) {
+        markers.forEach(marker => {
+            const pathId = marker.getAttribute('data-path-id');
+            const pointIndex = marker.getAttribute('data-point-index');
+            updatePanoramaMarkerVisibility(pathId, pointIndex, true);
+        });
+    }
+
+    // Panorama status toggle event handler
+    panoramaActiveToggle.addEventListener('change', function() {
+        const isActive = this.checked;
+        updatePanoramaStatus(
+            currentPanoData.pathId,
+            currentPanoData.pointIndex,
+            currentPanoData.floor,
+            isActive
+        );
+    });
+
+    // Enhance the openPanoramaEditor function to show QR download button
+    const originalOpenPanoramaEditor = openPanoramaEditor;
+    openPanoramaEditor = function(pathId, pointIndex, currentImage) {
+        originalOpenPanoramaEditor(pathId, pointIndex, currentImage);
+        // Update QR download button after modal data is set
+        setTimeout(updateQRDownloadButton, 100);
+    };
 
    </script>
    </body>

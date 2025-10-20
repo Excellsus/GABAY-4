@@ -1,0 +1,157 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    STAIR GROUP ENFORCEMENT - VISUAL GUIDE
+═══════════════════════════════════════════════════════════════════════════════
+
+BEFORE IMPLEMENTATION (❌ PROBLEMS):
+────────────────────────────────────────────────────────────────────────────
+
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        ┌──────────┐
+    │ west_1-1 │───────▶│ west_2-2 │        │          │  ❌ WRONG!
+    │          │        │          │        │          │  Different groups!
+    └──────────┘        └──────────┘        └──────────┘
+
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        ┌──────────┐
+    │master_1-1│───────▶│master_2-2│        │          │  ❌ WRONG!
+    │          │        │          │        │          │  Different groups!
+    └──────────┘        └──────────┘        └──────────┘
+
+
+AFTER IMPLEMENTATION (✅ CORRECT):
+────────────────────────────────────────────────────────────────────────────
+
+GROUP: west_1 (Exclusive to path1)
+──────────────────────────────────
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        
+    │ west_1-1 │───────▶│ west_1-2 │        NOT AVAILABLE
+    │ (path1)  │◀───────│(path1_f2)│        
+    └──────────┘        └──────────┘        ✅ Same group enforced!
+
+GROUP: west_2 (Separate from west_1)
+─────────────────────────────────────
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        
+    │ west_2-1 │───────▶│ west_2-2 │        NOT AVAILABLE
+    │ (path2)  │◀───────│(path_f2) │        
+    └──────────┘        └──────────┘        ✅ Independent group!
+
+GROUP: master_1
+───────────────
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        
+    │master_1-1│───────▶│master_1-2│        NOT AVAILABLE
+    │ (path2)  │◀───────│(lobby_h1)│        
+    └──────────┘        └──────────┘        ✅ Isolated!
+
+GROUP: master_2
+───────────────
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        
+    │master_2-1│───────▶│master_2-2│        NOT AVAILABLE
+    │ (path2)  │◀───────│(lobby_v2)│        
+    └──────────┘        └──────────┘        ✅ Isolated!
+
+GROUP: east_1
+─────────────
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        
+    │ east_1-1 │───────▶│ east_1-2 │        NOT AVAILABLE
+    │ (path2)  │◀───────│(path10_f2)│        
+    └──────────┘        └──────────┘        ✅ F1-F2 only!
+
+GROUP: east_2 (Extends to Floor 3!)
+────────────────────────────────────
+    Floor 1              Floor 2              Floor 3
+    ┌──────────┐        ┌──────────┐        ┌──────────┐
+    │ east_2-1 │───────▶│ east_2-2 │───────▶│ east_1-3 │
+    │ (path2)  │◀───────│(path18_f2)│◀───────│(path2_f3)│
+    └──────────┘        └──────────┘        └──────────┘
+                        ✅ All same group: east_2!
+
+GROUP: thirdFloor_1
+───────────────────
+    Floor 1              Floor 2              Floor 3
+                        ┌───────────┐        ┌───────────┐
+    NOT AVAILABLE       │3rdFloor_1 │───────▶│3rdFloor_1 │
+                        │   -2      │◀───────│   -3      │
+                        │(lobby_v2) │        │(path3_f3) │
+                        └───────────┘        └───────────┘
+                        ✅ F2-F3 connection only!
+
+GROUP: thirdFloor_2
+───────────────────
+    Floor 1              Floor 2              Floor 3
+                        ┌───────────┐        ┌───────────┐
+    NOT AVAILABLE       │3rdFloor_2 │───────▶│3rdFloor_2 │
+                        │   -2      │◀───────│   -3      │
+                        │(lobby_v2) │        │(path2_f3) │
+                        └───────────┘        └───────────┘
+                        ✅ Independent F2-F3 group!
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ENFORCEMENT MECHANISM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  function areStairNodesCompatible(nodeA, nodeB)                             │
+│  {                                                                           │
+│      const groupA = nodeA.room.stairGroup;  // e.g., "west_1"               │
+│      const groupB = nodeB.room.stairGroup;  // e.g., "west_2"               │
+│                                                                              │
+│      if (groupA && groupB) {                                                 │
+│          return groupA === groupB;  // "west_1" === "west_2" → FALSE ❌     │
+│      }                                                                       │
+│  }                                                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESULT: Only stairs with MATCHING stairGroup values can connect!
+
+
+═══════════════════════════════════════════════════════════════════════════════
+REAL-WORLD EXAMPLE: Room 3 to Room 7 (Both on Floor 1, path1)
+═══════════════════════════════════════════════════════════════════════════════
+
+SCENARIO: Navigate from Room 3 → Room 7 (both require path1, west stair only)
+
+BEFORE FIX:
+───────────
+Floor 1: Room 3 (path1) → stair_west_1-1
+    ↓
+Floor 2: stair_west_2-2 ❌ WRONG! (different group: west_2)
+    ↓
+Floor 1: stair_west_2-1 → Room 7 ❌ Violated path1 exclusivity!
+
+
+AFTER FIX:
+──────────
+Floor 1: Room 3 (path1) → stair_west_1-1 (group: west_1)
+    ↓
+Floor 2: stair_west_1-2 ✅ CORRECT! (group: west_1 matches!)
+    ↓
+Floor 1: stair_west_1-1 → Room 7 ✅ Path1 exclusivity maintained!
+
+
+═══════════════════════════════════════════════════════════════════════════════
+VALIDATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ All stairs have stairGroup defined
+✅ areStairNodesCompatible() enforces group matching
+✅ findStairTransitionsBetweenFloors() uses compatibility check
+✅ Multi-floor routes respect group boundaries
+✅ Same-floor constrained routes respect groups
+✅ Syntax validated (node --check pathfinding.js)
+✅ Test script confirms valid/invalid connections
+✅ Documentation complete
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STATUS: ✅ FULLY OPERATIONAL
+═══════════════════════════════════════════════════════════════════════════════
+
+The pathfinding system now STRICTLY ENFORCES stair group connections.
+Each stair belongs to a specific group and can ONLY transition to other stairs
+in that SAME group. Cross-group transitions are automatically BLOCKED.

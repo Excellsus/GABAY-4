@@ -3,8 +3,22 @@ require 'phpqrcode/qrlib.php'; // Path to the QR library
 require 'connect_db.php'; // Uses $connect
 
 // --- Configuration ---
-// IMPORTANT: Change this to your actual server address if not running on localhost
-$baseUrl = "http:// 192.168.254.164/FinalDev/mobileScreen/";
+// Determine base URL dynamically when possible so QR codes work across devices/networks.
+// If running via webserver, derive protocol/host and build the path to the mobileScreen folder.
+// If running from CLI or server vars are unavailable, fall back to a sensible default.
+$baseUrl = '';
+if (!empty($_SERVER['HTTP_HOST'])) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    // dirname($_SERVER['SCRIPT_NAME']) gives the directory of this script (e.g., /FinalDev)
+    $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+    // Ensure we end up with a trailing slash and point to the mobileScreen folder
+    $baseUrl = $protocol . '://' . $_SERVER['HTTP_HOST'] . $scriptDir . '/mobileScreen/';
+    // Normalize double slashes (except after http(s):)
+    $baseUrl = preg_replace('#([^:])/+#', '$1/', $baseUrl);
+} else {
+    // Fallback: common local dev path — adjust if your environment differs
+    $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+}
 
 // Function to create a safe filename from a string (like an office name)
 function sanitize_filename($string) {
@@ -35,8 +49,9 @@ foreach ($offices as $office) {
     $officeId = $office['id'];
     $officeName = $office['name']; // Original office name
 
-    // Construct the URL for the QR code
-    $qrData = $baseUrl . "explore.php?office_id=" . $officeId;
+    // Construct the URL for the QR code. Add a `from_qr=1` flag so the server can
+    // distinguish true QR scans from normal navigation (clicks or manual refreshes).
+    $qrData = $baseUrl . "explore.php?office_id=" . $officeId . "&from_qr=1";
 
     // Sanitize the office name for the filename and append office ID for uniqueness
     $sanitizedOfficeName = sanitize_filename($officeName);

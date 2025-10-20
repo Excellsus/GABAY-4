@@ -87,6 +87,172 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   echo json_encode($result);
   exit;
 }
+
+// Handle geofence coordinate updates
+if (isset($_POST['action']) && $_POST['action'] === 'update_coordinates') {
+    $latitude = floatval($_POST['latitude']);
+    $longitude = floatval($_POST['longitude']);
+    $radius1 = intval($_POST['radius1']);
+    $radius2 = intval($_POST['radius2']);
+    $radius3 = intval($_POST['radius3']);
+    
+    // Read the current JavaScript file
+    $jsFile = 'mobileScreen/js/leafletGeofencing.js';
+    $jsContent = file_get_contents($jsFile);
+    
+    // Update coordinates in the JavaScript
+    $newCoordinates = "[$latitude, $longitude]";
+    
+    // Replace center coordinate
+    $jsContent = preg_replace(
+        '/center: \[[\d\.-]+, [\d\.-]+\]/',
+        "center: $newCoordinates",
+        $jsContent
+    );
+    
+    // Update radius values with multiline matching
+    $jsContent = preg_replace(
+        '/(name: "Main Palace Building".*?radius: )\d+/s',
+        '${1}' . $radius1,
+        $jsContent
+    );
+    
+    $jsContent = preg_replace(
+        '/(name: "Palace Complex".*?radius: )\d+/s',
+        '${1}' . $radius2,
+        $jsContent
+    );
+    
+    $jsContent = preg_replace(
+        '/(name: "Government Building Grounds".*?radius: )\d+/s',
+        '${1}' . $radius3,
+        $jsContent
+    );
+    
+    // Also update the geofenceConfig object directly for safety
+    $jsContent = preg_replace('/center: \[[\d\.-]+, [\d\.-]+\]/', "center: $newCoordinates", $jsContent);
+    $jsContent = preg_replace('/\{ name: "Main Palace Building", radius: \d+ \}/', "{ name: \"Main Palace Building\", radius: $radius1 }", $jsContent);
+    $jsContent = preg_replace('/\{ name: "Palace Complex", radius: \d+ \}/', "{ name: \"Palace Complex\", radius: $radius2 }", $jsContent);
+    $jsContent = preg_replace('/\{ name: "Government Building Grounds", radius: \d+ \}/', "{ name: \"Government Building Grounds\", radius: $radius3 }", $jsContent);
+
+    // Write back to file
+    file_put_contents($jsFile, $jsContent);
+    
+    // Save to DB geofences table (create or update a default record)
+    try {
+        if (isset($connect) && $connect) {
+            $name = 'default';
+            // Try update first
+            $stmt = $connect->prepare('SELECT id FROM geofences WHERE name = :name LIMIT 1');
+            $stmt->execute([':name' => $name]);
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($existing && isset($existing['id'])) {
+                $upd = $connect->prepare('UPDATE geofences SET center_lat = :lat, center_lng = :lng, radius1 = :r1, radius2 = :r2, radius3 = :r3 WHERE id = :id');
+                $upd->execute([':lat'=>$latitude, ':lng'=>$longitude, ':r1'=>$radius1, ':r2'=>$radius2, ':r3'=>$radius3, ':id'=>$existing['id']]);
+            } else {
+                $ins = $connect->prepare('INSERT INTO geofences (name, center_lat, center_lng, radius1, radius2, radius3) VALUES (:name, :lat, :lng, :r1, :r2, :r3)');
+                $ins->execute([':name'=>$name, ':lat'=>$latitude, ':lng'=>$longitude, ':r1'=>$radius1, ':r2'=>$radius2, ':r3'=>$radius3]);
+            }
+        }
+    } catch (Exception $e) {
+        // ignore DB errors but do not fail admin update
+        error_log('Geofence DB save failed: ' . $e->getMessage());
+    }
+    
+    $geofenceSuccess = "Geofence coordinates and radius updated successfully!";
+}
+
+// Handle test location request
+if (isset($_POST['action']) && $_POST['action'] === 'test_location') {
+    $testLat = floatval($_POST['test_latitude']);
+    $testLng = floatval($_POST['test_longitude']);
+    
+    // Calculate distance from current geofence center
+    $centerLat = 10.6496; // Default
+    $centerLng = 122.96192;
+    
+    // Try to read current coordinates from JavaScript file or DB
+    $jsFile = 'mobileScreen/js/leafletGeofencing.js';
+    try {
+        if (isset($connect) && $connect) {
+            $stmt = $connect->query("SELECT center_lat, center_lng, radius1, radius2, radius3 FROM geofences WHERE name = 'default' LIMIT 1");
+            $g = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($g) {
+                $centerLat = floatval($g['center_lat']);
+                $centerLng = floatval($g['center_lng']);
+            }
+        }
+    } catch (Exception $e) {
+        // fallback to JS file
+    }
+    
+    if (file_exists($jsFile)) {
+        $jsContent = file_get_contents($jsFile);
+        if (preg_match('/center: \[([\d\.-]+), ([\d\.-]+)\]/', $jsContent, $matches)) {
+            $centerLat = floatval($matches[1]);
+            $centerLng = floatval($matches[2]);
+        }
+    }
+    
+    // Calculate distance using Haversine formula
+    $earthRadius = 6371000; // meters
+    $dLat = deg2rad($testLat - $centerLat);
+    $dLng = deg2rad($testLng - $centerLng);
+    $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($centerLat)) * cos(deg2rad($testLat)) * sin($dLng/2) * sin($dLng/2);
+    $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+    $distance = $earthRadius * $c;
+    
+    $testResult = [
+        'distance' => round($distance, 2),
+        'zone1' => $distance <= $currentRadius1 ? 'INSIDE' : 'OUTSIDE',
+        'zone2' => $distance <= $currentRadius2 ? 'INSIDE' : 'OUTSIDE', 
+        'zone3' => $distance <= $currentRadius3 ? 'INSIDE' : 'OUTSIDE'
+    ];
+}
+
+// Read current geofence coordinates from DB or JavaScript file
+$currentLat = 10.6496;
+$currentLng = 122.96192;
+$currentRadius1 = 50;
+$currentRadius2 = 100;
+$currentRadius3 = 150;
+
+$jsFile = 'mobileScreen/js/leafletGeofencing.js';
+// Prefer DB geofence if available
+try {
+    if (isset($connect) && $connect) {
+        $stmt = $connect->query("SELECT center_lat, center_lng, radius1, radius2, radius3 FROM geofences WHERE name = 'default' LIMIT 1");
+        $g = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($g) {
+            $currentLat = floatval($g['center_lat']);
+            $currentLng = floatval($g['center_lng']);
+            $currentRadius1 = intval($g['radius1']);
+            $currentRadius2 = intval($g['radius2']);
+            $currentRadius3 = intval($g['radius3']);
+        }
+    }
+} catch (Exception $e) {
+    // ignore and fallback to JS file
+}
+
+if (file_exists($jsFile)) {
+    $jsContent = file_get_contents($jsFile);
+    if (preg_match('/center: \[([\d\.-]+), ([\d\.-]+)\]/', $jsContent, $matches)) {
+        $currentLat = floatval($matches[1]);
+        $currentLng = floatval($matches[2]);
+    }
+    
+    // Extract radius values
+    if (preg_match('/name: "Main Palace Building".*?radius: (\d+)/', $jsContent, $matches)) {
+        $currentRadius1 = intval($matches[1]);
+    }
+    if (preg_match('/name: "Palace Complex".*?radius: (\d+)/', $jsContent, $matches)) {
+        $currentRadius2 = intval($matches[1]);
+    }
+    if (preg_match('/name: "Government Building Grounds".*?radius: (\d+)/', $jsContent, $matches)) {
+        $currentRadius3 = intval($matches[1]);
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -97,6 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   <title>GABAY Admin Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="systemSetting.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <script src="./mobileNav.js"></script>
@@ -311,6 +478,166 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
             </div>
           </div>
 
+          <!-- Geofencing Configuration Section -->
+          <div class="gabay-card" style="grid-column: 1 / -1;">
+            <h3 class="gabay-card-title">📍 Geofencing Configuration</h3>
+            <p style="color: #666; margin-bottom: 20px;">Set up your building coordinates and geofence radius zones for mobile visitor access control.</p>
+            
+            <?php if (isset($geofenceSuccess)): ?>
+              <div class="success" style="background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <strong>✅ Success!</strong> <?= htmlspecialchars($geofenceSuccess) ?>
+              </div>
+            <?php endif; ?>
+
+            <div class="gabay-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+              
+              <!-- Current Configuration Display -->
+              <div style="background: #e6f4f1; padding: 15px; border-radius: 8px;">
+                <h4 style="margin-top: 0;">Current Configuration:</h4>
+                <p><strong>Latitude:</strong> <?= $currentLat ?></p>
+                <p><strong>Longitude:</strong> <?= $currentLng ?></p>
+                <div style="display: flex; align-items: center; margin: 10px 0;">
+                  <div style="width: 20px; height: 20px; border-radius: 50%; background: #ff4444; margin-right: 10px;"></div>
+                  <span>Zone 1 (Main Building): <?= $currentRadius1 ?>m radius</span>
+                </div>
+                <div style="display: flex; align-items: center; margin: 10px 0;">
+                  <div style="width: 20px; height: 20px; border-radius: 50%; background: #4CAF50; margin-right: 10px;"></div>
+                  <span>Zone 2 (Complex): <?= $currentRadius2 ?>m radius</span>
+                </div>
+                <div style="display: flex; align-items: center; margin: 10px 0;">
+                  <div style="width: 20px; height: 20px; border-radius: 50%; background: #2196F3; margin-right: 10px;"></div>
+                  <span>Zone 3 (Grounds): <?= $currentRadius3 ?>m radius</span>
+                </div>
+              </div>
+
+              <!-- Update Coordinates Form -->
+              <form method="POST" class="gabay-form">
+                <input type="hidden" name="action" value="update_coordinates">
+                
+                <div class="gabay-form-group">
+                  <label>Building Latitude:</label>
+                  <input type="number" name="latitude" step="0.000001" value="<?= $currentLat ?>" required>
+                  <small style="color: #666;">Example: 14.599512 (6+ decimal places)</small>
+                </div>
+                
+                <div class="gabay-form-group">
+                  <label>Building Longitude:</label>
+                  <input type="number" name="longitude" step="0.000001" value="<?= $currentLng ?>" required>
+                  <small style="color: #666;">Example: 120.984222</small>
+                </div>
+                
+                <h4 style="margin: 20px 0 10px 0;">Geofence Radius Zones (meters):</h4>
+                
+                <div class="gabay-form-group">
+                  <label>🔴 Zone 1 - Main Building:</label>
+                  <input type="number" name="radius1" value="<?= $currentRadius1 ?>" min="10" max="1000" required>
+                </div>
+                
+                <div class="gabay-form-group">
+                  <label>🟢 Zone 2 - Building Complex:</label>
+                  <input type="number" name="radius2" value="<?= $currentRadius2 ?>" min="20" max="2000" required>
+                </div>
+                
+                <div class="gabay-form-group">
+                  <label>🔵 Zone 3 - Outer Grounds:</label>
+                  <input type="number" name="radius3" value="<?= $currentRadius3 ?>" min="30" max="3000" required>
+                </div>
+                
+                <div class="gabay-button-wrapper">
+                  <button type="submit" class="gabay-btn gabay-btn-green">💾 Update Geofence</button>
+                </div>
+              </form>
+
+            </div>
+
+            <!-- Test Location Section -->
+            <div class="gabay-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+              
+              <form method="POST" class="gabay-form">
+                <h4 style="margin-top: 0;">🧪 Test Location</h4>
+                <p style="color: #666; font-size: 14px;">Test if a GPS coordinate is inside your geofence zones.</p>
+                
+                <input type="hidden" name="action" value="test_location">
+                
+                <div class="gabay-form-group">
+                  <label>Test Latitude:</label>
+                  <input type="number" name="test_latitude" step="0.000001" placeholder="14.599500" required>
+                </div>
+                
+                <div class="gabay-form-group">
+                  <label>Test Longitude:</label>
+                  <input type="number" name="test_longitude" step="0.000001" placeholder="120.984200" required>
+                </div>
+                
+                <div class="gabay-button-wrapper">
+                  <button type="submit" class="gabay-btn" style="background: #4CAF50;">🎯 Test Location</button>
+                </div>
+              </form>
+              
+              <?php if (isset($testResult)): ?>
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px;">
+                  <h4 style="margin-top: 0;">🧪 Test Results:</h4>
+                  <p><strong>Distance from center:</strong> <?= $testResult['distance'] ?> meters</p>
+                  <div style="display: flex; align-items: center; margin: 10px 0;">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; background: #ff4444; margin-right: 10px;"></div>
+                    <span>Zone 1 (<?= $currentRadius1 ?>m): <strong><?= $testResult['zone1'] ?></strong></span>
+                  </div>
+                  <div style="display: flex; align-items: center; margin: 10px 0;">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; background: #4CAF50; margin-right: 10px;"></div>
+                    <span>Zone 2 (<?= $currentRadius2 ?>m): <strong><?= $testResult['zone2'] ?></strong></span>
+                  </div>
+                  <div style="display: flex; align-items: center; margin: 10px 0;">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; background: #2196F3; margin-right: 10px;"></div>
+                    <span>Zone 3 (<?= $currentRadius3 ?>m): <strong><?= $testResult['zone3'] ?></strong></span>
+                  </div>
+                </div>
+              <?php endif; ?>
+
+            </div>
+
+            <!-- Interactive Map -->
+            <div>
+              <h4>🗺️ Interactive Map</h4>
+              <p style="color: #666; font-size: 14px; margin-bottom: 10px;">Visual representation of your geofence zones</p>
+              <div id="geofence-map" style="height: 400px; border-radius: 8px; overflow: hidden; margin: 10px 0;"></div>
+            </div>
+
+            <!-- Quick Setup Instructions -->
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <h4>📋 Quick Setup Instructions</h4>
+              
+              <div style="margin: 15px 0;">
+                <h5 style="color: #667eea;">📍 Step 1: Find Your Building Coordinates</h5>
+                <ol style="color: #666; line-height: 1.8;">
+                  <li>Open <a href="https://www.google.com/maps" target="_blank" style="color: #667eea;">Google Maps</a></li>
+                  <li>Search for your building or navigate to it</li>
+                  <li>Right-click on the exact building location</li>
+                  <li>Click on the coordinates that appear (they'll copy to clipboard)</li>
+                  <li>Paste the coordinates in the form above</li>
+                </ol>
+              </div>
+              
+              <div style="margin: 15px 0;">
+                <h5 style="color: #667eea;">🎯 Step 2: Set Radius Zones</h5>
+                <ul style="color: #666; line-height: 1.8;">
+                  <li><strong>Zone 1 (Main Building):</strong> Tight security - usually 30-100 meters</li>
+                  <li><strong>Zone 2 (Complex):</strong> Building grounds - usually 100-300 meters</li>
+                  <li><strong>Zone 3 (Outer Grounds):</strong> Extended area - usually 200-500 meters</li>
+                </ul>
+              </div>
+              
+              <div style="margin: 15px 0;">
+                <h5 style="color: #667eea;">✅ Step 3: Test Your Setup</h5>
+                <ol style="color: #666; line-height: 1.8;">
+                  <li>Use the test form above to verify coordinates</li>
+                  <li>Visit the <a href="mobileScreen/explore.php" target="_blank" style="color: #667eea;">Mobile Interface</a> on your phone</li>
+                  <li>Ensure location permissions are granted when prompted</li>
+                </ol>
+              </div>
+            </div>
+
+          </div>
+
         </div>
       </div>
     </main>
@@ -484,8 +811,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
         })
         .catch(error => console.error('Error refreshing activities:', error));
     }, 30000);
+    
+    // Initialize geofence map if element exists
+    const geofenceMapEl = document.getElementById('geofence-map');
+    if (geofenceMapEl) {
+      // Initialize map
+      const map = L.map('geofence-map').setView([<?= $currentLat ?>, <?= $currentLng ?>], 16);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      
+      // Add geofence zones
+      const zones = [
+        { name: "Zone 1 - Main Building", radius: <?= $currentRadius1 ?>, color: '#ff4444' },
+        { name: "Zone 2 - Building Complex", radius: <?= $currentRadius2 ?>, color: '#4CAF50' },
+        { name: "Zone 3 - Outer Grounds", radius: <?= $currentRadius3 ?>, color: '#2196F3' }
+      ];
+      
+      zones.forEach(zone => {
+        L.circle([<?= $currentLat ?>, <?= $currentLng ?>], {
+          color: zone.color,
+          fillColor: zone.color,
+          fillOpacity: 0.1,
+          radius: zone.radius,
+          weight: 2
+        }).addTo(map).bindPopup(`<strong>${zone.name}</strong><br>Radius: ${zone.radius}m`);
+      });
+      
+      // Add center marker
+      L.marker([<?= $currentLat ?>, <?= $currentLng ?>], {
+        icon: L.divIcon({
+          className: 'center-marker',
+          html: '<div style="background: #667eea; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">🏢</div>',
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
+        })
+      }).addTo(map).bindPopup('<strong>Building Center</strong><br>Lat: <?= $currentLat ?><br>Lng: <?= $currentLng ?>');
+      
+      <?php if (isset($testResult) && isset($_POST['test_latitude']) && isset($_POST['test_longitude'])): ?>
+      // Add test point marker
+      L.marker([<?= $_POST['test_latitude'] ?>, <?= $_POST['test_longitude'] ?>], {
+        icon: L.divIcon({
+          className: 'test-marker',
+          html: '<div style="background: #ff6b35; color: white; width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">📍</div>',
+          iconSize: [25, 25],
+          iconAnchor: [12.5, 12.5]
+        })
+      }).addTo(map).bindPopup('<strong>Test Point</strong><br>Distance: <?= $testResult['distance'] ?>m<br>Status: <?= $testResult['zone1'] === 'INSIDE' ? 'ACCESS GRANTED' : 'ACCESS DENIED' ?>');
+      
+      // Fit map to show both points
+      const group = new L.featureGroup([
+        L.marker([<?= $currentLat ?>, <?= $currentLng ?>]),
+        L.marker([<?= $_POST['test_latitude'] ?>, <?= $_POST['test_longitude'] ?>])
+      ]);
+      map.fitBounds(group.getBounds().pad(0.1));
+      <?php endif; ?>
+    }
   });
   </script>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 </body>
 </html>

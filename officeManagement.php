@@ -453,6 +453,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
     background: #04aa6d;
     color: white;
 }
+
+/* Toggle Switch Styles */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+}
+
+.toggle-switch input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-label {
+  display: block;
+  width: 48px;
+  height: 24px;
+  background-color: #ccc;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  position: relative;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-label {
+  background-color: #2e7d32;
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-label .toggle-slider {
+  transform: translateX(24px);
+}
+
+.toggle-switch input[type="checkbox"]:disabled + .toggle-label {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
   </style>
 </head>
 <body>
@@ -765,12 +811,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
 
 <!-- Download QR Confirmation Modal -->
 <div id="downloadModal" class="modal-overlay">
-  <div class="modal-dialog">
+  <div class="modal-dialog" style="max-width: 450px;">
     <div class="modal-header">
-      <h4 class="modal-title">Download QR Code</h4>
+      <h4 class="modal-title">QR Code Management</h4>
     </div>
     <div class="modal-body">
-      <p>Do you want to download this QR code?</p>
+      <p style="margin-bottom: 15px;">Manage QR code settings for this office:</p>
+      
+      <!-- QR Code Status Toggle -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <div>
+          <strong style="color: #2e7d32;">QR Code Status</strong>
+          <p style="margin: 2px 0 0 0; font-size: 0.9em; color: #666;">
+            <span id="qr-status-text">Active</span> - QR code is <span id="qr-status-desc">visible to visitors</span>
+          </p>
+        </div>
+        <div class="toggle-switch" id="qr-toggle-switch">
+          <input type="checkbox" id="qr-status-toggle" checked>
+          <label for="qr-status-toggle" class="toggle-label">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      
+      <p style="margin-bottom: 0;">Do you want to download this QR code?</p>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" id="cancelDownload">Cancel</button>
@@ -845,7 +909,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
         $('#location').val(data.location);
         $('#services').val(data.services);
         $('#room-id-value').text(data.location ? data.location : '');
-        $('#selected-room-label').text(data.location ? 'Room ' + data.location : '');
+        if (data.name) {
+          $('#selected-room-label').text(data.name);
+        } else if (data.location) {
+          $('#selected-room-label').text(data.location);
+        } else {
+          $('#selected-room-label').text('');
+        }
       },
       error: function() {
         alert('Failed to load office details');
@@ -913,6 +983,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   $(document).on('click', '.download-qr-btn', function(e) {
     e.preventDefault();
     downloadQrForm = $(this).closest('form');
+    const officeId = downloadQrForm.find('input[name="office_id"]').val();
+    
+    // Load QR status and show modal
+    loadQrStatus(officeId);
     $('#downloadModal').addClass('active');
   });
   
@@ -926,6 +1000,116 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
     $('#downloadModal').removeClass('active');
     if (downloadQrForm) {
       downloadQrForm.submit();
+    }
+  });
+  
+  // QR Status Management Functions
+  let currentQrOfficeId = null;
+  let qrStatusCache = {};
+  
+  function loadQrStatus(officeId) {
+    currentQrOfficeId = officeId;
+    
+    // Check cache first
+    if (qrStatusCache[officeId]) {
+      updateQrStatusUI(qrStatusCache[officeId]);
+      return;
+    }
+    
+    $.ajax({
+      type: 'GET',
+      url: 'qr_api.php',
+      data: {
+        operation: 'getQrStatus',
+        office_id: officeId
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          qrStatusCache[officeId] = response.is_active;
+          updateQrStatusUI(response.is_active);
+        } else {
+          console.error('Failed to load QR status:', response.message);
+          // Default to active if can't load status
+          updateQrStatusUI(true);
+        }
+      },
+      error: function() {
+        console.error('Error loading QR status');
+        // Default to active if can't load status
+        updateQrStatusUI(true);
+      }
+    });
+  }
+  
+  function updateQrStatusUI(isActive) {
+    const toggle = $('#qr-status-toggle');
+    const statusText = $('#qr-status-text');
+    const statusDesc = $('#qr-status-desc');
+    
+    toggle.prop('checked', isActive);
+    
+    if (isActive) {
+      statusText.text('Active').css('color', '#2e7d32');
+      statusDesc.text('visible to visitors').css('color', '#2e7d32');
+    } else {
+      statusText.text('Inactive').css('color', '#e53e3e');
+      statusDesc.text('hidden from visitors').css('color', '#e53e3e');
+    }
+  }
+  
+  function updateQrStatus(officeId, isActive) {
+    $.ajax({
+      type: 'POST',
+      url: 'qr_api.php',
+      data: {
+        operation: 'updateQrStatus',
+        office_id: officeId,
+        is_active: isActive
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          qrStatusCache[officeId] = response.is_active;
+          updateQrStatusUI(response.is_active);
+        } else {
+          console.error('Failed to update QR status:', response.message);
+          alert('Failed to update QR status: ' + response.message);
+          // Revert toggle state
+          updateQrStatusUI(!isActive);
+        }
+      },
+      error: function() {
+        console.error('Error updating QR status');
+        alert('Error updating QR status. Please try again.');
+        // Revert toggle state
+        updateQrStatusUI(!isActive);
+      }
+    });
+  }
+  
+  // Handle QR status toggle change
+  $(document).on('change', '#qr-status-toggle', function() {
+    if (currentQrOfficeId) {
+      const isActive = $(this).is(':checked');
+      updateQrStatus(currentQrOfficeId, isActive);
+    }
+  });
+  
+  // Handle browser tab visibility change for QR status caching
+  $(document).on('visibilitychange', function() {
+    if (!document.hidden && currentQrOfficeId && $('#downloadModal').hasClass('active')) {
+      // Refresh QR status when tab becomes visible
+      delete qrStatusCache[currentQrOfficeId];
+      loadQrStatus(currentQrOfficeId);
+    }
+  });
+  
+  $(window).on('focus', function() {
+    if (currentQrOfficeId && $('#downloadModal').hasClass('active')) {
+      // Refresh QR status when window gains focus
+      delete qrStatusCache[currentQrOfficeId];
+      loadQrStatus(currentQrOfficeId);
     }
   });
   

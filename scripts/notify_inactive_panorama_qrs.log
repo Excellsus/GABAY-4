@@ -1,0 +1,2 @@
+[2025-10-10T12:56:10+02:00] ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'pq.last_scanned_at' in 'field list'
+[2025-10-10T12:56:21+02:00] ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'pq.last_scanned_at' in 'field list'

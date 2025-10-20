@@ -1,101 +1,44 @@
-# GABAY Office Directory & Navigation System - AI Coding Guide
+# GABAY — AI coding guide (condensed)
 
-## Architecture Overview
+This repo is a PHP-based office directory and indoor navigation system. It has a desktop admin UI and a mobile visitor interface, SVG floor plans, QR code generation, and a MySQL database accessed via PDO.
 
-This is a PHP-based office directory and indoor navigation system for government buildings, supporting both desktop administration and mobile visitor interfaces. The system centers around QR code-based navigation and interactive floor plans.
+Keep instructions short and actionable — focus only on discoverable repo-specific patterns.
 
-### Core Components
+Key entry points (start here):
+- `connect_db.php` — PDO connection; `$connect` is the DB handle used across files.
+- `home.php`, `officeManagement.php`, `floorPlan.php` — admin UI and floor plan editor.
+- `mobileScreen/` — visitor-facing mobile pages; `explore.php?office_id={id}` is the mobile office view.
+- `generate_qrcodes.php`, `update_panorama_qr_urls.php`, `panorama_qr_manager.php` — QR code and panorama QR tooling.
 
-- **Admin Interface**: Desktop-focused office management (`home.php`, `officeManagement.php`, `floorPlan.php`)
-- **Mobile Interface**: Visitor-facing mobile web app in `mobileScreen/` folder
-- **Database**: MySQL with PDO connections via `connect_db.php`
-- **Floor Plans**: SVG-based interactive maps with drag-drop positioning
-- **QR System**: Automated QR code generation linking to mobile office details
+Concrete conventions and patterns
+- Database: MySQL accessed through PDO. Use prepared statements and expect `$connect` to exist after including `connect_db.php`.
+- Paths: Desktop files live in repo root; mobile pages live in `mobileScreen/` and often include parent files with `__DIR__ . '/../connect_db.php'`.
+- SVG floor plans: stored under `SVG/` and use element IDs like `room-{number}-1` and `roomlabel-{number}`. Database `location` fields map to these IDs exactly.
+- Images/QR: Office images in `office_images/` (names use timestamps), QR images in `qrcodes/` (pattern `{sanitized_office_name}_{office_id}.png`). Tools use `uniqid()` for filenames.
+- JS/CSS: floor plan scripts in `floorjs/`; dark mode in `darkMode.js`; mobile styles under `mobileNav.css` / `mobileScreen` styles.
 
-## Key Database Tables
+Developer workflows (what to run)
+- Local dev: this is a PHP + MySQL app (XAMPP commonly used). Place the repo under your web root and ensure MySQL credentials in `connect_db.php` match your local environment.
+- Regenerate QR codes (after adding offices): open `generate_qrcodes.php` in a browser or run via CLI PHP: `php generate_qrcodes.php` (ensure DB credentials accessible).
+- Update panorama QR URLs: run `update_panorama_qr_urls.php` similarly.
 
-```sql
-offices          // Core office data (name, details, contact, location, services)
-office_hours     // Operating hours per office per weekday
-office_image     // Multiple images per office with upload timestamps
-qrcode_info      // QR code metadata linking to offices
-qr_scan_logs     // Visitor tracking with timestamps
-activities       // Admin activity logging
-feedback         // Visitor feedback with ratings
-```
+Project-specific gotchas
+- SVG IDs must match DB `location` exactly — mismatches break mapping and navigation.
+- Mobile files use relative includes; when editing mobile files, keep `__DIR__` include paths consistent.
+- Several maintenance/fix scripts exist (e.g., `fix_*` and `FLOOR3_*` docs). Read those files before large changes.
 
-## Critical Patterns & Conventions
+Files worth reading when making changes (examples):
+- `connect_db.php` — DB connection pattern
+- `floorPlan.php`, `floorjs/` — SVG editing and drag/drop persistence
+- `generate_qrcodes.php` — QR generation logic and base URL handling
+- `mobileScreen/explore.php` — how mobile office pages consume `office_id`
+- `panorama_*` files — panorama QR and viewer integration
 
-### Database Connection
-- Always use `include 'connect_db.php'` or `include __DIR__ . '/../connect_db.php'` for mobile screens
-- Database object is `$connect` (PDO instance)
-- Default database name is "admin" on localhost MySQL
+When editing: prefer minimal, focused changes. Run quick checks:
+- Confirm DB access by including `connect_db.php` and running a small query.
+- Use browser devtools to inspect SVG element IDs when fixing layout/labels.
 
-### Mobile vs Desktop Structure
-- Desktop files: Root directory (`floorPlan.php`, `home.php`, etc.)
-- Mobile files: `mobileScreen/` subdirectory with relative path adjustments
-- Mobile screens use `explore.php` as main entry point with `office_id` parameter
+If you need more info
+- I merged and condensed the repository's existing guidance into this file. If you want, I can expand any section (DB schema details, key SQL, or step-by-step QR regeneration). Point to what you want next.
 
-### SVG Floor Plan Integration
-- Floor plans stored in `SVG/` directory with specific naming:
-  - `Capitol_1st_floor_layout_20_modified.svg` (Floor 1)
-  - `Capitol_2nd_floor_layout_6_modified.svg` (Floor 2)
-  - `Capitol_3rd_floor_layout_6.svg` (Floor 3)
-- Room elements use IDs like `room-{number}-1` pattern
-- Room labels use `roomlabel-{number}` pattern in SVG text elements
-
-### File Upload Patterns
-- Office images: `office_images/` with format `office_{timestamp}.{ext}`
-- QR codes: `qrcodes/` with format `{sanitized_office_name}_{office_id}.png`
-- Use `uniqid()` for unique file naming
-
-### JavaScript/CSS Organization
-- Floor plan interactions: `floorjs/` directory
-- Mobile navigation: Separate CSS files per screen (`explore.css`, `about.css`, etc.)
-- Dark mode toggle: `darkMode.js` for theme switching
-
-## Development Workflows
-
-### Adding New Offices
-1. Insert into `offices` table with `location` field for SVG room mapping
-2. Generate QR codes via `generate_qrcodes.php` 
-3. Update floor plan positions using drag-drop interface in `floorPlan.php`
-4. Add office hours in `office_hours` table
-
-### QR Code System
-- Base URL in `generate_qrcodes.php`: Update `$baseUrl` for deployment
-- QR codes link to `mobileScreen/explore.php?office_id={id}`
-- Scan logging automatic when office_id present in URL
-
-### Mobile Screen Development
-- All mobile screens extend from parent directory includes
-- Use `office_id` parameter for office-specific content
-- Implement responsive design for mobile-first experience
-
-## Error Handling Conventions
-- Enable error reporting in development: `ini_set('display_errors', 1)`
-- Use `error_log()` for production logging instead of displaying errors
-- Wrap database operations in try-catch blocks
-- Check `$connect` validity before queries
-
-## Asset Management
-- Office images: Upload to `office_images/` with automatic resize handling
-- SVG modifications: Update room coordinates directly in SVG files
-- QR regeneration: Run `generate_qrcodes.php` after adding offices
-
-## Security Notes
-- Password hashing: Use `password_hash()` and `password_verify()`
-- Input sanitization: PDO prepared statements for all user inputs
-- File uploads: Validate extensions and use `move_uploaded_file()`
-
-## Testing & Debugging
-- Check activities table for admin action logging
-- Monitor qr_scan_logs for visitor tracking
-- Use browser dev tools for SVG coordinate debugging
-- Test mobile interface on actual mobile devices for touch interactions
-
-## Common Pitfalls
-- SVG room IDs must match database `location` field exactly
-- Mobile paths need `../` prefix for parent directory includes
-- QR base URL must be updated for production deployment
-- Floor plan coordinate system is SVG-based, not pixel-based
+Please review and tell me any unclear or missing parts to iterate.

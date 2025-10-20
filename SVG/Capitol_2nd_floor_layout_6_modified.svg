@@ -1425,12 +1425,11 @@
              <!-- ROOM 16 -->
              <g
    id="g32"
-   transform="matrix(1.0025581,0,0,1,-3.5933165,0)"
    style="stroke-width:0.99959939;stroke-dasharray:none;stroke:url(#linearGradient115)"><path
      style="display:inline;fill:#7e5852;fill-opacity:1;stroke-width:1.99520837;paint-order:stroke fill markers;stroke-dasharray:none;stroke:url(#linearGradient115)"
      d="m 1423.8033,435.44638 v 35.12075 h 138.0521 v -35.18708 h -9.1499 v -14.3784 h -119.1691 v 14.50182 z"
      id="room-16-2"
-     transform="translate(-19.145794,-214.59494)" /></g>
+     transform="matrix(1.0025581,0,0,1,-22.739110794,-214.59494)" /></g>
              
              
              <!-- ROOM 17 -->

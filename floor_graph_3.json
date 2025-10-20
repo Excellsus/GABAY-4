@@ -7,12 +7,38 @@
     "path1_floor3": {
       "transitionStairKeys": ["west"],
       "enforceTransitions": true
+    },
+    "path_central_exclusive": {
+      "transitionStairKeys": ["central_exclusive"],
+      "enforceTransitions": true
+    },
+    "path_central_exclusive_floor3": {
+      "transitionStairKeys": ["central_exclusive"],
+      "enforceTransitions": true
+    }
+  },
+  "restrictedAccessRules": {
+    "room-4-3": {
+      "mandatoryEntryPoint": "stair_east_2-2",
+      "entryPointFloor": 2,
+      "description": "Room 4 must always use the East Stair (Floor 2) as entry/exit point"
+    },
+    "room-5-3": {
+      "mandatoryEntryPoint": "stair_east_2-2",
+      "entryPointFloor": 2,
+      "description": "Room 5 must always use the East Stair (Floor 2) as entry/exit point"
+    },
+    "room-6-3": {
+      "mandatoryEntryPoint": "stair_east_2-2",
+      "entryPointFloor": 2,
+      "description": "Room 6 must always use the East Stair (Floor 2) as entry/exit point"
     }
   },
   "rooms": {
   "stair_thirdFloor_1-3": {
       "type": "stair",
       "stairKey": "west",
+      "stairGroup": "thirdFloor_1",
       "label": "West Stair",
       "doorPoints": [{"x": 895, "y": 140, "nearestPathId": "path3_floor3"}],
       "nearestPathId": "path3_floor3",
@@ -23,6 +49,7 @@
   "stair_thirdFloor_2-3": {
       "type": "stair",
       "stairKey": "central",
+      "stairGroup": "thirdFloor_2",
       "label": "Central Stair",
       "doorPoints": [{"x": 1055, "y": 140, "nearestPathId": "path2_floor3"}],
       "nearestPathId": "path2_floor3",
@@ -30,6 +57,16 @@
       "x": 975,
       "y": 233
     },
+  "stair_thirdFloor_3-3": {
+        "type": "stair",
+        "stairKey": "central_exclusive",
+        "label": "Central Stair (Exclusive)",
+        "doorPoints": [{"x": 1810, "y": 174, "nearestPathId": "path_central_exclusive_floor3"}],
+        "nearestPathId": "path_central_exclusive_floor3",
+        "connectsTo": [2],
+        "x": 975,
+        "y": 233
+      },
     "room-1-3": {
       "doorPoints": [{"x": 815, "y": 233}],
       "nearestPathId": "lobby_vertical_1_floor3",
@@ -67,6 +104,75 @@
           "radius": 6,
           "color": "green",
           "hoverColor": "#44FF44",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+    "room-4-3": {
+      "doorPoints": [
+        {
+          "x": 1770,
+          "y": 245,
+          "nearestPathId": "path18_floor2",
+          "virtual": true,
+          "actualFloor": 2,
+          "actualRoomId": "stair_east_2-2"
+        }
+      ],
+      "nearestPathId": "path18_floor2",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "blue",
+          "hoverColor": "#FF8800",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+    "room-5-3": {
+      "doorPoints": [
+        {
+          "x": 1750,
+          "y": 175,
+          "nearestPathId": "path18_floor2",
+          "virtual": true,
+          "actualFloor": 2,
+          "actualRoomId": "stair_east_2-2"
+        }
+      ],
+      "nearestPathId": "path18_floor2",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "blue",
+          "hoverColor": "#FF8800",
+          "strokeColor": "#000",
+          "strokeWidth": 2
+        }
+      }
+    },
+    "room-6-3": {
+      "doorPoints": [
+        {
+          "x": 1810,
+          "y": 150,
+          "nearestPathId": "path18_floor2",
+          "virtual": true,
+          "actualFloor": 2,
+          "actualRoomId": "stair_east_2-2"
+        }
+      ],
+      "nearestPathId": "path18_floor2",
+      "style": {
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "blue",
+          "hoverColor": "#FF8800",
           "strokeColor": "#000",
           "strokeWidth": 2
         }
@@ -114,6 +220,27 @@
       "pathPoints": [
         {"x": 845, "y": 140, "isPano": true, "panoImage": ""},
         {"x": 845, "y": 180, "isIntersection": true}
+      ]
+    },
+    {
+        "id": "path_central_exclusive_floor3",
+      "style": {
+        "color": "#4CAF50",
+        "width": 3,
+        "opacity": 0.8,
+        "highlight": true,
+        "pointMarker": {
+          "type": "circle",
+          "radius": 6,
+          "color": "#4CAF50",
+          "hoverColor": "#FF4444",
+          "strokeColor": "#000",
+          "strokeWidth": 1
+        }
+      },
+      "pathPoints": [
+        {"x": 1810, "y": 174, "isIntersection": true},
+        {"x": 1770, "y": 174, "isPano": true, "panoImage": "", "panoTitle": "Exclusive Landing", "panoDescription": null}
       ]
     },
     {
@@ -301,6 +428,7 @@
     "1036,220": ["lobby_horizontal_1_floor3", "lobby_vertical_3_floor3"],
     "906,285": ["lobby_horizontal_3_floor3", "lobby_vertical_1_floor3"],
     "970,285": ["lobby_horizontal_3_floor3", "lobby_vertical_2_floor3"],
-    "1036,285": ["lobby_horizontal_3_floor3", "lobby_vertical_3_floor3"]
+    "1036,285": ["lobby_horizontal_3_floor3", "lobby_vertical_3_floor3"],
+    "1810,174": ["path_central_exclusive_floor3"]
   }
 }

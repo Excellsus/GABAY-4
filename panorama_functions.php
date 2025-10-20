@@ -13,9 +13,10 @@
  */
 function getPanoramasByFloor($connect, $floor_number = 1) {
     try {
+        // For visitor side: show ALL panoramas regardless of is_active status
         $stmt = $connect->prepare("
             SELECT * FROM panorama_image 
-            WHERE floor_number = ? AND is_active = 1 
+            WHERE floor_number = ? 
             ORDER BY path_id, point_index
         ");
         $stmt->execute([$floor_number]);
@@ -32,9 +33,10 @@ function getPanoramasByFloor($connect, $floor_number = 1) {
  */
 function getPanoramaByPoint($connect, $path_id, $point_index, $floor_number = 1) {
     try {
+        // For visitor side: show ALL panoramas regardless of is_active status
         $stmt = $connect->prepare("
             SELECT * FROM panorama_image 
-            WHERE path_id = ? AND point_index = ? AND floor_number = ? AND is_active = 1
+            WHERE path_id = ? AND point_index = ? AND floor_number = ?
         ");
         $stmt->execute([$path_id, $point_index, $floor_number]);
         return $stmt->fetch(PDO::FETCH_ASSOC);

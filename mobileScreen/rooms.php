@@ -20,13 +20,17 @@ try {
     // Check if $connect is a valid PDO object
     if (!isset($connect) || !$connect) {
         throw new Exception("Database connection object (\$connect) is not valid. Check connect_db.php.");
-    }    // Modify query to include search if present
+    }    // Modify query to include search if present and fetch image
     if (!empty($search_query)) {
-        $stmt = $connect->prepare("SELECT id, name FROM offices WHERE name LIKE :search ORDER BY name ASC");
+        $stmt = $connect->prepare("SELECT o.id, o.name, o.location, 
+            (SELECT image_path FROM office_image WHERE office_id = o.id ORDER BY uploaded_at DESC, id DESC LIMIT 1) AS image_path 
+            FROM offices o WHERE o.name LIKE :search ORDER BY o.name ASC");
         $search_param = $search_query . "%"; // Changed from %search% to search% to match starting letters
         $stmt->bindParam(':search', $search_param, PDO::PARAM_STR);
     } else {
-        $stmt = $connect->query("SELECT id, name FROM offices ORDER BY name ASC");
+        $stmt = $connect->query("SELECT o.id, o.name, o.location, 
+            (SELECT image_path FROM office_image WHERE office_id = o.id ORDER BY uploaded_at DESC, id DESC LIMIT 1) AS image_path 
+            FROM offices o ORDER BY o.name ASC");
     }
 
     if ($stmt === false) {
@@ -77,9 +81,15 @@ if ($is_ajax) {
     <!-- Link to your CSS files -->
     <link rel="stylesheet" href="rooms.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- GABAY Geofencing System -->
+    <script src="js/geofencing.js"></script>
 </head>
 <body>
     <header class="header">
+        <div class="header-back">
+            <a href="explore.php" aria-label="Back to Explore"><i class="fas fa-arrow-left"></i></a>
+        </div>
         <div class="header-content">
             <h2 class="section-title">Rooms</h2>
             <p class="section-subtitle">Explore the rooms available in the building.</p>
@@ -138,11 +148,39 @@ if ($is_ajax) {
                     <?php endif; ?>
                 </div>
             <?php else: ?>                <?php foreach ($offices as $office): ?>
+                    <?php 
+                    // Extract floor number from location
+                    $floor_number = 'N/A';
+                    if (!empty($office['location'])) {
+                        // Try to extract floor number from room ID patterns like "room-101-1", "room-201-1", etc.
+                        if (preg_match('/room-(\d)(\d{2})-/', $office['location'], $matches)) {
+                            $floor_number = $matches[1];
+                        }
+                        // Alternative: if location contains direct floor info
+                        elseif (preg_match('/(\d+)(st|nd|rd|th)?\s*floor/i', $office['location'], $matches)) {
+                            $floor_number = $matches[1];
+                        }
+                        // If room number starts with floor digit (e.g., 101, 201, 301)
+                        elseif (preg_match('/\b([1-9])0\d\b/', $office['location'], $matches)) {
+                            $floor_number = $matches[1];
+                        }
+                    }
+                    ?>
                     <a href="office_details.php?id=<?php echo htmlspecialchars($office['id']); ?>" class="room-card-link">
                         <div class="room-card">
-                            <i class="fas fa-door-open room-icon"></i>
+                            <?php if (!empty($office['image_path']) && file_exists(__DIR__ . '/../office_images/' . $office['image_path'])): ?>
+                                <img src="../office_images/<?php echo htmlspecialchars($office['image_path']); ?>" 
+                                     alt="<?php echo htmlspecialchars($office['name']); ?>" 
+                                     class="room-image">
+                            <?php else: ?>
+                                <i class="fas fa-door-open room-icon"></i>
+                            <?php endif; ?>
                             <div class="room-info">
                                 <h3 class="room-name"><?php echo htmlspecialchars($office['name'] ?? 'N/A'); ?></h3>
+                                <div class="floor-indicator">
+                                    <i class="fas fa-layer-group"></i>
+                                    <span>Floor <?php echo htmlspecialchars($floor_number); ?></span>
+                                </div>
                             </div>
                         </div>
                     </a>
@@ -151,27 +189,32 @@ if ($is_ajax) {
         </div>
     </main>
 
-    <!-- Bottom Navigation Section -->
-    <nav class="bottom-nav" role="navigation" aria-label="Visitor navigation">
-        <!-- Explore Link -->
-        <a href="explore.php" aria-label="Explore">
-            <i class="fas fa-map-marker-alt"></i>
-            <span>Explore</span>
-        </a>
-
-        <!-- Rooms Link -->
-        <a href="rooms.php" class="active" aria-label="Rooms">
-            <i class="fas fa-building"></i>
-            <span>Rooms</span>
-        </a>
-
-        <!-- About Link -->
-        <a href="about.php" aria-label="About">
-            <i class="fas fa-bars"></i>
-            <span>About</span>
-        </a>
-    </nav>
-
+    <script>
+        // Add this page to navigation history
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize history if not exists
+            window.gabayHistory = window.gabayHistory || [];
+            
+            // Add rooms page to history
+            const currentPage = {
+                page: 'rooms',
+                title: 'Rooms Directory',
+                timestamp: Date.now()
+            };
+            
+            // Only add if it's not the same as the last entry
+            const lastEntry = window.gabayHistory[window.gabayHistory.length - 1];
+            if (!lastEntry || lastEntry.page !== 'rooms') {
+                window.gabayHistory.push(currentPage);
+            }
+            
+            // Update breadcrumbs if function exists
+            if (typeof updateBreadcrumbs === 'function') {
+                updateBreadcrumbs('rooms', 'Rooms Directory');
+            }
+        });
+    </script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const searchBtn = document.getElementById('searchBtn');
@@ -186,12 +229,43 @@ if ($is_ajax) {
 
             // Function to create room card HTML
             function createRoomCard(office) {
+                // Extract floor number from location
+                let floorNumber = 'N/A';
+                if (office.location) {
+                    // Try to extract floor number from room ID patterns
+                    const roomMatch = office.location.match(/room-(\d)(\d{2})-/);
+                    if (roomMatch) {
+                        floorNumber = roomMatch[1];
+                    } else {
+                        // Alternative: if location contains direct floor info
+                        const floorMatch = office.location.match(/(\d+)(st|nd|rd|th)?\s*floor/i);
+                        if (floorMatch) {
+                            floorNumber = floorMatch[1];
+                        } else {
+                            // If room number starts with floor digit
+                            const numberMatch = office.location.match(/\b([1-9])0\d\b/);
+                            if (numberMatch) {
+                                floorNumber = numberMatch[1];
+                            }
+                        }
+                    }
+                }
+                
+                // Create image or icon HTML
+                const imageOrIconHTML = office.image_path 
+                    ? `<img src="../office_images/${office.image_path}" alt="${office.name || 'Office'}" class="room-image">`
+                    : '<i class="fas fa-door-open room-icon"></i>';
+                
                 return `
                     <a href="office_details.php?id=${office.id}" class="room-card-link">
                         <div class="room-card">
-                            <i class="fas fa-door-open room-icon"></i>
+                            ${imageOrIconHTML}
                             <div class="room-info">
                                 <h3 class="room-name">${office.name || 'N/A'}</h3>
+                                <div class="floor-indicator">
+                                    <i class="fas fa-layer-group"></i>
+                                    <span>Floor ${floorNumber}</span>
+                                </div>
                             </div>
                         </div>
                     </a>

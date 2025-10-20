@@ -10,23 +10,29 @@ body {
   font-family: Arial, sans-serif;
   background-color: #e8f5e9;
   color: #333;
+  overflow: hidden; /* Prevent body scroll */
 }
 
 .container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* Sidebar */
 .sidebar {
   width: 250px;
-  background: linear-gradient(135deg, #1a5632 0%, #50C878 100%);
+  background: linear-gradient(135deg, #1a5632 0%, #50c878 100%);
   color: white;
   display: flex;
   flex-direction: column;
-  position: relative;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
   box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.05),
     2px 0 4px -1px rgba(0, 0, 0, 0.03);
+  z-index: 1000;
 }
 
 .sidebar-header {
@@ -96,7 +102,7 @@ body {
 }
 
 .sidebar-nav a.active {
-  background-color: #1a5632 ;
+  background-color: #1a5632;
   color: white;
 }
 
@@ -139,8 +145,31 @@ body {
 /* Main Content */
 .main-content {
   flex: 1;
+  margin-left: 250px;
   padding: 32px;
   background-color: #e8f5e9;
+  height: 100vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar for Main Content */
+.main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: rgba(26, 86, 50, 0.3);
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 86, 50, 0.6);
 }
 
 .header {
@@ -248,6 +277,10 @@ body {
   border-bottom: 4px solid #1a5632;
 }
 
+.card.blue {
+  border-bottom: 4px solid #1976d2;
+}
+
 .card.yellow {
   border-bottom: 4px solid #ffd700;
 }
@@ -309,6 +342,10 @@ body {
   background-color: rgba(26, 86, 50, 0.1);
 }
 
+.card.blue .card-right {
+  background-color: rgba(25, 118, 210, 0.1);
+}
+
 .card.yellow .card-right {
   background-color: rgba(255, 215, 0, 0.1);
 }
@@ -319,6 +356,10 @@ body {
 
 .card.green .card-right .icon {
   stroke: #1a5632;
+}
+
+.card.blue .card-right .icon {
+  stroke: #1976d2;
 }
 
 .card.yellow .card-right .icon {
@@ -470,13 +511,21 @@ body {
 }
 
 @media (max-width: 768px) {
+  body {
+    overflow: visible; /* Allow body scroll on mobile */
+  }
+
   .container {
     flex-direction: column;
+    height: auto;
+    overflow: visible;
   }
 
   .sidebar {
     width: 100%;
     position: static;
+    height: auto;
+    display: none; /* Hide desktop sidebar on mobile */
   }
 
   .sidebar-footer {
@@ -484,7 +533,10 @@ body {
   }
 
   .main-content {
+    margin-left: 0;
     padding: 24px 16px;
+    height: auto;
+    overflow-y: visible;
   }
 
   .header {
@@ -570,4 +622,328 @@ body.dark-mode .gabay-btn:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* Summary stats styles */
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #1976d2;
+}
+
+.stat-item h4 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: #1976d2;
+}
+
+.stat-item p {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: #333;
+}
+
+.stat-item small {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Responsive adjustments for new content */
+@media (max-width: 768px) {
+  .summary-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-item {
+    padding: 15px;
+  }
+
+  .stat-item h4 {
+    font-size: 24px;
+  }
+}
+
+/* Panorama Floor Plan Styles */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+  background-color: #e8e8e8;
+  border-color: #bbb;
+}
+
+.refresh-btn:active {
+  background-color: #d0d0d0;
+}
+
+.refresh-btn.refreshing {
+  background-color: #e3f2fd;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.refresh-btn.refreshing svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.panorama-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.panorama-filter label {
+  font-weight: 500;
+}
+
+.time-filter-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.time-filter-select:hover {
+  border-color: #bbb;
+}
+
+.time-filter-select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.floor-selector {
+  display: flex;
+  gap: 10px;
+}
+
+.floor-btn {
+  padding: 8px 16px;
+  border: 2px solid #1976d2;
+  background-color: white;
+  color: #1976d2;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.floor-btn:hover {
+  background-color: #f5f5f5;
+}
+
+.floor-btn.active {
+  background-color: #1976d2;
+  color: white;
+}
+
+.panorama-map-container {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.floor-map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.floor-map.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.floor-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Panorama Pin Markers */
+.panorama-pin {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.panorama-pin:hover {
+  transform: scale(1.15);
+}
+
+.panorama-pin .pin-shape {
+  stroke-width: 3;
+  stroke: white;
+}
+
+.panorama-pin.high-activity .pin-shape {
+  fill: #d32f2f;
+}
+
+.panorama-pin.medium-activity .pin-shape {
+  fill: #f57c00;
+}
+
+.panorama-pin.low-activity .pin-shape {
+  fill: #388e3c;
+}
+
+.panorama-pin.no-activity .pin-shape {
+  fill: #757575;
+}
+
+.panorama-pin .pin-circle {
+  fill: white;
+  stroke: white;
+  stroke-width: 1;
+}
+
+.panorama-pin .pin-text {
+  fill: #333;
+  font-size: 14px;
+  font-weight: bold;
+  font-family: Arial, sans-serif;
+}
+
+/* Map Legend */
+.map-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+.legend-marker {
+  width: 16px;
+  height: 20px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  border: 2px solid white;
+}
+
+.legend-marker.high-activity {
+  background-color: #d32f2f;
+}
+
+.legend-marker.medium-activity {
+  background-color: #f57c00;
+}
+
+.legend-marker.low-activity {
+  background-color: #388e3c;
+}
+
+.legend-marker.no-activity {
+  background-color: #757575;
+}
+
+/* Responsive Design for Floor Plan */
+@media (max-width: 768px) {
+  .panel-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .panel-controls {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .refresh-btn,
+  .panorama-filter {
+    align-self: center;
+  }
+
+  .floor-selector {
+    align-self: center;
+  }
+
+  .panorama-filter {
+    flex-direction: column;
+    gap: 5px;
+    text-align: center;
+  }
+
+  .map-legend {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .legend-item {
+    font-size: 11px;
+  }
 }

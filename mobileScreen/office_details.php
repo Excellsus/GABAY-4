@@ -112,15 +112,21 @@ function formatTime($timeStr) {
     <title><?php echo $office ? htmlspecialchars($office['name']) : 'Office Details'; ?></title>
     <link rel="stylesheet" href="office_details.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- GABAY Geofencing System -->
+    <script src="js/geofencing.js"></script>
 </head>
 <body>
     <header class="header">
         <div class="header-back">
-            <a href="rooms.php" aria-label="Back to Rooms List"><i class="fas fa-arrow-left"></i></a>
+            <a href="#" id="back-button" aria-label="Go Back"><i class="fas fa-arrow-left"></i></a>
         </div>
         <div class="header-content">
             <h2 class="section-title"><?php echo $office ? htmlspecialchars($office['name']) : 'Office Details'; ?></h2>
             <p class="section-subtitle">Services Offered</p>
+        </div>
+        <div class="header-actions">
+            <!-- Placeholder for consistent structure -->
         </div>
     </header>
 
@@ -249,25 +255,69 @@ function formatTime($timeStr) {
         </div>
     </div>
 
-    <!-- Bottom Navigation Section -->
-    <nav class="bottom-nav" role="navigation" aria-label="Visitor navigation">
-        <!-- Explore Link -->
-        <a href="explore.php" aria-label="Explore">
-            <i class="fas fa-map-marker-alt"></i>
-            <span>Explore</span>
-        </a>
-
-        <!-- Rooms Link -->
-        <a href="rooms.php" class="active" aria-label="Rooms">
-            <i class="fas fa-building"></i>
-            <span>Rooms</span>
-        </a>
-
-        <!-- About Link -->
-        <a href="about.php" aria-label="About">
-            <i class="fas fa-bars"></i>
-            <span>About</span>
-        </a>
-    </nav>
+    <script>
+        // Add this page to navigation history
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize history if not exists
+            window.gabayHistory = window.gabayHistory || [];
+            
+            // Add office details page to history
+            const currentPage = {
+                page: 'office_details',
+                title: 'Office Details',
+                office_id: <?php echo $office_id ?? 'null'; ?>,
+                timestamp: Date.now()
+            };
+            
+            // Only add if it's not the same as the last entry
+            const lastEntry = window.gabayHistory[window.gabayHistory.length - 1];
+            if (!lastEntry || lastEntry.page !== 'office_details' || lastEntry.office_id !== currentPage.office_id) {
+                window.gabayHistory.push(currentPage);
+            }
+            
+            // Update breadcrumbs if function exists
+            if (typeof updateBreadcrumbs === 'function') {
+                updateBreadcrumbs('office_details', 'Office Details');
+            }
+            
+            // Smart back navigation
+            const backButton = document.getElementById('back-button');
+            if (backButton) {
+                backButton.onclick = function(e) {
+                    e.preventDefault();
+                    
+                    // Check if user came from rooms.php
+                    const referrer = document.referrer;
+                    console.log('Referrer:', referrer);
+                    
+                    if (referrer && referrer.includes('rooms.php')) {
+                        console.log('Going back to rooms.php');
+                        window.location.href = 'rooms.php';
+                        return;
+                    }
+                    
+                    // Check navigation history
+                    if (window.gabayHistory && window.gabayHistory.length > 1) {
+                        console.log('Navigation history:', window.gabayHistory);
+                        // Remove current page from history
+                        window.gabayHistory.pop();
+                        const previousPage = window.gabayHistory[window.gabayHistory.length - 1];
+                        
+                        if (previousPage && previousPage.page === 'rooms') {
+                            console.log('Going back to rooms from history');
+                            window.location.href = 'rooms.php';
+                        } else {
+                            console.log('Going back to explore from history');
+                            window.location.href = 'explore.php';
+                        }
+                    } else {
+                        // Default fallback to explore
+                        console.log('Default fallback to explore');
+                        window.location.href = 'explore.php';
+                    }
+                };
+            }
+        });
+    </script>
 </body>
 </html>

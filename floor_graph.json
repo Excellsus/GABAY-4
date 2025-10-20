@@ -1,14 +1,17 @@
 {
     "pathAccessRules": {
         "path1": {
-            "transitionStairKeys": ["west"],
+            "transitionStairKeys": [
+                "west"
+            ],
             "enforceTransitions": true
         }
     },
     "rooms": {
-    "stair_west_1-1": {
+        "stair_west_1-1": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "west_1",
             "label": "West Stair",
             "doorPoints": [
                 {
@@ -18,13 +21,16 @@
                 }
             ],
             "nearestPathId": "path1",
-            "connectsTo": [2],
+            "connectsTo": [
+                2
+            ],
             "x": 165,
             "y": 215
         },
         "stair_west_2-1": {
             "type": "stair",
             "stairKey": "west",
+            "stairGroup": "west_2",
             "label": "West Stair",
             "doorPoints": [
                 {
@@ -34,13 +40,16 @@
                 }
             ],
             "nearestPathId": "path2",
-            "connectsTo": [2],
+            "connectsTo": [
+                2
+            ],
             "x": 165,
             "y": 215
         },
-    "stair_master_1-1": {
+        "stair_master_1-1": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "master_1",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -50,13 +59,16 @@
                 }
             ],
             "nearestPathId": "path2",
-            "connectsTo": [2],
+            "connectsTo": [
+                2
+            ],
             "x": 880,
             "y": 130
         },
-    "stair_master_2-1": {
+        "stair_master_2-1": {
             "type": "stair",
             "stairKey": "central",
+            "stairGroup": "master_2",
             "label": "Central Stair",
             "doorPoints": [
                 {
@@ -66,13 +78,16 @@
                 }
             ],
             "nearestPathId": "path2",
-            "connectsTo": [2],
+            "connectsTo": [
+                2
+            ],
             "x": 880,
             "y": 130
         },
-    "stair_east_1-1": {
+        "stair_east_1-1": {
             "type": "stair",
             "stairKey": "east",
+            "stairGroup": "east_1",
             "label": "East Stair",
             "doorPoints": [
                 {
@@ -82,23 +97,30 @@
                 }
             ],
             "nearestPathId": "path2",
-            "connectsTo": [2,3],
+            "connectsTo": [
+                2,
+                3
+            ],
             "x": 1685,
             "y": 215
         },
         "stair_east_2-1": {
             "type": "stair",
             "stairKey": "east",
+            "stairGroup": "east_2",
             "label": "East Stair",
             "doorPoints": [
                 {
-                    "x": 1823   ,
-                    "y": 168    ,
+                    "x": 1823,
+                    "y": 168,
                     "nearestPathId": "path2"
                 }
             ],
             "nearestPathId": "path2",
-            "connectsTo": [2],
+            "connectsTo": [
+                2,
+                3
+            ],
             "x": 1685,
             "y": 215
         },
@@ -106,7 +128,7 @@
             "doorPoints": [
                 {
                     "x": 130,
-                    "y": 90
+                    "y": 85
                 }
             ],
             "nearestPathId": "path1",
@@ -122,7 +144,7 @@
         "room-2-1": {
             "doorPoints": [
                 {
-                    "x": 140,
+                    "x": 135,
                     "y": 255
                 }
             ],
@@ -157,7 +179,7 @@
             "doorPoints": [
                 {
                     "x": 217,
-                    "y": 360
+                    "y": 370
                 }
             ],
             "nearestPathId": "path1",
@@ -173,7 +195,7 @@
         "room-5-1": {
             "doorPoints": [
                 {
-                    "x": 235,
+                    "x": 244,
                     "y": 345
                 }
             ],
@@ -199,7 +221,7 @@
                     "nearestPathId": "path1"
                 }
             ],
-            "nearestPathId": "path2",
+            "nearestPathId": "path1",
             "style": {
                 "pointMarker": {
                     "type": "circle",
@@ -412,18 +434,12 @@
                 {
                     "x": 130,
                     "y": 175,
-                    "isPano": true,
-                    "panoImage": "pano_path1_1_1758098248_68ca73482277c.jpg",
-                    "panoTitle": "1st Floor CR to Stairs",
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 165,
                     "y": 175,
-                    "isPano": true,
-                    "panoImage": "pano_path1_2_1758097274_68ca6f7a1ee01.jpg",
-                    "panoTitle": "Procurement",
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 165,
@@ -432,18 +448,12 @@
                 {
                     "x": 165,
                     "y": 255,
-                    "isPano": true,
-                    "panoImage": "pano_path1_4_1758031979_68c9706b4f9ff.jpg",
-                    "panoTitle": "Inner",
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 165,
                     "y": 340,
-                    "isPano": true,
-                    "panoImage": "pano_path1_5_1758625386_68d27e6ad5a52.jpg",
-                    "panoTitle": "Between ICTD and Exit",
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 185,
@@ -452,18 +462,15 @@
                 {
                     "x": 220,
                     "y": 340,
-                    "isPano": true,
-                    "panoImage": "pano_path1_7_1758625429_68d27e95c8945.jpg",
-                    "panoTitle": "ICTD",
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 100,
                     "y": 340,
                     "isPano": true,
                     "isIntersection": true,
-                    "panoImage": "pano_path1_8_1758625870_68d2804eb683c.jpg",
-                    "panoTitle": "path1 -8",
+                    "panoImage": "pano_path1_8_1760923990_68f59156e6d9b.jpg",
+                    "panoTitle": "Exit ",
                     "panoDescription": null
                 }
             ]
@@ -488,10 +495,7 @@
                 {
                     "x": 467,
                     "y": 220,
-                    "isPano": true,
-                    "panoImage": "pano_path2_0_1758099304_68ca7768c0d44.jpg",
-                    "panoTitle": "Me and the bois",
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 615,
@@ -501,10 +505,7 @@
                 {
                     "x": 770,
                     "y": 220,
-                    "isPano": true,
-                    "panoImage": "pano_path2_2_1758100404_68ca7bb431344.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 835,
@@ -513,138 +514,87 @@
                 {
                     "x": 850,
                     "y": 220,
-                    "isPano": true,
-                    "panoImage": "pano_path2_4_1758100366_68ca7b8eb4e92.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 851,
                     "y": 130,
-                    "isPano": true,
-                    "panoImage": "pano_path2_5_1758100261_68ca7b25392f7.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 880,
                     "y": 130,
-                    "isPano": true,
-                    "panoImage": "pano_path2_6_1758100210_68ca7af233fb9.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 950,
                     "y": 130,
-                    "isPano": true,
-                    "panoImage": "pano_path2_7_1758099716_68ca7904c9c49.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1020,
                     "y": 130,
-                    "isPano": true,
-                    "panoImage": "pano_path2_8_1758100471_68ca7bf7c3f32.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1045,
                     "y": 130,
-                    "isPano": true,
-                    "panoImage": "pano_path2_9_1758100513_68ca7c21b7356.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1045,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_10_1758100552_68ca7c48f0090.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1084,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_11_1758635517_68d2a5fd829a7.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1184,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_12_1758100718_68ca7cee279fa.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1313,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_13_1758100802_68ca7d421801d.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1419,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_14_1758100835_68ca7d63de0a0.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1449,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_15_1758100884_68ca7d94d802f.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1557,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_16_1758100944_68ca7dd0130bb.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1685,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_17_1758100999_68ca7e07e34dd.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1778,
                     "y": 215,
-                    "isPano": true,
-                    "panoImage": "pano_path2_18_1758101042_68ca7e32c761b.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1778,
                     "y": 170,
-                    "isPano": true,
-                    "panoImage": "pano_path2_19_1758101166_68ca7eae74cf7.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 },
                 {
                     "x": 1778,
                     "y": 110,
-                    "isPano": true,
-                    "panoImage": "pano_path2_20_1758101227_68ca7eeb063b4.jpg",
-                    "panoTitle": null,
-                    "panoDescription": null
+                    "isPano": true
                 }
             ]
         }

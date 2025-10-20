@@ -13,10 +13,10 @@ if (!isset($data['assignments'])) {
 try {
     foreach ($data['assignments'] as $assignment) {
         $officeId = intval($assignment['officeId']);
-        $roomId = $assignment['roomId']; // Should be in format "room-X-1"
+        $roomId = $assignment['roomId']; // Expected format: room-<number>-<floor>
         
-        // Validate room ID format
-        if (!preg_match('/^room-\d+-1$/', $roomId)) {
+        // Validate room ID format (allow any floor suffix)
+        if (!preg_match('/^room-\d+(?:-\d+)?$/', $roomId)) {
             continue; // Skip invalid room IDs
         }
         
@@ -45,7 +45,7 @@ try {
                 $currentLocation = $currentLocStmt->fetchColumn();
                 
                 // Only proceed with swap if current location is also in correct format
-                if ($currentLocation && preg_match('/^room-\d+-1$/', $currentLocation)) {
+                if ($currentLocation && preg_match('/^room-\d+(?:-\d+)?$/', $currentLocation)) {
                     // Update the other office to use the current office's location
                     $stmt->execute([$currentLocation, $existingOffice['id']]);
                     

@@ -18,6 +18,40 @@ document.addEventListener("DOMContentLoaded", function () {
   let officeActiveStates = {};
   let roomElementCache = new Map(); // Cache room elements to avoid repeated DOM queries
 
+  function labelBelongsToRoom(tspanEl, roomNumber) {
+    if (!tspanEl) return false;
+    const parentText = tspanEl.closest('text');
+    if (!parentText || !parentText.id) return false;
+    const parentId = parentText.id.trim();
+    if (!parentId.startsWith('text-')) return false;
+    if (parentId === `text-${roomNumber}`) return true;
+    return parentId.startsWith(`text-${roomNumber}-`);
+  }
+
+  function findLabelTspanForRoom(roomNumber) {
+    const directMatch = document.getElementById(`roomlabel-${roomNumber}`);
+    if (labelBelongsToRoom(directMatch, roomNumber)) {
+      return directMatch;
+    }
+
+    const textMatches = document.querySelectorAll(`text[id^="text-${roomNumber}"]`);
+    for (const textNode of textMatches) {
+      const tspanCandidate = textNode.querySelector('tspan');
+      if (tspanCandidate) {
+        return tspanCandidate;
+      }
+    }
+
+    const allLabels = document.querySelectorAll('tspan[id^="roomlabel-"]');
+    for (const candidate of allLabels) {
+      if (labelBelongsToRoom(candidate, roomNumber)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
   // Log elements found for debugging
   console.log("Office details modal found:", !!officeDetailsModal);
   console.log("Panel office name found:", !!panelOfficeName);
@@ -27,41 +61,72 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("Tooltip found:", !!tooltip);
 
   function updateRoomLabel(group, officeName) {
-    let textEl = group.querySelector("text");
-    let originalX, originalY;
+    if (!group) return;
 
-    if (textEl) {
-      // If text element exists, preserve its original coordinates
+    const roomElement = group.querySelector("path, rect");
+    if (!roomElement || !roomElement.id) return;
+
+    const roomMatch = roomElement.id.match(/room-(\d+)(?:-(\d+))?/);
+    if (!roomMatch) return;
+
+    const roomNumber = roomMatch[1];
+    let labelId = `roomlabel-${roomNumber}`;
+
+    let textEl = group.querySelector("text");
+    let originalX;
+    let originalY;
+
+    let tspanEl = findLabelTspanForRoom(roomNumber);
+
+    if (!tspanEl && textEl) {
+      const existingTspan = textEl.querySelector('tspan');
+      if (existingTspan) {
+        tspanEl = existingTspan;
+      }
+    }
+
+    if (!tspanEl) {
+      const groupTspan = group.querySelector('text tspan');
+      if (groupTspan) {
+        tspanEl = groupTspan;
+      }
+    }
+
+    if (tspanEl && tspanEl.tagName === 'tspan') {
+      labelId = tspanEl.id || labelId;
+      const parentText = tspanEl.closest('text');
+      if (parentText) {
+        textEl = parentText;
+        const referenceTspan = parentText.querySelector('tspan') || tspanEl;
+        originalX = parseFloat(referenceTspan.getAttribute('x')) || parseFloat(parentText.getAttribute('x'));
+        originalY = parseFloat(referenceTspan.getAttribute('y')) || parseFloat(parentText.getAttribute('y'));
+      } else {
+        textEl = tspanEl.parentElement;
+        originalX = parseFloat(tspanEl.getAttribute('x'));
+        originalY = parseFloat(tspanEl.getAttribute('y'));
+      }
+    } else if (textEl) {
       originalX = parseFloat(textEl.getAttribute("x"));
       originalY = parseFloat(textEl.getAttribute("y"));
-    } else {
-      // If not, create it and calculate its center position from the room's bounding box
-      const roomElement = group.querySelector("path, rect");
-      if (!roomElement) return;
+    }
 
-      const roomMatch = roomElement.id.match(/room-(\d+)/);
-      if (!roomMatch) return;
-      const roomNumber = roomMatch[1];
-
-      textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      textEl.setAttribute("class", "room-label");
-      textEl.setAttribute("id", `roomlabel-${roomNumber}`);
-      
+    if (!textEl) {
       const bbox = roomElement.getBBox();
       originalX = bbox.x + bbox.width / 2;
       originalY = bbox.y + bbox.height / 2;
-      
+
+      textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textEl.setAttribute("class", "room-label");
+      textEl.setAttribute("id", labelId);
       textEl.setAttribute("x", originalX);
       textEl.setAttribute("y", originalY);
-      
+
       group.appendChild(textEl);
     }
 
-    // Ensure text alignment is always centered to prevent shifts
     textEl.setAttribute("text-anchor", "middle");
     textEl.setAttribute("dominant-baseline", "central");
-    
-    // Force consistent font styling
+
     textEl.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
     textEl.style.fontWeight = "600";
     textEl.style.fontSize = "14px";
@@ -72,7 +137,6 @@ document.addEventListener("DOMContentLoaded", function () {
     textEl.style.paintOrder = "stroke fill";
     textEl.style.vectorEffect = "non-scaling-stroke";
 
-    // Clear existing content
     textEl.textContent = "";
     while (textEl.firstChild) {
       textEl.removeChild(textEl.firstChild);
@@ -81,26 +145,28 @@ document.addEventListener("DOMContentLoaded", function () {
     const lineHeight = "1.2em";
     const words = officeName.split(" ");
 
-    // Create tspans for each word to handle multi-line text
     words.forEach((word, index) => {
-        const newTspan = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "tspan"
-        );
-        newTspan.textContent = word;
-        // Set x on each tspan to lock horizontal alignment
-        newTspan.setAttribute("x", originalX); 
-        
-        // Force consistent font styling on tspan as well
-        newTspan.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
-        newTspan.style.fontWeight = "600";
-        newTspan.style.fontSize = "14px";
-        
-        if (index > 0) {
-            newTspan.setAttribute("dy", lineHeight);
-        }
-        textEl.appendChild(newTspan);
+      const newTspan = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "tspan"
+      );
+      newTspan.textContent = word;
+      newTspan.setAttribute("x", originalX);
+      newTspan.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+      newTspan.style.fontWeight = "600";
+      newTspan.style.fontSize = "14px";
+
+      if (index > 0) {
+        newTspan.setAttribute("dy", lineHeight);
+      }
+      if (index === 0) {
+        newTspan.setAttribute("id", labelId);
+      }
+      textEl.appendChild(newTspan);
     });
+
+    textEl.setAttribute("x", originalX);
+    textEl.setAttribute("y", originalY);
   }
 
   // Optimized room finding with caching
@@ -118,12 +184,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Optimized search order: try most common patterns first
     const searchPatterns = [
-      () => document.getElementById(locationStr), // Direct location match
+      () => document.getElementById(locationStr), // Direct location match (e.g., "room-18-2")
       () => {
-        const roomMatch = locationStr.match(/room-(\d+)/);
-        return roomMatch ? document.getElementById(`room-${roomMatch[1]}-1`) : null;
+        // Try to find room on any floor by extracting room number and floor
+        const roomMatch = locationStr.match(/room-(\d+)(?:-(\d+))?/);
+        if (!roomMatch) return null;
+        const roomNum = roomMatch[1];
+        const floorNum = roomMatch[2] || '1'; // Default to floor 1 if not specified
+        return document.getElementById(`room-${roomNum}-${floorNum}`);
       },
-      () => document.getElementById(`room-${office.id}-1`), // Office ID pattern
+      () => document.getElementById(`room-${office.id}-1`), // Office ID pattern (legacy)
       () => document.getElementById(`g${office.id}`) // Legacy pattern
     ];
 

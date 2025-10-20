@@ -10,9 +10,15 @@
   <title>About - GABAY</title>
   <link rel="stylesheet" href="about.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  
+  <!-- GABAY Geofencing System -->
+  <script src="js/geofencing.js"></script>
 </head>
 <body>
   <header class="header">
+    <div class="header-back">
+      <a href="explore.php" aria-label="Back to Explore"><i class="fas fa-arrow-left"></i></a>
+    </div>
     <div class="header-content">
       <h2 class="section-title">About</h2>
       <p class="section-subtitle">Information about this application.</p>
@@ -88,22 +94,30 @@
 </main>
 
 
-  <!-- Bottom Navigation Section -->
-  <nav class="bottom-nav" role="navigation" aria-label="Visitor navigation">
-    <a href="explore.php" aria-label="Explore">
-      <i class="fas fa-map-marker-alt"></i>
-      <span>Explore</span>
-    </a>
-
-    <a href="rooms.php" aria-label="Rooms">
-      <i class="fas fa-building"></i>
-      <span>Rooms</span>
-    </a>
-
-    <a href="about.php" class="active" aria-label="About">
-      <i class="fas fa-bars"></i>
-      <span>About</span>
-    </a>
-  </nav>
+  <script>
+    // Add this page to navigation history
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize history if not exists
+      window.gabayHistory = window.gabayHistory || [];
+      
+      // Add about page to history
+      const currentPage = {
+        page: 'about',
+        title: 'About GABAY',
+        timestamp: Date.now()
+      };
+      
+      // Only add if it's not the same as the last entry
+      const lastEntry = window.gabayHistory[window.gabayHistory.length - 1];
+      if (!lastEntry || lastEntry.page !== 'about') {
+        window.gabayHistory.push(currentPage);
+      }
+      
+      // Update breadcrumbs if function exists
+      if (typeof updateBreadcrumbs === 'function') {
+        updateBreadcrumbs('about', 'About GABAY');
+      }
+    });
+  </script>
 </body>
 </html>

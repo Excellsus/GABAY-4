@@ -17,7 +17,7 @@ function identifyRooms() {
       `Found ${groupsWithOfficeId.length} groups with data-office-id attributes`
     );
     groupsWithOfficeId.forEach((group) => {
-      if (group.id.match(/^room-\d+-1$/)) {
+      if (group.id.match(/^room-\d+(?:-\d+)?$/)) {
         group.setAttribute("data-room", "true");
         console.log(`Marked ${group.id} as a room based on data-office-id`);
         roomsIdentified++;
@@ -32,7 +32,7 @@ function identifyRooms() {
   if (roomElements.length > 0) {
     console.log(`Found ${roomElements.length} elements with room- prefix IDs`);
     roomElements.forEach((element) => {
-      if (element.id.match(/^room-\d+-1$/)) {
+      if (element.id.match(/^room-\d+(?:-\d+)?$/)) {
         const parentGroup = element.closest("g");
         if (parentGroup) {
           parentGroup.setAttribute("data-room", "true");
@@ -41,9 +41,13 @@ function identifyRooms() {
             parentGroup.dataset.officeId = element.dataset.officeId;
           }
           // Extract room number from element ID
-          const roomMatch = element.id.match(/room-(\d+)-1/);
+          const roomMatch = element.id.match(/room-(\d+)(?:-(\d+))?/);
           if (roomMatch && roomMatch[1]) {
             parentGroup.dataset.roomNumber = roomMatch[1];
+            if (roomMatch[2]) {
+              parentGroup.dataset.floorNumber = roomMatch[2];
+              element.dataset.floorNumber = roomMatch[2];
+            }
             element.dataset.roomNumber = roomMatch[1];
             // Ensure parent group has correct ID format
             parentGroup.id = element.id;
@@ -65,10 +69,12 @@ function identifyRooms() {
 
   // Log each identified room
   allRoomGroups.forEach((group) => {
-    const roomMatch = group.id.match(/room-(\d+)-1/);
+    const roomMatch = group.id.match(/room-(\d+)(?:-(\d+))?/);
     if (roomMatch) {
       console.log(
-        `Identified room ${roomMatch[1]}: ${group.tagName} #${group.id}`
+        `Identified room ${roomMatch[1]}${
+          roomMatch[2] ? ` (floor ${roomMatch[2]})` : ""
+        }: ${group.tagName} #${group.id}`
       );
     }
   });
@@ -77,9 +83,20 @@ function identifyRooms() {
 }
 
 // Identify rooms and get only the room elements
-const rooms = identifyRooms();
+let rooms = [];
 
-const editButton = document.getElementById("edit-floorplan-btn");
+function refreshDragDropRooms() {
+  rooms = identifyRooms();
+  console.log(`Drag/drop room cache refreshed: ${rooms.length} rooms detected`);
+  if (isEditMode) {
+    console.log('Edit mode active during refresh, reinitializing drag/drop listeners');
+    disableDragAndDrop();
+    enableDragAndDrop();
+  }
+}
+
+let editButton = null;
+let cancelButton = null;
 const floorPlanContainer = document.querySelector(".floor-plan-container");
 let isEditMode = false;
 let isDragging = false;
@@ -89,15 +106,57 @@ let startX = 0;
 let startY = 0;
 
 console.log("Drag Drop Setup script loaded - UPDATED VERSION");
+refreshDragDropRooms();
+
 console.log(
   `Found ${rooms.length} draggable room elements after classification`
 );
-console.log(`Edit button found: ${editButton !== null}`);
 
 // Log each room ID for debugging
 rooms.forEach((room, index) => {
   console.log(`Room ${index + 1}: ${room.id}`);
 });
+
+function bindEditButton(newButton) {
+  if (editButton && editButton !== newButton) {
+    editButton.removeEventListener("click", handleEditButtonClick);
+  }
+
+  editButton = newButton;
+
+  if (!editButton) {
+    console.warn("Edit button not found during bind attempt");
+    return;
+  }
+
+  editButton.textContent = isEditMode ? "Save" : "Edit";
+  editButton.removeEventListener("click", handleEditButtonClick);
+  editButton.addEventListener("click", handleEditButtonClick);
+  console.log("Edit button bound for drag/drop controls");
+}
+
+function bindCancelButton(newButton) {
+  if (cancelButton && cancelButton !== newButton) {
+    cancelButton.removeEventListener("click", handleCancelButtonClick);
+  }
+
+  cancelButton = newButton;
+
+  if (!cancelButton) {
+    console.warn("Cancel button not found during bind attempt");
+    return;
+  }
+
+  cancelButton.style.display = isEditMode ? "block" : "none";
+  cancelButton.removeEventListener("click", handleCancelButtonClick);
+  cancelButton.addEventListener("click", handleCancelButtonClick);
+  console.log("Cancel button bound for drag/drop controls");
+}
+
+bindEditButton(document.getElementById("edit-floorplan-btn"));
+bindCancelButton(document.getElementById("cancel-edit-floorplan-btn"));
+console.log(`Edit button bound: ${editButton !== null}`);
+console.log(`Cancel button bound: ${cancelButton !== null}`);
 
 // Function to create a ghost image for dragging
 function createGhostImage(element) {
@@ -121,6 +180,10 @@ function enableDragAndDrop() {
   document.body.classList.add("edit-mode-active");
   floorPlanContainer.classList.add("edit-mode-active");
 
+  if (cancelButton) {
+    cancelButton.style.display = "block";
+  }
+
   // Display a message to the user
   const editModeMsg = document.createElement("div");
   editModeMsg.id = "edit-mode-message";
@@ -129,6 +192,10 @@ function enableDragAndDrop() {
   floorPlanContainer.appendChild(editModeMsg);
 
   // Make each room draggable
+  if (!rooms || rooms.length === 0) {
+    rooms = identifyRooms();
+  }
+
   rooms.forEach((room) => {
     // Find the path or rect element inside the group
     const roomElement = room.querySelector("path, rect");
@@ -173,6 +240,10 @@ function disableDragAndDrop() {
   document.body.classList.remove("edit-mode-active");
   floorPlanContainer.classList.remove("edit-mode-active");
 
+  if (cancelButton) {
+    cancelButton.style.display = "none";
+  }
+
   // Remove edit mode message if it exists
   const editModeMsg = document.getElementById("edit-mode-message");
   if (editModeMsg) {
@@ -186,6 +257,13 @@ function disableDragAndDrop() {
     room.removeEventListener("mousedown", handleMouseDown, true);
     room.removeEventListener("mouseenter", handleRoomMouseEnter, true);
     room.removeEventListener("mouseleave", handleRoomMouseLeave, true);
+
+    const roomElement = room.querySelector("path, rect");
+    if (roomElement) {
+      roomElement.removeEventListener("mousedown", handleMouseDown, true);
+      roomElement.removeEventListener("mouseenter", handleRoomMouseEnter, true);
+      roomElement.removeEventListener("mouseleave", handleRoomMouseLeave, true);
+    }
   });
 
   // Re-enable panning and zooming
@@ -487,106 +565,151 @@ function updateRoomLabel(textElement, officeName) {
   }
 }
 
-// Toggle edit mode
-editButton.addEventListener("click", (e) => {
+function handleEditButtonClick(e) {
   console.log("Edit button clicked");
   if (isDragging) {
     e.preventDefault();
     return;
   }
 
+  if (!editButton) {
+    console.warn("Edit button click received but no button is bound");
+    return;
+  }
+
   isEditMode = !isEditMode;
+
   if (isEditMode) {
     editButton.textContent = "Save";
     enableDragAndDrop();
-  } else {
-    editButton.textContent = "Edit";
-    disableDragAndDrop();
-
-    // Collect current room assignments
-    const assignments = [];
-    const svg = document.getElementById("svg1");
-    if (!svg) {
-      console.error("SVG element not found");
-      return;
-    }
-
-    // Get all room groups
-    const roomGroups = svg.querySelectorAll('g[data-room="true"]');
-    console.log("Found room groups:", roomGroups.length);
-
-    roomGroups.forEach((group) => {
-      // Only process rooms with the correct format
-      if (!group.id.match(/^room-\d+-1$/)) {
-        console.log("Skipping room with invalid ID format:", group.id);
-        return;
-      }
-
-      // Try to get office ID from the group first
-      let officeId = group.dataset.officeId;
-
-      // If not found on group, try to get from path or rect
-      if (!officeId) {
-        const element = group.querySelector("path, rect");
-        if (element && element.dataset.officeId) {
-          officeId = element.dataset.officeId;
-        }
-      }
-
-      if (officeId) {
-        console.log("Found assignment:", {
-          roomId: group.id,
-          officeId: officeId,
-        });
-        assignments.push({
-          officeId: officeId,
-          roomId: group.id,
-        });
-      } else {
-        console.log("No office ID found for room:", group.id);
-      }
-    });
-
-    console.log("Total assignments found:", assignments.length);
-
-    if (assignments.length === 0) {
-      console.error("No valid assignments found");
-      alert("No valid room assignments found to save.");
-      return;
-    }
-
-    console.log("Sending assignments to server:", assignments);
-
-    // Send assignments to the server
-    fetch("floorjs/savePositions.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assignments }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("Server response:", data);
-        if (data.success) {
-          alert("Room positions saved successfully!");
-          window.location.reload();
-        } else {
-          alert(
-            "Failed to save room positions: " +
-              (data.message || "Unknown error")
-          );
-        }
-      })
-      .catch((err) => {
-        console.error("Save error:", err);
-        alert("Error saving room positions: " + err);
-      });
+    return;
   }
-});
+
+  editButton.textContent = "Edit";
+  disableDragAndDrop();
+
+  // Collect current room assignments
+  const assignments = [];
+  const svg = document.getElementById("svg1");
+  if (!svg) {
+    console.error("SVG element not found");
+    return;
+  }
+
+  // Get all room groups
+  const roomGroups = svg.querySelectorAll('g[data-room="true"]');
+  console.log("Found room groups:", roomGroups.length);
+
+  roomGroups.forEach((group) => {
+    // Only process rooms with the correct format
+    if (!group.id.match(/^room-\d+(?:-\d+)?$/)) {
+      console.log("Skipping room with invalid ID format:", group.id);
+      return;
+    }
+
+    // Try to get office ID from the group first
+    let officeId = group.dataset.officeId;
+
+    // If not found on group, try to get from path or rect
+    if (!officeId) {
+      const element = group.querySelector("path, rect");
+      if (element && element.dataset.officeId) {
+        officeId = element.dataset.officeId;
+      }
+    }
+
+    if (officeId) {
+      console.log("Found assignment:", {
+        roomId: group.id,
+        officeId: officeId,
+      });
+      assignments.push({
+        officeId: officeId,
+        roomId: group.id,
+      });
+    } else {
+      console.log("No office ID found for room:", group.id);
+    }
+  });
+
+  console.log("Total assignments found:", assignments.length);
+
+  if (assignments.length === 0) {
+    console.error("No valid assignments found");
+    alert("No valid room assignments found to save.");
+    return;
+  }
+
+  console.log("Sending assignments to server:", assignments);
+
+  // Send assignments to the server
+  fetch("floorjs/savePositions.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ assignments }),
+  })
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
+    .then((data) => {
+      console.log("Server response:", data);
+      if (data.success) {
+        alert("Room positions saved successfully!");
+        window.location.reload();
+      } else {
+        alert(
+          "Failed to save room positions: " +
+            (data.message || "Unknown error")
+        );
+      }
+    })
+    .catch((err) => {
+      console.error("Save error:", err);
+      alert("Error saving room positions: " + err);
+    });
+}
+
+function forceExitEditMode() {
+  if (isEditMode) {
+    console.log("Force exiting edit mode due to external trigger");
+  }
+
+  isEditMode = false;
+  isDragging = false;
+  isOverRoom = false;
+  draggedElement = null;
+  window.isDragging = false;
+
+  document.removeEventListener("mousemove", handleMouseMove, true);
+  document.removeEventListener("mouseup", handleMouseUp, true);
+
+  disableDragAndDrop();
+
+  if (editButton) {
+    editButton.textContent = "Edit";
+  }
+
+  if (cancelButton) {
+    cancelButton.style.display = "none";
+  }
+}
+
+function handleCancelButtonClick(e) {
+  if (e) {
+    e.preventDefault();
+  }
+
+  if (!isEditMode) {
+    return;
+  }
+
+  console.log("Cancel button clicked - reverting changes");
+  forceExitEditMode();
+  window.location.reload();
+}
 
 // Wait for DOM to be fully loaded
 document.addEventListener("DOMContentLoaded", function () {
@@ -612,3 +735,8 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("panZoom object found in window scope");
   }
 });
+
+window.refreshDragDropRooms = refreshDragDropRooms;
+window.initializeDragDropEditButton = bindEditButton;
+window.initializeDragDropCancelButton = bindCancelButton;
+window.forceExitDragDropEditMode = forceExitEditMode;

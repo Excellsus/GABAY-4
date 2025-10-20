@@ -73,6 +73,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Feedback - Interactive Map</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="feedback.css">
+    
+    <!-- GABAY Geofencing System -->
+    <script src="js/geofencing.js"></script>
 </head>
 <body>
 
@@ -147,6 +150,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .feedback-message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .feedback-message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
+
+    <script>
+        // Add this page to navigation history
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize history if not exists
+            window.gabayHistory = window.gabayHistory || [];
+            
+            // Add feedback page to history
+            const currentPage = {
+                page: 'feedback',
+                title: 'Feedback',
+                office_id: <?php echo $office_id ?? 'null'; ?>,
+                timestamp: Date.now()
+            };
+            
+            // Only add if it's not the same as the last entry
+            const lastEntry = window.gabayHistory[window.gabayHistory.length - 1];
+            if (!lastEntry || lastEntry.page !== 'feedback' || lastEntry.office_id !== currentPage.office_id) {
+                window.gabayHistory.push(currentPage);
+            }
+            
+            // Update breadcrumbs if function exists
+            if (typeof updateBreadcrumbs === 'function') {
+                updateBreadcrumbs('feedback', 'Feedback');
+            }
+        });
+    </script>
 
 </body>
 </html>
