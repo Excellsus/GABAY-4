@@ -4,6 +4,9 @@
  * Handles animated GIF uploads and management for panorama hotspots
  */
 
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 // Enable error reporting for debugging
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);

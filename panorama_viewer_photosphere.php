@@ -1,0 +1,4516 @@
+<?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+?>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="<?php echo csrfToken(); ?>">
+    <title>GABAY Panorama Viewer - Photo Sphere</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.1.5/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/markers-plugin@5.1.5/index.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.1.5/index.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/markers-plugin@5.1.5/index.min.css"
+    />
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background: #1a1a1a;
+        color: white;
+        overflow: hidden;
+      }
+
+      #viewer {
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .toolbar {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.9);
+        padding: 20px;
+        border-radius: 12px;
+        backdrop-filter: blur(15px);
+        max-width: 320px;
+        border: 1px solid rgba(4, 170, 109, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      }
+
+      .toolbar h3 {
+        color: #04aa6d;
+        margin-bottom: 15px;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn {
+        background: linear-gradient(135deg, #04aa6d, #036551);
+        color: white;
+        border: none;
+        padding: 12px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 5px 0;
+        font-size: 13px;
+        width: 100%;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+      }
+
+      .btn:hover {
+        background: linear-gradient(135deg, #036551, #025244);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(4, 170, 109, 0.3);
+      }
+
+      .btn:disabled {
+        background: #666;
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .btn.active {
+        background: linear-gradient(135deg, #ffa500, #ff8c00);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 165, 0, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 10px rgba(255, 165, 0, 0);
+        }
+      }
+
+      .info-panel {
+        background: rgba(4, 170, 109, 0.1);
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        font-size: 12px;
+        border-left: 3px solid #04aa6d;
+      }
+
+      .stats {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 10px;
+        border-radius: 6px;
+        margin-top: 10px;
+        font-size: 11px;
+      }
+
+      .stats strong {
+        color: #04aa6d;
+      }
+
+      /* Custom marker styles */
+      .video-marker {
+        width: 100px;
+        height: 100px;
+        border: 4px solid #04aa6d;
+        border-radius: 16px;
+        overflow: hidden;
+        cursor: move;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 8px 32px rgba(4, 170, 109, 0.3);
+        position: relative;
+        resize: both;
+        min-width: 60px;
+        min-height: 60px;
+        max-width: 200px;
+        max-height: 200px;
+      }
+
+      .video-marker.dragging {
+        cursor: grabbing;
+        z-index: 1000;
+        transform: scale(1.1);
+        border-color: #ffd700;
+        box-shadow: 0 15px 60px rgba(255, 215, 0, 0.8);
+      }
+
+      .video-marker .resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 20px;
+        height: 20px;
+        background: #04aa6d;
+        cursor: se-resize;
+        border-radius: 50% 0;
+        display: none;
+        z-index: 10;
+      }
+
+      .video-marker:hover .resize-handle,
+      .video-marker.selected .resize-handle {
+        display: block;
+      }
+
+      .video-marker::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border-radius: 18px;
+        background: linear-gradient(45deg, #04aa6d, #ffd700, #04aa6d);
+        background-size: 300% 300%;
+        animation: gradientMove 3s ease infinite;
+        z-index: -1;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .video-marker:hover::before {
+        opacity: 1;
+      }
+
+      @keyframes gradientMove {
+        0%,
+        100% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+      }
+
+      .video-marker:hover {
+        transform: scale(1.25) rotateZ(5deg);
+        border-color: #ffd700;
+        box-shadow: 0 15px 60px rgba(255, 215, 0, 0.6);
+      }
+
+      .video-marker video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 12px;
+      }
+
+      .gif-marker {
+        width: 100px;
+        height: 100px;
+        border: 4px solid #ff6b6b;
+        border-radius: 16px;
+        overflow: hidden;
+        cursor: move;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 8px 32px rgba(255, 107, 107, 0.3);
+        position: relative;
+        resize: both;
+        min-width: 60px;
+        min-height: 60px;
+        max-width: 200px;
+        max-height: 200px;
+      }
+
+      .gif-marker.dragging {
+        cursor: grabbing;
+        z-index: 1000;
+        transform: scale(1.1);
+        border-color: #ffd700;
+        box-shadow: 0 15px 60px rgba(255, 215, 0, 0.8);
+      }
+
+      .gif-marker .resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 20px;
+        height: 20px;
+        background: #ff6b6b;
+        cursor: se-resize;
+        border-radius: 50% 0;
+        display: none;
+        z-index: 10;
+      }
+
+      .gif-marker:hover .resize-handle,
+      .gif-marker.selected .resize-handle {
+        display: block;
+      }
+
+      /* Selection and drag indicators */
+      .video-marker.selected,
+      .gif-marker.selected {
+        border-color: #ffd700;
+        box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3),
+          0 8px 32px rgba(255, 215, 0, 0.4);
+      }
+
+      .video-marker.selected::after,
+      .gif-marker.selected::after {
+        content: "📏 Drag to move • Resize from corner";
+        position: absolute;
+        top: -35px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: #ffd700;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+        z-index: 15;
+        pointer-events: none;
+      }
+
+      /* Disable viewer interactions during drag/resize */
+      .psv-container.dragging,
+      .psv-container.resizing {
+        pointer-events: none;
+      }
+
+      .draggable-marker {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+      }
+
+      .gif-marker:hover {
+        transform: scale(1.25) rotateZ(-5deg);
+        border-color: #ffd700;
+        box-shadow: 0 15px 60px rgba(255, 215, 0, 0.6);
+      }
+
+      .gif-marker img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* Navigation marker styles */
+      .navigation-marker {
+        width: 80px;
+        height: 80px;
+        border: 4px solid #667eea;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: linear-gradient(135deg, #04aa6d, #667eea);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+        resize: both;
+        min-width: 60px;
+        min-height: 60px;
+        max-width: 120px;
+        max-height: 120px;
+        animation: navigationPulse 2s ease-in-out infinite;
+      }
+
+      .navigation-marker.dragging {
+        cursor: grabbing;
+        z-index: 1000;
+        transform: scale(1.1);
+        border-color: #ffd700;
+        box-shadow: 0 15px 60px rgba(255, 215, 0, 0.8);
+      }
+
+      .navigation-marker .resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 20px;
+        height: 20px;
+        background: #667eea;
+        cursor: se-resize;
+        border-radius: 50% 0;
+        display: none;
+        z-index: 10;
+      }
+
+      .navigation-marker:hover .resize-handle,
+      .navigation-marker.selected .resize-handle {
+        display: block;
+      }
+
+      .navigation-marker:hover {
+        transform: scale(1.2);
+        border-color: #ffd700;
+        box-shadow: 0 15px 60px rgba(255, 215, 0, 0.6);
+      }
+
+      .navigation-marker.floor-change {
+        background: linear-gradient(135deg, #ff6b6b, #764ba2);
+        border-color: #ff6b6b;
+      }
+
+      .navigation-marker.floor-change::before {
+        content: "🏢";
+        font-size: 20px;
+      }
+
+      .navigation-marker.panorama-link::before {
+        content: "🔗";
+        font-size: 20px;
+      }
+
+      .navigation-marker.office-link::before {
+        content: "🏛️";
+        font-size: 20px;
+      }
+
+      @keyframes navigationPulse {
+        0%,
+        100% {
+          box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+        }
+        50% {
+          box-shadow: 0 8px 32px rgba(102, 126, 234, 0.8),
+            0 0 0 10px rgba(102, 126, 234, 0.2);
+        }
+      }
+
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        flex-direction: column;
+      }
+
+      .spinner {
+        width: 60px;
+        height: 60px;
+        border: 6px solid rgba(4, 170, 109, 0.2);
+        border-top: 6px solid #04aa6d;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        margin-top: 20px;
+        font-size: 16px;
+        color: #04aa6d;
+        animation: fadeInOut 2s ease-in-out infinite;
+      }
+
+      @keyframes fadeInOut {
+        0%,
+        100% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      /* Message notifications */
+      .message-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 2000;
+        max-width: 350px;
+        pointer-events: none;
+      }
+
+      .message {
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        font-weight: 500;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+        transform: translateX(100%);
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-left: 4px solid;
+      }
+
+      .message.show {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      .message.success {
+        border-left-color: #28a745;
+      }
+      .message.error {
+        border-left-color: #dc3545;
+      }
+      .message.warning {
+        border-left-color: #ffc107;
+      }
+      .message.info {
+        border-left-color: #17a2b8;
+      }
+
+      /* Mobile responsive */
+      @media (max-width: 768px) {
+        .toolbar {
+          top: 10px;
+          left: 10px;
+          right: 10px;
+          max-width: none;
+          padding: 15px;
+        }
+
+        .video-marker,
+        .gif-marker {
+          width: 80px;
+          height: 80px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading" class="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading GABAY Panorama Viewer...</div>
+    </div>
+
+    <div class="message-container" id="messageContainer"></div>
+
+    <div class="toolbar">
+      <h3>🏢 GABAY Hotspot Editor</h3>
+
+      <button id="add-video" class="btn">
+        <span>🎥</span> Add Video Hotspot
+      </button>
+
+      <button id="add-gif" class="btn"><span>🎬</span> Add GIF Hotspot</button>
+
+      <button id="toggle-markers" class="btn">
+        <span>👁️</span> Toggle All Markers
+      </button>
+
+      <button id="save-all" class="btn">
+        <span>💾</span> Save All Hotspots
+      </button>
+
+      <button id="reset-view" class="btn"><span>🎯</span> Reset View</button>
+
+      <button id="move-hotspot-btn" class="btn">
+        <span>�</span> <span>Move Hotspot</span>
+      </button>
+
+      <div class="info-panel">
+        <strong>📍 Instructions:</strong><br />
+        <strong>Adding:</strong> Click "Add Video/GIF" → Click panorama to
+        place<br />
+        <strong>Moving:</strong> Click "Move Hotspot" → Click hotspot → Click
+        new position<br />
+        <strong>Resizing:</strong> Drag corner handle to resize hotspots<br />
+        <strong>Saving:</strong> Click "Save All" to save changes
+      </div>
+
+      <div class="stats" id="stats">
+        <div id="detailed-stats">
+          <strong>Total Hotspots:</strong> <span id="hotspot-count">0</span
+          ><br />
+          <strong>Navigation:</strong> <span id="nav-count">0</span><br />
+          <strong>Video:</strong> <span id="video-count">0</span><br />
+          <strong>GIF:</strong> <span id="gif-count">0</span>
+        </div>
+        <hr style="margin: 10px 0; border: 1px solid #333" />
+        <strong>Status:</strong> <span id="status">Ready</span><br />
+        <strong>Drag Mode:</strong> <span id="drag-status">Disabled</span><br />
+        <strong>Dragging:</strong> <span id="drag-active">No</span>
+      </div>
+    </div>
+
+    <div id="viewer"></div>
+
+    <script>
+      class GABAYPanoramaViewer {
+        constructor() {
+          this.viewer = null;
+          this.markersPlugin = null;
+          this.hotspots = [];
+          this.isAddingMode = false;
+          this.selectedAsset = null;
+          this.markerId = 0;
+          this.pathId = null;
+          this.pointIndex = null;
+          this.floor = null;
+          this.panoramaImage = null;
+
+          // Drag and resize properties
+          this.isDragging = false;
+          this.isResizing = false;
+          this.draggedMarker = null;
+          this.dragStartPos = { x: 0, y: 0 };
+          this.markerStartPos = { yaw: 0, pitch: 0 };
+          this.selectedMarker = null;
+          this.dragModeEnabled = false;
+
+          // Move hotspot mode
+          this.moveMode = false;
+          this.movingHotspot = null;
+
+          this.init();
+        }
+
+        init() {
+          this.parseURLParams();
+          this.setupViewer();
+          this.bindEvents();
+          this.loadExistingHotspots();
+
+          // Hide loading after setup
+          setTimeout(() => {
+            document.getElementById("loading").style.display = "none";
+          }, 1500);
+        }
+
+        parseURLParams() {
+          const urlParams = new URLSearchParams(window.location.search);
+          this.panoramaImage = urlParams.get("image");
+          this.pathId = urlParams.get("pathId");
+          this.pointIndex = urlParams.get("pointIndex");
+          this.floor = urlParams.get("floor");
+
+          console.log("🔍 URL Parameters:", {
+            image: this.panoramaImage,
+            pathId: this.pathId,
+            pointIndex: this.pointIndex,
+            floor: this.floor,
+          });
+        }
+
+        setupViewer() {
+          if (!this.panoramaImage) {
+            this.showMessage("❌ No panorama image specified in URL", "error");
+            return;
+          }
+
+          try {
+            this.viewer = new PhotoSphereViewer.Viewer({
+              container: document.querySelector("#viewer"),
+              panorama: this.panoramaImage,
+              caption: `GABAY Office Directory - Floor ${this.floor || 1}`,
+              loadingImg:
+                "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+              navbar: [
+                "autorotate",
+                "zoom",
+                "move",
+                "download",
+                "fullscreen",
+                {
+                  title: "Info",
+                  className: "custom-button",
+                  content: "📋",
+                  onClick: () => this.showInfo(),
+                },
+              ],
+              defaultZoomLvl: 50,
+              minFov: 30,
+              maxFov: 100,
+              mousewheel: true,
+              mousemove: true,
+              keyboard: "fullscreen",
+              touchmoveTwoFingers: false, // Enable single finger pan
+              mousewheelCtrlKey: false, // Allow zoom without Ctrl key
+              plugins: [
+                [
+                  PhotoSphereViewer.MarkersPlugin,
+                  {
+                    markers: [],
+                  },
+                ],
+              ],
+            });
+
+            this.markersPlugin = this.viewer.getPlugin(
+              PhotoSphereViewer.MarkersPlugin
+            );
+
+            // Handle clicks for hotspot placement
+            this.viewer.addEventListener("click", (e) => {
+              // Check if we're in move mode
+              if (this.movingHotspot) {
+                this.moveHotspotToPosition(e.data.yaw, e.data.pitch);
+              } else if (this.isAddingMode && this.selectedAsset) {
+                this.createMarker(e.data.yaw, e.data.pitch);
+              }
+            });
+
+            // Handle ready event
+            this.viewer.addEventListener("ready", () => {
+              console.log("✅ Photo Sphere Viewer initialized");
+              this.showMessage(
+                "✅ Panorama viewer loaded successfully",
+                "success"
+              );
+              this.updateStatus("Ready");
+            });
+
+            // Handle errors
+            this.viewer.addEventListener("panorama-error", (e) => {
+              console.error("Panorama loading error:", e);
+              this.showMessage("❌ Failed to load panorama image", "error");
+              this.updateStatus("Error loading panorama");
+            });
+          } catch (error) {
+            console.error("Viewer setup error:", error);
+            this.showMessage("❌ Failed to initialize viewer", "error");
+          }
+        }
+
+        async createMarker(yaw, pitch) {
+          // For video/GIF hotspots, show purpose selection dialog first
+          if (
+            this.selectedAsset.type === "video" ||
+            this.selectedAsset.type === "gif"
+          ) {
+            try {
+              const purposeResult = await this.showHotspotPurposeDialog(
+                this.selectedAsset.type
+              );
+
+              if (!purposeResult) {
+                // User cancelled the dialog
+                this.showMessage("❌ Hotspot creation cancelled", "info");
+                return;
+              }
+
+              const id = `marker_${++this.markerId}_${Date.now()}`;
+              this.createMarkerWithPurpose(
+                id,
+                yaw,
+                pitch,
+                purposeResult.purpose,
+                purposeResult
+              );
+            } catch (error) {
+              console.error("Error in purpose dialog:", error);
+              this.showMessage("❌ Error creating hotspot", "error");
+            }
+            return;
+          }
+
+          const id = `marker_${++this.markerId}_${Date.now()}`;
+          this.createMarkerWithPurpose(id, yaw, pitch, "information");
+        }
+
+        createMarkerWithPurpose(
+          id,
+          yaw,
+          pitch,
+          purpose,
+          navigationData = null
+        ) {
+          // Debug: Log navigation data
+          console.log("🔧 Creating hotspot with purpose:", purpose);
+          console.log("🔧 Navigation data received:", navigationData);
+          if (navigationData && navigationData.targetPanorama) {
+            console.log("🎯 Target panorama:", navigationData.targetPanorama);
+          }
+
+          let markerHTML = "";
+
+          if (this.selectedAsset.type === "video") {
+            markerHTML = `
+                        <div class="video-marker draggable-marker" title="${this.selectedAsset.name}" data-marker-id="${id}">
+                            <video autoplay loop muted playsinline preload="auto">
+                                <source src="${this.selectedAsset.url}" type="video/mp4">
+                                Your browser does not support video.
+                            </video>
+                            <div class="resize-handle" data-resize="true"></div>
+                        </div>
+                    `;
+          } else if (this.selectedAsset.type === "gif") {
+            markerHTML = `
+                        <div class="gif-marker draggable-marker" title="${this.selectedAsset.name}" data-marker-id="${id}">
+                            <img src="${this.selectedAsset.url}" alt="${this.selectedAsset.name}">
+                            <div class="resize-handle" data-resize="true"></div>
+                        </div>
+                    `;
+          } else if (this.selectedAsset.type === "navigation") {
+            // Determine navigation marker style based on link type
+            let markerClass = "navigation-marker draggable-marker";
+            let icon = "🔗";
+
+            if (this.selectedAsset.linkType === "panorama") {
+              markerClass += " panorama-link";
+              // Check if it's a cross-floor link
+              if (
+                this.selectedAsset.linkFloorNumber &&
+                this.selectedAsset.linkFloorNumber !== parseInt(this.floor)
+              ) {
+                markerClass += " floor-change";
+                icon = "🏢";
+              }
+            } else if (this.selectedAsset.linkType === "office") {
+              markerClass += " office-link";
+              icon = "🏛️";
+            } else if (this.selectedAsset.linkType === "external") {
+              icon = "🌐";
+            }
+
+            markerHTML = `
+                        <div class="${markerClass}" title="${this.selectedAsset.title}" data-marker-id="${id}">
+                            ${icon}
+                            <div class="resize-handle" data-resize="true"></div>
+                        </div>
+                    `;
+          }
+
+          const marker = {
+            id: id,
+            position: { yaw: yaw, pitch: pitch },
+            html: markerHTML,
+            anchor: "center center",
+            tooltip: {
+              content:
+                purpose === "information" && navigationData?.title
+                  ? navigationData.title
+                  : this.selectedAsset.name,
+              position: "top center",
+              className: "custom-tooltip",
+            },
+            data: {
+              asset: this.selectedAsset,
+              created: new Date().toISOString(),
+              pathId: this.pathId,
+              pointIndex: this.pointIndex,
+              floor: this.floor,
+            },
+          };
+
+          try {
+            this.markersPlugin.addMarker(marker);
+
+            // Store hotspot data with purpose
+            const hotspot = {
+              id: id,
+              yaw: yaw,
+              pitch: pitch,
+              position: this.convertYawPitchToPosition(yaw, pitch),
+              asset: this.selectedAsset,
+              purpose: purpose, // 'navigation' or 'information'
+              title:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? `Go to ${
+                      navigationData.targetPanorama.title ||
+                      "Point " + navigationData.targetPanorama.point_index
+                    }`
+                  : purpose === "information" && navigationData?.title
+                  ? navigationData.title
+                  : navigationData?.title ||
+                    this.selectedAsset.title ||
+                    this.selectedAsset.name ||
+                    "Untitled Hotspot",
+              description:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? `Navigate to ${
+                      navigationData.targetPanorama.title ||
+                      "Point " + navigationData.targetPanorama.point_index
+                    } on Floor ${navigationData.targetPanorama.floor_number} (${
+                      navigationData.targetPanorama.path_id
+                    })`
+                  : purpose === "navigation" && navigationData
+                  ? `${
+                      navigationData.navigationType === "cross_floor"
+                        ? "Cross Floor"
+                        : "Same Floor"
+                    } Navigation Hotspot`
+                  : purpose === "information" && navigationData?.description
+                  ? navigationData.description
+                  : `${this.selectedAsset.type.toUpperCase()} Information Hotspot`,
+              type: purpose === "navigation" ? "navigation" : "info",
+              created: new Date().toISOString(),
+              // Database fields
+              path_id: this.pathId,
+              point_index: this.pointIndex,
+              floor_number: this.floor || 1,
+              // Asset-specific fields
+              video_hotspot_id:
+                this.selectedAsset.type === "video"
+                  ? this.selectedAsset.id
+                  : null,
+              video_hotspot_path:
+                this.selectedAsset.type === "video"
+                  ? this.selectedAsset.serverPath || this.selectedAsset.url
+                  : null,
+              video_hotspot_name:
+                this.selectedAsset.type === "video"
+                  ? this.selectedAsset.name
+                  : null,
+              animated_icon_id:
+                this.selectedAsset.type === "gif"
+                  ? this.selectedAsset.id
+                  : null,
+              animated_icon_path:
+                this.selectedAsset.type === "gif"
+                  ? this.selectedAsset.serverPath || this.selectedAsset.url
+                  : null,
+              animated_icon_name:
+                this.selectedAsset.type === "gif"
+                  ? this.selectedAsset.name
+                  : null,
+              // Navigation-specific fields (only if purpose is navigation)
+              link_type: purpose === "navigation" ? "panorama" : null,
+              link_path_id:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? navigationData.targetPanorama.path_id
+                  : null,
+              link_point_index:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? navigationData.targetPanorama.point_index
+                  : null,
+              link_floor_number:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? navigationData.targetPanorama.floor_number
+                  : null,
+              target_path_id:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? navigationData.targetPanorama.path_id
+                  : null,
+              target_point_index:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? navigationData.targetPanorama.point_index
+                  : null,
+              target_floor:
+                purpose === "navigation" && navigationData?.targetPanorama
+                  ? navigationData.targetPanorama.floor_number
+                  : this.floor,
+              navigation_angle: purpose === "navigation" ? 0 : 0, // To be configured later
+              target_pitch: purpose === "navigation" ? 0 : 0, // To be configured later
+              target_office_id: null,
+              target_url: null,
+              is_navigation: purpose === "navigation",
+            };
+
+            this.hotspots.push(hotspot);
+
+            console.log("✅ Marker created:", { id, yaw, pitch, purpose });
+            console.log("🔍 Navigation fields in hotspot:", {
+              link_type: hotspot.link_type,
+              link_path_id: hotspot.link_path_id,
+              link_point_index: hotspot.link_point_index,
+              link_floor_number: hotspot.link_floor_number,
+              is_navigation: hotspot.is_navigation,
+            });
+
+            // Show success message (before resetting selectedAsset)
+            const typeLabel =
+              this.selectedAsset?.type === "video"
+                ? "Video"
+                : this.selectedAsset?.type === "gif"
+                ? "GIF"
+                : this.selectedAsset?.type === "navigation"
+                ? "Navigation"
+                : "Asset";
+            const purposeLabel =
+              purpose === "navigation" ? " Navigation" : " Information";
+            this.showMessage(
+              `✅ ${typeLabel}${purposeLabel} hotspot created successfully!`,
+              "success"
+            );
+
+            // Reset adding mode
+            this.isAddingMode = false;
+            this.selectedAsset = null;
+            this.updateUI();
+            this.updateStats();
+            this.updateStatus(`${typeLabel}${purposeLabel} hotspot added`);
+          } catch (error) {
+            console.error("Error creating marker:", error);
+            this.showMessage("❌ Failed to create hotspot", "error");
+          }
+        }
+
+        bindEvents() {
+          document.getElementById("add-video").addEventListener("click", () => {
+            if (this.isAddingMode) {
+              this.cancelAddingMode();
+            } else {
+              this.openAssetSelector("video");
+            }
+          });
+
+          document.getElementById("add-gif").addEventListener("click", () => {
+            if (this.isAddingMode) {
+              this.cancelAddingMode();
+            } else {
+              this.openAssetSelector("gif");
+            }
+          });
+
+          document
+            .getElementById("toggle-markers")
+            .addEventListener("click", () => {
+              this.markersPlugin.toggleAllMarkers();
+              this.showMessage("👁️ Markers visibility toggled", "info");
+            });
+
+          document.getElementById("save-all").addEventListener("click", () => {
+            this.saveHotspots();
+          });
+
+          document
+            .getElementById("reset-view")
+            .addEventListener("click", () => {
+              this.viewer.animate({ yaw: 0, pitch: 0, zoom: 50 });
+              this.showMessage("🎯 View reset to center", "info");
+            });
+
+          document
+            .getElementById("move-hotspot-btn")
+            .addEventListener("click", () => {
+              this.toggleMoveMode();
+            });
+
+          // Listen for marker clicks (only when not in drag mode)
+          this.markersPlugin.addEventListener("select-marker", (e) => {
+            // If in move mode, select the hotspot to move (no dialog)
+            if (this.moveMode) {
+              e.preventDefault();
+              this.startMoveHotspot(e.marker);
+              return;
+            }
+
+            // Prevent marker dialog if we're in drag mode or currently dragging
+            if (this.dragModeEnabled || this.isDragging || this.isResizing) {
+              e.preventDefault();
+              return;
+            }
+
+            const marker = e.marker;
+            const asset = marker.data.asset;
+
+            // Handle navigation hotspots differently
+            if (asset && asset.type === "navigation") {
+              this.handleNavigationClick(marker);
+            } else {
+              this.showMarkerDialog(marker, asset);
+            }
+          });
+
+          // Keyboard shortcuts
+          document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && this.isAddingMode) {
+              this.cancelAddingMode();
+            }
+          });
+
+          // Setup drag and resize functionality
+          this.setupDragAndResize();
+        }
+
+        toggleMoveMode() {
+          this.moveMode = !this.moveMode;
+          const moveBtn = document.getElementById("move-hotspot-btn");
+
+          if (this.moveMode) {
+            moveBtn.classList.add("active");
+            this.showMessage(
+              "📍 Move mode enabled - Click any hotspot, then click where to move it",
+              "success"
+            );
+            console.log("📍 Move mode ENABLED");
+          } else {
+            moveBtn.classList.remove("active");
+            // Cancel any pending move
+            if (this.movingHotspot) {
+              const markerElement = document.querySelector(
+                `[data-marker-id="${this.movingHotspot.id}"]`
+              );
+              if (markerElement) {
+                markerElement.style.opacity = "";
+                markerElement.style.border = "";
+              }
+              this.movingHotspot = null;
+            }
+            this.showMessage("📍 Move mode disabled", "info");
+            console.log("📍 Move mode DISABLED");
+          }
+        }
+
+        toggleDragMode() {
+          this.dragModeEnabled = !this.dragModeEnabled;
+          const dragBtn = document.getElementById("toggle-drag-mode");
+          const dragText = document.getElementById("drag-mode-text");
+          const dragStatus = document.getElementById("drag-status");
+
+          if (this.dragModeEnabled) {
+            dragBtn.classList.add("active");
+            dragText.textContent = "Disable Drag Mode";
+            dragStatus.textContent = "Enabled";
+            dragStatus.style.color = "#04aa6d";
+            this.showMessage(
+              "🔄 Drag mode enabled - Panorama scrolling disabled for precise hotspot positioning",
+              "success"
+            );
+
+            // Show all resize handles
+            document.querySelectorAll(".draggable-marker").forEach((marker) => {
+              marker.classList.add("selected");
+            });
+
+            // Disable panorama viewer canvas interactions but keep markers clickable
+            if (this.viewer) {
+              // Find the canvas element and disable its pointer events
+              const canvas = document.querySelector(".psv-canvas");
+              if (canvas) {
+                canvas.style.pointerEvents = "none";
+              }
+              // Keep markers above the disabled canvas
+              document
+                .querySelectorAll(".draggable-marker")
+                .forEach((marker) => {
+                  marker.style.pointerEvents = "auto";
+                  marker.style.zIndex = "9999";
+                });
+            }
+
+            console.log(
+              "🎯 Drag mode ENABLED - Panorama scrolling DISABLED - Markers draggable"
+            );
+          } else {
+            dragBtn.classList.remove("active");
+            dragText.textContent = "Enable Drag Mode";
+            dragStatus.textContent = "Disabled";
+            dragStatus.style.color = "#999";
+            this.showMessage(
+              "🔒 Drag mode disabled - Panorama scrolling enabled",
+              "info"
+            );
+
+            // Hide resize handles
+            document.querySelectorAll(".draggable-marker").forEach((marker) => {
+              marker.classList.remove("selected");
+            });
+
+            // Re-enable panorama viewer canvas interactions
+            if (this.viewer) {
+              const canvas = document.querySelector(".psv-canvas");
+              if (canvas) {
+                canvas.style.pointerEvents = "auto";
+              }
+              // Reset marker z-index
+              document
+                .querySelectorAll(".draggable-marker")
+                .forEach((marker) => {
+                  marker.style.zIndex = "";
+                });
+            }
+
+            console.log("🔒 Drag mode DISABLED - Panorama scrolling ENABLED");
+          }
+        }
+
+        setupDragAndResize() {
+          // Add event listeners to the document for better event capture
+          document.addEventListener(
+            "mousedown",
+            this.handleMouseDown.bind(this),
+            true
+          );
+          document.addEventListener(
+            "mousemove",
+            this.handleMouseMove.bind(this),
+            true
+          );
+          document.addEventListener(
+            "mouseup",
+            this.handleMouseUp.bind(this),
+            true
+          );
+
+          // Touch events for mobile drag and resize
+          document.addEventListener(
+            "touchstart",
+            this.handleTouchStart.bind(this),
+            true
+          );
+          document.addEventListener(
+            "touchmove",
+            this.handleTouchMove.bind(this),
+            true
+          );
+          document.addEventListener(
+            "touchend",
+            this.handleTouchEnd.bind(this),
+            true
+          );
+        }
+
+        handleMouseDown(e) {
+          // Only allow dragging when drag mode is enabled
+          if (!this.dragModeEnabled) return;
+
+          const target = e.target;
+          const markerElement = target.closest(".draggable-marker");
+
+          if (!markerElement) return;
+
+          // Prevent default behavior and stop propagation to avoid conflicts
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          const markerId = markerElement.dataset.markerId;
+          const marker = this.markersPlugin.getMarker(markerId);
+
+          if (!marker) {
+            console.warn("Marker not found:", markerId);
+            return;
+          }
+
+          console.log("🎯 Mouse down on marker:", markerId);
+
+          // Check if clicking on resize handle
+          if (
+            target.classList.contains("resize-handle") ||
+            target.dataset.resize === "true"
+          ) {
+            console.log("📏 Starting resize operation");
+            this.startResize(marker, e);
+          } else {
+            console.log("🔄 Starting drag operation");
+            this.startDrag(marker, e);
+          }
+        }
+
+        handleMouseMove(e) {
+          if (this.isDragging) {
+            this.updateDragPosition(e.clientX, e.clientY);
+          } else if (this.isResizing) {
+            this.updateResizeSize(e.clientX, e.clientY);
+          }
+        }
+
+        handleMouseUp(e) {
+          if (this.isDragging) {
+            this.endDrag();
+          } else if (this.isResizing) {
+            this.endResize();
+          }
+        }
+
+        handleTouchStart(e) {
+          if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            this.handleMouseDown({
+              target: touch.target,
+              clientX: touch.clientX,
+              clientY: touch.clientY,
+              preventDefault: () => e.preventDefault(),
+              stopPropagation: () => e.stopPropagation(),
+            });
+          }
+        }
+
+        handleTouchMove(e) {
+          if (e.touches.length === 1 && (this.isDragging || this.isResizing)) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            if (this.isDragging) {
+              this.updateDragPosition(touch.clientX, touch.clientY);
+            } else if (this.isResizing) {
+              this.updateResizeSize(touch.clientX, touch.clientY);
+            }
+          }
+        }
+
+        handleTouchEnd(e) {
+          this.handleMouseUp(e);
+        }
+
+        startDrag(marker, e) {
+          console.debug(
+            "[PSV] startDrag called for marker",
+            marker && marker.id,
+            e && e.type
+          );
+          this.isDragging = true;
+          this.draggedMarker = marker;
+          this.selectedMarker = marker;
+
+          this.dragStartPos = { x: e.clientX, y: e.clientY };
+          this.markerStartPos = {
+            yaw: marker.config.position.yaw,
+            pitch: marker.config.position.pitch,
+          };
+
+          // Calculate offset between cursor and marker to keep hotspot under cursor
+          // This preserves where you clicked on the hotspot
+          try {
+            const container =
+              document.getElementById("viewer") ||
+              document.querySelector(".psv-container") ||
+              document.body;
+            const rect = container.getBoundingClientRect();
+            const relX = e.clientX - rect.left;
+            const relY = e.clientY - rect.top;
+            const width = rect.width || window.innerWidth;
+            const height = rect.height || window.innerHeight;
+            const nx = Math.max(0, Math.min(1, relX / width));
+            const ny = Math.max(0, Math.min(1, relY / height));
+
+            const cursorYaw = nx * 360 - 180;
+            const cursorPitch = (0.5 - ny) * 180;
+
+            // Calculate and preserve the offset
+            this.dragYawOffset = this.markerStartPos.yaw - cursorYaw;
+            this.dragPitchOffset = this.markerStartPos.pitch - cursorPitch;
+          } catch (err) {
+            console.warn("Failed to calculate drag offset:", err);
+            this.dragYawOffset = 0;
+            this.dragPitchOffset = 0;
+          }
+
+          // Seed last applied angles for smoothing
+          this.lastAppliedYaw = this.markerStartPos.yaw;
+          this.lastAppliedPitch = this.markerStartPos.pitch;
+
+          // Add dragging class
+          const markerElement = document.querySelector(
+            `[data-marker-id="${marker.id}"]`
+          );
+          if (markerElement) {
+            markerElement.classList.add("dragging");
+            markerElement.classList.add("selected");
+          }
+
+          // Note: Panorama viewer interactions are already disabled in toggleDragMode()
+          // No need to disable here again
+
+          // Update debug status
+          const dragActive = document.getElementById("drag-active");
+          if (dragActive) {
+            dragActive.textContent = "Yes";
+            dragActive.style.color = "#ffd700";
+          }
+
+          console.debug(
+            "🔄 Started dragging marker:",
+            marker.id,
+            "startPos=",
+            this.markerStartPos
+          );
+          this.showMessage("🔄 Dragging hotspot - move to reposition", "info");
+        }
+
+        updateDragPosition(clientX, clientY) {
+          if (!this.isDragging || !this.draggedMarker) return;
+
+          // Use delta-based movement for 360° panoramas
+          // This moves the hotspot relative to mouse movement, not absolute position
+          const deltaX = clientX - this.dragStartPos.x;
+          const deltaY = clientY - this.dragStartPos.y;
+
+          // Convert pixel deltas to angle changes
+          // Adjust sensitivity: smaller divisor = more sensitive
+          const sensitivity = 0.5; // 0.5 = moderate sensitivity for 360° drag
+          const yawDelta = deltaX * sensitivity;
+          const pitchDelta = -(deltaY * sensitivity);
+
+          // Apply deltas to starting position
+          let newYaw = this.markerStartPos.yaw + yawDelta;
+          let newPitch = this.markerStartPos.pitch + pitchDelta;
+
+          // Normalize yaw to -180 to 180 range
+          while (newYaw > 180) newYaw -= 360;
+          while (newYaw < -180) newYaw += 360;
+
+          // Clamp pitch to valid range
+          newPitch = Math.max(-90, Math.min(90, newPitch));
+
+          console.debug("[PSV] Delta-based drag:", {
+            deltaX,
+            deltaY,
+            yawDelta,
+            pitchDelta,
+            newYaw,
+            newPitch,
+          });
+
+          // Update marker position
+          try {
+            const deltaX = clientX - this.dragStartPos.x;
+            const deltaY = clientY - this.dragStartPos.y;
+
+            if (
+              this.markersPlugin &&
+              typeof this.markersPlugin.updateMarker === "function"
+            ) {
+              console.debug(
+                "[PSV] using markersPlugin.updateMarker",
+                this.draggedMarker.id,
+                { yaw: newYaw, pitch: newPitch }
+              );
+              this.markersPlugin.updateMarker({
+                id: this.draggedMarker.id,
+                position: { yaw: newYaw, pitch: newPitch },
+              });
+            } else {
+              console.debug(
+                "[PSV] markersPlugin.updateMarker not available, using fallback mutation for",
+                this.draggedMarker.id
+              );
+              // Fallback: directly mutate marker if plugin lacks update method
+              const m =
+                this.markersPlugin &&
+                typeof this.markersPlugin.getMarker === "function"
+                  ? this.markersPlugin.getMarker(this.draggedMarker.id)
+                  : null;
+              console.debug("[PSV] getMarker result:", m);
+              if (m && m.position) {
+                m.position.yaw = newYaw;
+                m.position.pitch = newPitch;
+                // Try to trigger a render if available
+                if (typeof this.markersPlugin.render === "function") {
+                  try {
+                    this.markersPlugin.render();
+                    console.debug("[PSV] called markersPlugin.render()");
+                  } catch (e) {
+                    console.error("[PSV] render() failed", e);
+                  }
+                }
+              }
+            }
+
+            // Keep our in-memory hotspot data in sync during drag
+            const hs = this.hotspots.find(
+              (h) => h.id === this.draggedMarker.id
+            );
+            if (hs) {
+              hs.yaw = newYaw;
+              hs.pitch = newPitch;
+              hs.position = this.convertYawPitchToPosition(newYaw, newPitch);
+            }
+
+            // Persist last applied angles for subsequent smoothing
+            this.lastAppliedYaw = newYaw;
+            this.lastAppliedPitch = newPitch;
+
+            // Log position updates for debugging (slightly sensitive)
+            if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+              console.log(
+                `🔄 Dragging ${this.draggedMarker.id}: yaw=${newYaw.toFixed(
+                  1
+                )}, pitch=${newPitch.toFixed(1)}`
+              );
+            }
+          } catch (error) {
+            console.error("Error updating marker during drag:", error);
+          }
+        }
+
+        endDrag() {
+          if (!this.isDragging || !this.draggedMarker) return;
+
+          this.isDragging = false;
+
+          // Remove dragging class
+          const markerElement = document.querySelector(
+            `[data-marker-id="${this.draggedMarker.id}"]`
+          );
+          if (markerElement) {
+            markerElement.classList.remove("dragging");
+          }
+
+          // Note: Panorama viewer interactions remain controlled by toggleDragMode()
+          // Only re-enable when drag mode is turned off
+
+          // Update debug status
+          const dragActive = document.getElementById("drag-active");
+          if (dragActive) {
+            dragActive.textContent = "No";
+            dragActive.style.color = "#999";
+          }
+
+          // Update hotspot data
+          const updatedMarker = this.markersPlugin.getMarker(
+            this.draggedMarker.id
+          );
+          if (updatedMarker) {
+            this.updateHotspotPosition(
+              this.draggedMarker.id,
+              updatedMarker.config.position
+            );
+            console.log(
+              `✅ Updated position for ${this.draggedMarker.id}:`,
+              updatedMarker.config.position
+            );
+          }
+
+          console.log(`✅ Finished dragging marker: ${this.draggedMarker.id}`);
+          this.showMessage("✅ Hotspot repositioned successfully", "success");
+
+          this.draggedMarker = null;
+        }
+
+        startResize(marker, e) {
+          this.isResizing = true;
+          this.draggedMarker = marker;
+          this.selectedMarker = marker;
+
+          this.dragStartPos = { x: e.clientX, y: e.clientY };
+
+          const markerElement = document.querySelector(
+            `[data-marker-id="${marker.id}"]`
+          );
+          if (markerElement) {
+            this.originalSize = {
+              width: markerElement.offsetWidth,
+              height: markerElement.offsetHeight,
+            };
+            markerElement.classList.add("selected");
+          }
+
+          console.log(`🔄 Started resizing marker: ${marker.id}`);
+          this.showMessage("📏 Resizing hotspot - drag to adjust size", "info");
+        }
+
+        updateResizeSize(clientX, clientY) {
+          if (!this.isResizing || !this.draggedMarker) return;
+
+          const deltaX = clientX - this.dragStartPos.x;
+          const deltaY = clientY - this.dragStartPos.y;
+
+          const markerElement = document.querySelector(
+            `[data-marker-id="${this.draggedMarker.id}"]`
+          );
+          if (!markerElement || !this.originalSize) return;
+
+          // Calculate new size
+          const newWidth = Math.max(
+            60,
+            Math.min(250, this.originalSize.width + deltaX)
+          );
+          const newHeight = Math.max(
+            60,
+            Math.min(250, this.originalSize.height + deltaY)
+          );
+
+          // Apply new size
+          markerElement.style.width = newWidth + "px";
+          markerElement.style.height = newHeight + "px";
+        }
+
+        endResize() {
+          if (!this.isResizing || !this.draggedMarker) return;
+
+          this.isResizing = false;
+
+          const markerElement = document.querySelector(
+            `[data-marker-id="${this.draggedMarker.id}"]`
+          );
+          if (markerElement) {
+            // Update hotspot data with new size
+            this.updateHotspotSize(this.draggedMarker.id, {
+              width: markerElement.offsetWidth,
+              height: markerElement.offsetHeight,
+            });
+          }
+
+          console.log(`✅ Finished resizing marker: ${this.draggedMarker.id}`);
+          this.showMessage("✅ Hotspot resized successfully", "success");
+
+          this.draggedMarker = null;
+        }
+
+        updateHotspotPosition(markerId, newPosition) {
+          // newPosition contains { yaw, pitch } from PhotoSphere viewer
+          // Convert to 3D Cartesian coordinates for database storage
+          const position3D = this.convertYawPitchToPosition(
+            newPosition.yaw,
+            newPosition.pitch
+          );
+
+          // Find and update the hotspot in our data array
+          const hotspot = this.hotspots.find((h) => h.id === markerId);
+          if (hotspot) {
+            // Update both yaw/pitch (for viewer) and x/y/z (for database)
+            hotspot.yaw = newPosition.yaw;
+            hotspot.pitch = newPosition.pitch;
+            hotspot.position = position3D;
+
+            // Also store as position_x, position_y, position_z for database compatibility
+            hotspot.position_x = position3D.x;
+            hotspot.position_y = position3D.y;
+            hotspot.position_z = position3D.z;
+
+            console.log(`📍 Updated hotspot ${hotspot.id} position:`, {
+              yaw: newPosition.yaw,
+              pitch: newPosition.pitch,
+              position_x: position3D.x,
+              position_y: position3D.y,
+              position_z: position3D.z,
+            });
+          }
+        }
+
+        updateHotspotSize(markerId, newSize) {
+          // Find and update the hotspot size data
+          const hotspot = this.hotspots.find((h) => h.id === markerId);
+          if (hotspot) {
+            hotspot.size = newSize;
+            console.log(`📏 Updated hotspot size:`, hotspot.id, newSize);
+          }
+        }
+
+        openNavigationSelector() {
+          this.loadLinkablePanoramas()
+            .then((panoramas) => {
+              this.showNavigationPicker(panoramas);
+            })
+            .catch((error) => {
+              console.error("Error loading linkable panoramas:", error);
+              this.showMessage(
+                "❌ Failed to load available panoramas",
+                "error"
+              );
+            });
+        }
+
+        async loadLinkablePanoramas() {
+          try {
+            const response = await fetch(
+              `panorama_api.php?action=get_linkable_panoramas&current_path_id=${this.pathId}&current_point_index=${this.pointIndex}&current_floor=${this.floor}`
+            );
+            const data = await response.json();
+
+            if (data.success && data.panoramas) {
+              return data.panoramas;
+            }
+            return [];
+          } catch (error) {
+            console.error("Error loading linkable panoramas:", error);
+            return [];
+          }
+        }
+
+        showNavigationPicker(panoramas) {
+          const modal = document.createElement("div");
+          modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.8); z-index: 3000; 
+                    display: flex; justify-content: center; align-items: center;
+                `;
+
+          const content = document.createElement("div");
+          content.style.cssText = `
+                    background: #2d2d2d; padding: 30px; border-radius: 15px;
+                    max-width: 80%; max-height: 80%; overflow-y: auto;
+                    color: white; min-width: 500px;
+                `;
+
+          const title = document.createElement("h3");
+          title.textContent = "Create Navigation Link";
+          title.style.cssText =
+            "color: #04aa6d; margin-bottom: 20px; text-align: center;";
+          content.appendChild(title);
+
+          // Create form for navigation details
+          const form = document.createElement("div");
+          form.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">Link Title:</label>
+                        <input type="text" id="nav-title" placeholder="e.g., Go to Main Lobby" 
+                               style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">Link Type:</label>
+                        <select id="nav-type" style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                            <option value="panorama">Link to Another Panorama</option>
+                            <option value="office">Link to Office Information</option>
+                            <option value="external">Link to External URL</option>
+                        </select>
+                    </div>
+                    
+                    <div id="panorama-section" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">Target Panorama:</label>
+                        <select id="target-panorama" style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                            <option value="">Select target panorama...</option>
+                            ${panoramas
+                              .map(
+                                (pano) =>
+                                  `<option value="${pano.path_id}:${
+                                    pano.point_index
+                                  }:${pano.floor_number}">
+                                Floor ${pano.floor_number} - ${
+                                    pano.path_id
+                                  } Point ${pano.point_index}
+                                ${pano.title ? ` (${pano.title})` : ""}
+                              </option>`
+                              )
+                              .join("")}
+                        </select>
+                    </div>
+                    
+                    <div id="office-section" style="margin-bottom: 20px; display: none;">
+                        <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">Office ID:</label>
+                        <input type="number" id="office-id" placeholder="Enter office ID" 
+                               style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                    </div>
+                    
+                    <div id="external-section" style="margin-bottom: 20px; display: none;">
+                        <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">External URL:</label>
+                        <input type="url" id="external-url" placeholder="https://example.com" 
+                               style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">Target Viewing Angle (Yaw):</label>
+                            <input type="number" id="target-yaw" value="0" min="-180" max="180" step="5"
+                                   style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                            <small style="color: #ccc;">Horizontal angle (-180° to 180°)</small>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #04aa6d; font-weight: bold;">Target Pitch:</label>
+                            <input type="number" id="target-pitch" value="0" min="-90" max="90" step="5"
+                                   style="width: 100%; padding: 10px; border: 2px solid #04aa6d; border-radius: 8px; background: #1a1a1a; color: white;">
+                            <small style="color: #ccc;">Vertical angle (-90° to 90°)</small>
+                        </div>
+                    </div>
+                `;
+
+          content.appendChild(form);
+
+          // Handle link type changes
+          const navTypeSelect = form.querySelector("#nav-type");
+          const panoramaSection = form.querySelector("#panorama-section");
+          const officeSection = form.querySelector("#office-section");
+          const externalSection = form.querySelector("#external-section");
+
+          navTypeSelect.addEventListener("change", () => {
+            const type = navTypeSelect.value;
+            panoramaSection.style.display =
+              type === "panorama" ? "block" : "none";
+            officeSection.style.display = type === "office" ? "block" : "none";
+            externalSection.style.display =
+              type === "external" ? "block" : "none";
+          });
+
+          const buttons = document.createElement("div");
+          buttons.style.cssText =
+            "display: flex; gap: 10px; justify-content: center; margin-top: 20px;";
+
+          const createBtn = document.createElement("button");
+          createBtn.textContent = "Create Navigation Hotspot";
+          createBtn.className = "btn";
+          createBtn.style.cssText =
+            "background: #04aa6d; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;";
+
+          createBtn.addEventListener("click", () => {
+            const title = form.querySelector("#nav-title").value.trim();
+            const type = form.querySelector("#nav-type").value;
+            const targetYaw =
+              parseFloat(form.querySelector("#target-yaw").value) || 0;
+            const targetPitch =
+              parseFloat(form.querySelector("#target-pitch").value) || 0;
+
+            if (!title) {
+              alert("Please enter a title for the navigation hotspot");
+              return;
+            }
+
+            let navigationData = {
+              type: "navigation",
+              title: title,
+              linkType: type,
+              navigationAngle: targetYaw,
+              targetPitch: targetPitch,
+            };
+
+            if (type === "panorama") {
+              const targetValue = form.querySelector("#target-panorama").value;
+              if (!targetValue) {
+                alert("Please select a target panorama");
+                return;
+              }
+              const [pathId, pointIndex, floorNumber] = targetValue.split(":");
+              navigationData.linkPathId = pathId;
+              navigationData.linkPointIndex = parseInt(pointIndex);
+              navigationData.linkFloorNumber = parseInt(floorNumber);
+            } else if (type === "office") {
+              const officeId = form.querySelector("#office-id").value;
+              if (!officeId) {
+                alert("Please enter an office ID");
+                return;
+              }
+              navigationData.targetOfficeId = parseInt(officeId);
+            } else if (type === "external") {
+              const externalUrl = form.querySelector("#external-url").value;
+              if (!externalUrl) {
+                alert("Please enter an external URL");
+                return;
+              }
+              navigationData.targetUrl = externalUrl;
+            }
+
+            this.selectedAsset = navigationData;
+            this.isAddingMode = true;
+            this.updateUI();
+            document.body.removeChild(modal);
+
+            this.showMessage(
+              "🔗 Navigation link ready! Click on panorama to place it.",
+              "info"
+            );
+          });
+
+          const cancelBtn = document.createElement("button");
+          cancelBtn.textContent = "Cancel";
+          cancelBtn.style.cssText =
+            "background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer;";
+          cancelBtn.addEventListener("click", () => {
+            document.body.removeChild(modal);
+          });
+
+          buttons.appendChild(createBtn);
+          buttons.appendChild(cancelBtn);
+          content.appendChild(buttons);
+
+          modal.appendChild(content);
+          document.body.appendChild(modal);
+        }
+
+        openAssetSelector(type) {
+          // First try to load from existing assets
+          this.loadAvailableAssets(type)
+            .then((assets) => {
+              if (assets.length > 0) {
+                this.showAssetPicker(assets, type);
+              } else {
+                this.openFilePicker(type);
+              }
+            })
+            .catch(() => {
+              this.openFilePicker(type);
+            });
+        }
+
+        async loadAvailableAssets(type) {
+          try {
+            const endpoint =
+              type === "video"
+                ? "video_hotspot_manager.php"
+                : "animated_hotspot_manager.php";
+            const response = await fetch(`${endpoint}?action=list`);
+            const data = await response.json();
+
+            if (data.success) {
+              if (type === "video" && data.videos) return data.videos;
+
+              if (type !== "video" && data.icons) {
+                // Normalize server icon objects to the shape the asset picker expects
+                return data.icons.map((icon) => {
+                  const id = icon.icon_id ?? icon.id ?? icon.iconId ?? null;
+                  const name =
+                    icon.icon_name ?? icon.name ?? icon.display_name ?? null;
+
+                  // Prefer explicit file path fields but fallback to other keys
+                  let path =
+                    icon.icon_file_path ??
+                    icon.file_path ??
+                    icon.path ??
+                    icon.url ??
+                    icon.icon_file_name ??
+                    null;
+
+                  // Normalize Windows backslashes -> forward slashes
+                  if (typeof path === "string") {
+                    path = path.replace(/\\/g, "/");
+                  }
+
+                  // If the server returned a full filesystem path (e.g., C:/... or contains drive letter)
+                  // or a bare filename, extract the basename and prefix the web folder so the browser can load it
+                  if (
+                    path &&
+                    !path.startsWith("http") &&
+                    !path.startsWith("/")
+                  ) {
+                    // If path contains a drive letter like C: or contains folders, extract last segment
+                    const basename = path.split("/").pop();
+                    path = `animated_hotspot_icons/${basename}`;
+                  }
+
+                  return {
+                    id,
+                    name: name || (path ? path.split("/").pop() : `GIF ${id}`),
+                    path,
+                    url: path,
+                    file_size: icon.file_size ?? icon.size ?? 0,
+                    raw: icon,
+                  };
+                });
+              }
+            }
+
+            return [];
+          } catch (error) {
+            console.error("Error loading assets:", error);
+            return [];
+          }
+        }
+
+        showAssetPicker(assets, type) {
+          // Create a simple asset picker modal (you can enhance this)
+          const modal = document.createElement("div");
+          modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.8); z-index: 3000; 
+                    display: flex; justify-content: center; align-items: center;
+                `;
+
+          const content = document.createElement("div");
+          content.style.cssText = `
+                    background: #2d2d2d; padding: 30px; border-radius: 15px;
+                    max-width: 80%; max-height: 80%; overflow-y: auto;
+                    color: white;
+                `;
+
+          const title = document.createElement("h3");
+          title.textContent = `Select ${type.toUpperCase()} Asset`;
+          title.style.cssText = "color: #04aa6d; margin-bottom: 20px;";
+          content.appendChild(title);
+
+          const grid = document.createElement("div");
+          grid.style.cssText =
+            "display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;";
+
+          assets.forEach((asset) => {
+            const item = document.createElement("div");
+            item.style.cssText = `
+                        border: 2px solid #04aa6d; border-radius: 10px; padding: 10px;
+                        cursor: pointer; text-align: center; transition: all 0.3s ease;
+                    `;
+
+            item.innerHTML = `
+                        <div style="margin-bottom: 10px;">
+                            ${
+                              type === "video"
+                                ? `<video style="width: 100%; height: 100px; object-fit: cover;" muted><source src="${asset.url}"></video>`
+                                : `<img style="width: 100%; height: 100px; object-fit: cover;" src="${
+                                    asset.path || asset.url
+                                  }">`
+                            }
+                        </div>
+                        <div style="font-size: 12px;">${asset.name}</div>
+                    `;
+
+            item.addEventListener("click", () => {
+              this.selectedAsset = {
+                type: type,
+                id: asset.id,
+                url: type === "video" ? asset.url : asset.path || asset.url,
+                name: asset.name,
+                size: asset.file_size || 0,
+                serverPath:
+                  type === "video" ? asset.url : asset.path || asset.url,
+              };
+
+              this.isAddingMode = true;
+              this.updateUI();
+              document.body.removeChild(modal);
+
+              this.showMessage(
+                `${type.toUpperCase()} selected! Click on panorama to place it.`,
+                "info"
+              );
+            });
+
+            item.addEventListener("mouseenter", () => {
+              item.style.borderColor = "#ffd700";
+              item.style.transform = "scale(1.05)";
+            });
+
+            item.addEventListener("mouseleave", () => {
+              item.style.borderColor = "#04aa6d";
+              item.style.transform = "scale(1)";
+            });
+
+            grid.appendChild(item);
+          });
+
+          content.appendChild(grid);
+
+          const buttons = document.createElement("div");
+          buttons.style.cssText =
+            "display: flex; gap: 10px; justify-content: center;";
+
+          const uploadBtn = document.createElement("button");
+          uploadBtn.textContent = "Upload New File";
+          uploadBtn.className = "btn";
+          uploadBtn.addEventListener("click", () => {
+            document.body.removeChild(modal);
+            this.openFilePicker(type);
+          });
+
+          const cancelBtn = document.createElement("button");
+          cancelBtn.textContent = "Cancel";
+          cancelBtn.style.cssText =
+            "background: #666; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;";
+          cancelBtn.addEventListener("click", () => {
+            document.body.removeChild(modal);
+          });
+
+          buttons.appendChild(uploadBtn);
+          buttons.appendChild(cancelBtn);
+          content.appendChild(buttons);
+
+          modal.appendChild(content);
+          document.body.appendChild(modal);
+        }
+
+        openFilePicker(type) {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = type === "video" ? "video/*" : "image/gif";
+
+          input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              // Validate file type
+              if (type === "video" && !file.type.startsWith("video/")) {
+                this.showMessage("❌ Please select a video file", "error");
+                return;
+              }
+              if (type === "gif" && file.type !== "image/gif") {
+                this.showMessage("❌ Please select a GIF file", "error");
+                return;
+              }
+
+              // Check file size (max 10MB for videos, 2MB for GIFs)
+              const maxSize =
+                type === "video" ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
+              if (file.size > maxSize) {
+                const maxSizeMB = type === "video" ? "10MB" : "2MB";
+                this.showMessage(
+                  `❌ File too large. Maximum size: ${maxSizeMB}`,
+                  "error"
+                );
+                return;
+              }
+
+              // Upload file first before creating hotspot
+              this.uploadAssetFile(file, type);
+            }
+          };
+
+          input.click();
+        }
+
+        async uploadAssetFile(file, type) {
+          this.updateStatus(`Uploading ${type}...`);
+          this.showMessage(`⬆️ Uploading ${type} file...`, "info");
+
+          const formData = new FormData();
+          formData.append("action", "upload");
+          if (type === "gif") {
+            const iconName = file.name.replace(/\.[^/.]+$/, "");
+            formData.append("icon_file", file);
+            formData.append("icon_name", iconName || "hotspot_icon");
+            formData.append("icon_description", iconName);
+            formData.append("icon_category", "general");
+          } else {
+            formData.append(type, file); // 'video'
+            formData.append("name", file.name);
+          }
+
+          try {
+            const endpoint =
+              type === "video"
+                ? "video_hotspot_manager.php"
+                : "animated_hotspot_manager.php";
+            const response = await fetch(endpoint, {
+              method: "POST",
+              body: formData,
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              let assetPayload = null;
+
+              if (type === "gif") {
+                assetPayload = {
+                  id: data.icon_id,
+                  name: formData.get("icon_name"),
+                  path: data.file_path,
+                  url: data.file_path,
+                };
+              } else {
+                assetPayload = data.video;
+              }
+
+              this.selectedAsset = {
+                type: type,
+                id: assetPayload.id,
+                url: assetPayload.url || assetPayload.path,
+                name: assetPayload.name,
+                size: file.size,
+                serverPath: assetPayload.path || assetPayload.url,
+              };
+
+              this.isAddingMode = true;
+              this.updateUI();
+
+              const typeLabel = type === "video" ? "Video" : "GIF";
+              this.showMessage(
+                `✅ ${typeLabel} uploaded! Click anywhere on the panorama to place it.`,
+                "success"
+              );
+              this.updateStatus(`${typeLabel} ready - click to place`);
+            } else {
+              throw new Error(data.error || "Upload failed");
+            }
+          } catch (error) {
+            console.error("Asset upload error:", error);
+            this.showMessage(
+              `❌ Failed to upload ${type}: ${error.message}`,
+              "error"
+            );
+            this.updateStatus("Upload failed");
+          }
+        }
+
+        cancelAddingMode() {
+          this.isAddingMode = false;
+          this.selectedAsset = null;
+          this.updateUI();
+          this.updateStatus("Ready");
+          this.showMessage("➡️ Adding mode cancelled", "warning");
+        }
+
+        handleNavigationClick(marker) {
+          const hotspot = this.hotspots.find((h) => h.id === marker.id);
+
+          if (!hotspot) {
+            console.error("Navigation hotspot data not found:", marker.id);
+            return;
+          }
+
+          console.log("🔗 Navigation hotspot clicked:", hotspot);
+
+          if (
+            hotspot.link_type === "panorama" &&
+            hotspot.link_path_id &&
+            hotspot.link_point_index !== null
+          ) {
+            // Navigate to another panorama
+            this.navigateToPanorama(
+              hotspot.link_path_id,
+              hotspot.link_point_index,
+              hotspot.link_floor_number || this.floor,
+              hotspot.navigation_angle || 0,
+              hotspot.target_pitch || 0
+            );
+          } else if (
+            hotspot.link_type === "office" &&
+            hotspot.target_office_id
+          ) {
+            // Navigate to office information
+            this.navigateToOffice(hotspot.target_office_id);
+          } else if (hotspot.link_type === "external" && hotspot.target_url) {
+            // Open external URL
+            window.open(hotspot.target_url, "_blank");
+            this.showMessage(
+              `🌐 Opening external link: ${hotspot.target_url}`,
+              "info"
+            );
+          } else {
+            // Show navigation details if no valid link
+            this.showNavigationDialog(marker, hotspot);
+          }
+        }
+
+        navigateToPanorama(
+          pathId,
+          pointIndex,
+          floorNumber,
+          targetYaw = 0,
+          targetPitch = 0
+        ) {
+          console.log(
+            `🧭 Navigating to panorama: ${pathId}_${pointIndex}_${floorNumber}`
+          );
+
+          this.showMessage("🔄 Navigating to panorama...", "info");
+
+          // Construct new URL with target view parameters
+          const params = new URLSearchParams({
+            image: `Pano/pano_${pathId}_${pointIndex}_${Date.now()}_placeholder.jpg`, // Will be replaced by API
+            pathId: pathId,
+            pointIndex: pointIndex,
+            floor: floorNumber,
+            targetYaw: targetYaw,
+            targetPitch: targetPitch,
+          });
+
+          // Apply fade transition
+          document.body.style.transition = "opacity 0.5s ease-in-out";
+          document.body.style.opacity = "0";
+
+          setTimeout(() => {
+            window.location.href = `panorama_viewer_photosphere.php?${params.toString()}`;
+          }, 500);
+        }
+
+        navigateToOffice(officeId) {
+          console.log(`🏛️ Navigating to office: ${officeId}`);
+          this.showMessage(
+            `🏛️ Opening office information: Office ${officeId}`,
+            "info"
+          );
+
+          // Navigate to office details page
+          window.open(
+            `mobileScreen/explore.php?office_id=${officeId}`,
+            "_blank"
+          );
+        }
+
+        showNavigationDialog(marker, hotspot) {
+          const linkTypeText = {
+            panorama: "Another Panorama",
+            office: "Office Information",
+            external: "External Website",
+          };
+
+          const message = `
+🔗 ${hotspot.title}
+
+Navigation Type: ${linkTypeText[hotspot.link_type] || "Unknown"}
+${
+  hotspot.link_type === "panorama"
+    ? `Target: ${hotspot.link_path_id} Point ${hotspot.link_point_index} (Floor ${hotspot.link_floor_number})`
+    : ""
+}
+${
+  hotspot.link_type === "office" ? `Office ID: ${hotspot.target_office_id}` : ""
+}
+${hotspot.link_type === "external" ? `URL: ${hotspot.target_url}` : ""}
+Target Angle: ${hotspot.navigation_angle}° yaw, ${hotspot.target_pitch}° pitch
+
+Options:
+• Test navigation
+• Edit properties  
+• Delete hotspot
+                `;
+
+          const action = prompt(
+            message + "\n\nEnter action (test/edit/delete):",
+            "test"
+          );
+
+          if (action === "test") {
+            this.handleNavigationClick(marker);
+          } else if (action === "delete") {
+            this.deleteMarker(marker.id);
+          }
+        }
+
+        showMarkerDialog(marker, asset) {
+          const hotspot = this.hotspots.find((h) => h.id === marker.id);
+
+          // Create modal overlay
+          const overlay = document.createElement("div");
+          overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+          `;
+
+          const modal = document.createElement("div");
+          modal.style.cssText = `
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(4, 170, 109, 0.3);
+            animation: slideUp 0.3s ease;
+            color: white;
+          `;
+
+          const assetName = asset.name || asset.title || "Unnamed Hotspot";
+          const assetType = asset.type ? asset.type.toUpperCase() : "UNKNOWN";
+          const assetSize = this.formatFileSize(asset.size);
+          const createdDate = new Date(marker.data.created).toLocaleString();
+
+          modal.innerHTML = `
+            <style>
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideUp {
+                from { transform: translateY(30px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+              }
+              .hotspot-dialog-title {
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 20px;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              }
+              .hotspot-info {
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+                border-left: 3px solid #04aa6d;
+              }
+              .info-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 10px;
+                font-size: 14px;
+              }
+              .info-row:last-child {
+                margin-bottom: 0;
+              }
+              .info-label {
+                color: rgba(255, 255, 255, 0.6);
+                font-weight: 500;
+              }
+              .info-value {
+                color: #fff;
+                font-weight: 600;
+              }
+              .dialog-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 25px;
+              }
+              .dialog-btn {
+                flex: 1;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+              }
+              .dialog-btn-edit {
+                background: linear-gradient(135deg, #04aa6d, #036551);
+                color: white;
+              }
+              .dialog-btn-edit:hover {
+                background: linear-gradient(135deg, #036551, #025244);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(4, 170, 109, 0.3);
+              }
+              .dialog-btn-delete {
+                background: linear-gradient(135deg, #dc3545, #bd2130);
+                color: white;
+              }
+              .dialog-btn-delete:hover {
+                background: linear-gradient(135deg, #c82333, #a71d2a);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(220, 53, 69, 0.3);
+              }
+              .dialog-btn-cancel {
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+              }
+              .dialog-btn-cancel:hover {
+                background: rgba(255, 255, 255, 0.15);
+              }
+            </style>
+            <div class="hotspot-dialog-title">
+              <span>📍</span> Hotspot Details
+            </div>
+            
+            <div class="hotspot-info">
+              <div class="info-row">
+                <span class="info-label">Name:</span>
+                <span class="info-value">${assetName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Type:</span>
+                <span class="info-value">${assetType}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Size:</span>
+                <span class="info-value">${assetSize}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Created:</span>
+                <span class="info-value">${createdDate}</span>
+              </div>
+            </div>
+            
+            <div class="dialog-actions">
+              <button class="dialog-btn dialog-btn-cancel" id="cancelBtn">
+                Cancel
+              </button>
+              <button class="dialog-btn dialog-btn-edit" id="editBtn">
+                ✏️ Edit Properties
+              </button>
+              <button class="dialog-btn dialog-btn-delete" id="deleteBtn">
+                🗑️ Delete
+              </button>
+            </div>
+          `;
+
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+
+          // Get buttons
+          const cancelBtn = modal.querySelector("#cancelBtn");
+          const editBtn = modal.querySelector("#editBtn");
+          const deleteBtn = modal.querySelector("#deleteBtn");
+
+          // Cancel button
+          cancelBtn.addEventListener("click", () => {
+            document.body.removeChild(overlay);
+          });
+
+          // Edit button
+          editBtn.addEventListener("click", () => {
+            document.body.removeChild(overlay);
+            this.showEditPropertiesModal(marker, asset);
+          });
+
+          // Delete button
+          deleteBtn.addEventListener("click", () => {
+            document.body.removeChild(overlay);
+            this.showDeleteConfirmationModal(marker.id, assetName);
+          });
+
+          // Handle overlay click to close
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) {
+              document.body.removeChild(overlay);
+            }
+          });
+        }
+
+        showEditPropertiesModal(marker, asset) {
+          // Placeholder for edit properties functionality
+          this.showMessage("✏️ Edit properties feature coming soon!", "info");
+          // You can add edit functionality here later
+        }
+
+        showDeleteConfirmationModal(markerId, assetName) {
+          // Create modal overlay
+          const overlay = document.createElement("div");
+          overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 10001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+          `;
+
+          const modal = document.createElement("div");
+          modal.style.cssText = `
+            background: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: scaleIn 0.2s ease;
+            color: white;
+          `;
+
+          modal.innerHTML = `
+            <style>
+              @keyframes scaleIn {
+                from { transform: scale(0.9); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+              }
+              .delete-dialog-title {
+                font-size: 28px;
+                font-weight: 700;
+                margin-bottom: 25px;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+              }
+              .delete-message {
+                font-size: 16px;
+                margin-bottom: 20px;
+                color: rgba(255, 255, 255, 0.9);
+                line-height: 1.6;
+              }
+              .delete-hotspot-info {
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 12px;
+                padding: 15px;
+                margin-bottom: 25px;
+                border-left: 4px solid #dc3545;
+              }
+              .delete-hotspot-name {
+                font-weight: 600;
+                color: #fff;
+                word-break: break-word;
+                font-size: 15px;
+              }
+              .delete-warning {
+                font-size: 14px;
+                color: rgba(255, 107, 107, 0.9);
+                margin-bottom: 25px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: rgba(220, 53, 69, 0.15);
+                padding: 10px 15px;
+                border-radius: 8px;
+              }
+              .delete-actions {
+                display: flex;
+                gap: 15px;
+              }
+              .delete-action-btn {
+                flex: 1;
+                padding: 15px 24px;
+                border: none;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+              }
+              .delete-confirm-btn {
+                background: linear-gradient(135deg, #dc3545, #bd2130);
+                color: white;
+                box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+              }
+              .delete-confirm-btn:hover {
+                background: linear-gradient(135deg, #c82333, #a71d2a);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 25px rgba(220, 53, 69, 0.5);
+              }
+              .delete-cancel-btn {
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+              }
+              .delete-cancel-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+                transform: translateY(-2px);
+              }
+            </style>
+            <div class="delete-dialog-title">
+              <span>🗑️</span> Delete Hotspot?
+            </div>
+            <div class="delete-message">
+              Are you sure you want to permanently delete this hotspot?
+            </div>
+            <div class="delete-hotspot-info">
+              <div class="delete-hotspot-name">${assetName}</div>
+            </div>
+            <div class="delete-warning">
+              <span>⚠️</span> This action cannot be undone
+            </div>
+            <div class="delete-actions">
+              <button class="delete-action-btn delete-cancel-btn" id="deleteCancelBtn">
+                Cancel
+              </button>
+              <button class="delete-action-btn delete-confirm-btn" id="deleteConfirmBtn">
+                🗑️ Delete
+              </button>
+            </div>
+          `;
+
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+
+          // Get buttons
+          const cancelBtn = modal.querySelector("#deleteCancelBtn");
+          const confirmBtn = modal.querySelector("#deleteConfirmBtn");
+
+          // Cancel button
+          cancelBtn.addEventListener("click", () => {
+            document.body.removeChild(overlay);
+          });
+
+          // Confirm delete button
+          confirmBtn.addEventListener("click", () => {
+            document.body.removeChild(overlay);
+            this.deleteMarker(markerId);
+          });
+
+          // Handle overlay click to close
+          overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) {
+              document.body.removeChild(overlay);
+            }
+          });
+
+          // Handle Escape key
+          const handleEscape = (e) => {
+            if (e.key === "Escape") {
+              document.body.removeChild(overlay);
+              document.removeEventListener("keydown", handleEscape);
+            }
+          };
+          document.addEventListener("keydown", handleEscape);
+        }
+
+        deleteMarker(markerId) {
+          try {
+            this.markersPlugin.removeMarker(markerId);
+            this.hotspots = this.hotspots.filter((h) => h.id !== markerId);
+            this.updateStats();
+            this.showMessage("🗑️ Hotspot deleted", "warning");
+            this.updateStatus("Hotspot deleted");
+          } catch (error) {
+            console.error("Error deleting marker:", error);
+            this.showMessage("❌ Failed to delete hotspot", "error");
+          }
+        }
+
+        startMoveHotspot(marker) {
+          this.movingHotspot = marker;
+          this.showMessage(
+            "📍 Now click anywhere on the panorama to move this hotspot",
+            "info"
+          );
+          console.log("🔄 Hotspot selected for moving:", marker.id);
+
+          // Add visual feedback
+          const markerElement = document.querySelector(
+            `[data-marker-id="${marker.id}"]`
+          );
+          if (markerElement) {
+            markerElement.style.opacity = "0.5";
+            markerElement.style.border = "3px dashed #ff9800";
+          }
+        }
+
+        moveHotspotToPosition(yaw, pitch) {
+          if (!this.movingHotspot) return;
+
+          const marker = this.movingHotspot;
+          console.log(
+            `📍 Moving hotspot ${marker.id} to yaw:${yaw}, pitch:${pitch}`
+          );
+
+          try {
+            // Update marker position
+            this.markersPlugin.updateMarker({
+              id: marker.id,
+              position: { yaw, pitch },
+            });
+
+            // Update hotspot data - ONLY update position, preserve all other data
+            const position3D = this.convertYawPitchToPosition(yaw, pitch);
+            const hotspot = this.hotspots.find((h) => h.id === marker.id);
+            if (hotspot) {
+              // Update position data
+              hotspot.yaw = yaw;
+              hotspot.pitch = pitch;
+              hotspot.position = position3D;
+              hotspot.position_x = position3D.x;
+              hotspot.position_y = position3D.y;
+              hotspot.position_z = position3D.z;
+
+              // Explicitly preserve navigation data (do NOT modify these)
+              // linked_panorama_id, point_index, icon_path, title, description
+              // asset_type, asset_path, always_visible, etc.
+              console.log(`✅ Preserving hotspot data:`, {
+                type: hotspot.asset_type,
+                linked_panorama: hotspot.linked_panorama_id,
+                point_index: hotspot.point_index,
+                icon: hotspot.icon_path,
+              });
+            }
+
+            // Remove visual feedback
+            const markerElement = document.querySelector(
+              `[data-marker-id="${marker.id}"]`
+            );
+            if (markerElement) {
+              markerElement.style.opacity = "";
+              markerElement.style.border = "";
+            }
+
+            this.showMessage(
+              "✅ Hotspot moved! Remember to click 'Save All Hotspots'",
+              "success"
+            );
+            this.movingHotspot = null;
+          } catch (error) {
+            console.error("Error moving hotspot:", error);
+            this.showMessage("❌ Failed to move hotspot", "error");
+            this.movingHotspot = null;
+          }
+        }
+
+        updateUI() {
+          const videoBtn = document.getElementById("add-video");
+          const gifBtn = document.getElementById("add-gif");
+
+          if (this.isAddingMode) {
+            const activeType = this.selectedAsset?.type || "asset";
+
+            if (activeType === "video") {
+              videoBtn.innerHTML = "<span>❌</span> Cancel Placement";
+              videoBtn.classList.add("active");
+              gifBtn.disabled = true;
+            } else if (activeType === "gif") {
+              gifBtn.innerHTML = "<span>❌</span> Cancel Placement";
+              gifBtn.classList.add("active");
+              videoBtn.disabled = true;
+            }
+          } else {
+            videoBtn.innerHTML = "<span>🎥</span> Add Video Hotspot";
+            videoBtn.classList.remove("active");
+            videoBtn.disabled = false;
+
+            gifBtn.innerHTML = "<span>🎬</span> Add GIF Hotspot";
+            gifBtn.classList.remove("active");
+            gifBtn.disabled = false;
+          }
+        }
+
+        updateStats() {
+          const total = this.hotspots.length;
+          const navigation = this.hotspots.filter(
+            (h) => h.type === "navigation" || h.is_navigation
+          ).length;
+          const video = this.hotspots.filter(
+            (h) => h.video_hotspot_path
+          ).length;
+          const gif = this.hotspots.filter((h) => h.animated_icon_path).length;
+
+          document.getElementById("hotspot-count").textContent = total;
+
+          // Update individual counters
+          const navCountEl = document.getElementById("nav-count");
+          const videoCountEl = document.getElementById("video-count");
+          const gifCountEl = document.getElementById("gif-count");
+
+          if (navCountEl) navCountEl.textContent = navigation;
+          if (videoCountEl) videoCountEl.textContent = video;
+          if (gifCountEl) gifCountEl.textContent = gif;
+        }
+
+        updateStatus(status) {
+          document.getElementById("status").textContent = status;
+        }
+
+        loadExistingHotspots() {
+          if (!this.pathId || !this.pointIndex) {
+            console.log("📭 No path/point specified, skipping hotspot loading");
+            return;
+          }
+
+          // Ensure viewer is ready before loading hotspots
+          if (!this.viewer || !this.markersPlugin) {
+            console.log(
+              "🕐 Viewer not ready, retrying hotspot loading in 1 second..."
+            );
+            setTimeout(() => this.loadExistingHotspots(), 1000);
+            return;
+          }
+
+          this.updateStatus("Loading hotspots...");
+
+          const maxRetries = 3;
+          let retryCount = 0;
+
+          const attemptLoad = async () => {
+            // async fetch so we can await preload steps
+            const response = await fetch(
+              `panorama_api.php?action=get_hotspots&path_id=${
+                this.pathId
+              }&point_index=${this.pointIndex}&floor_number=${this.floor || 1}`
+            );
+
+            try {
+              if (!response.ok) {
+                throw new Error(
+                  `HTTP ${response.status}: ${response.statusText}`
+                );
+              }
+              const data = await response.json();
+              if (data.success && data.hotspots && data.hotspots.length > 0) {
+                console.log("📥 Loading existing hotspots:", data.hotspots);
+
+                let successfullyLoaded = 0;
+                let skippedHotspots = 0;
+
+                // Process hotspots sequentially so we can preload assets and avoid race conditions
+                for (const hotspot of data.hotspots) {
+                  // Check if hotspot has valid asset data OR is a navigation hotspot
+                  const hasValidAsset =
+                    hotspot.video_hotspot_path ||
+                    hotspot.animated_icon_path ||
+                    hotspot.animated_icon_id ||
+                    hotspot.is_navigation ||
+                    hotspot.link_type;
+
+                  if (!hasValidAsset) {
+                    console.warn(
+                      "⚠️ Skipping hotspot without valid asset or navigation data:",
+                      hotspot.id,
+                      hotspot
+                    );
+                    skippedHotspots++;
+                    continue;
+                  }
+
+                  try {
+                    // convertHotspotToMarker now returns a Promise that resolves when marker is added (after preload)
+                    await this.convertHotspotToMarker(hotspot);
+                    successfullyLoaded++;
+                  } catch (error) {
+                    console.error(
+                      "❌ Failed to convert hotspot:",
+                      hotspot.id,
+                      error
+                    );
+                    skippedHotspots++;
+                  }
+                }
+
+                this.updateStats();
+
+                if (successfullyLoaded > 0) {
+                  this.showMessage(
+                    `✅ Loaded ${successfullyLoaded} existing hotspots${
+                      skippedHotspots > 0 ? ` (${skippedHotspots} skipped)` : ""
+                    }`,
+                    "success"
+                  );
+                } else if (skippedHotspots > 0) {
+                  this.showMessage(
+                    `⚠️ Found ${skippedHotspots} hotspots but couldn't load them (missing asset data)`,
+                    "warning"
+                  );
+                } else {
+                  this.showMessage("ℹ️ No valid hotspots found", "info");
+                }
+              } else {
+                console.log("📭 No existing hotspots found");
+              }
+              this.updateStatus("Ready");
+            } catch (error) {
+              retryCount++;
+              console.error(
+                `💥 Error loading hotspots (attempt ${retryCount}/${maxRetries}):`,
+                error
+              );
+
+              if (retryCount < maxRetries) {
+                const delay = retryCount * 1000; // Increasing delay: 1s, 2s, 3s
+                console.log(`🔄 Retrying hotspot loading in ${delay}ms...`);
+                setTimeout(attemptLoad, delay);
+              } else {
+                console.error(
+                  "❌ Max retry attempts reached for hotspot loading"
+                );
+                this.updateStatus("Error loading hotspots");
+                this.showMessage(
+                  "❌ Failed to load hotspots after multiple attempts",
+                  "error"
+                );
+              }
+            }
+          };
+
+          attemptLoad();
+        }
+
+        convertHotspotToMarker(hotspot) {
+          // Return a Promise so caller can await preload + marker creation
+          return new Promise(async (resolve, reject) => {
+            try {
+              // Convert position to yaw/pitch
+              const spherical = this.convertPositionToYawPitch(
+                hotspot.position
+              );
+
+              const isVideo = !!hotspot.video_hotspot_path;
+              const isGif = !!hotspot.animated_icon_path;
+              const isNavigation =
+                !!hotspot.is_navigation || !!hotspot.link_type;
+
+              let markerHTML = "";
+              let assetData = {};
+
+              if (isNavigation) {
+                // Handle navigation hotspot
+                let markerClass = "navigation-marker draggable-marker";
+                let icon = "🔗";
+
+                if (hotspot.link_type === "panorama") {
+                  markerClass += " panorama-link";
+                  // Check if it's a cross-floor link
+                  if (
+                    hotspot.link_floor_number &&
+                    hotspot.link_floor_number !== parseInt(this.floor)
+                  ) {
+                    markerClass += " floor-change";
+                    icon = "🏢";
+                  }
+                } else if (hotspot.link_type === "office") {
+                  markerClass += " office-link";
+                  icon = "🏛️";
+                } else if (hotspot.link_type === "external") {
+                  icon = "🌐";
+                }
+
+                const width = hotspot.size?.width || 80;
+                const height = hotspot.size?.height || 80;
+                const sizeStyle = `width: ${width}px; height: ${height}px;`;
+
+                markerHTML = `
+                            <div class="${markerClass}" title="${hotspot.title}" data-marker-id="${hotspot.id}" style="${sizeStyle}">
+                                ${icon}
+                                <div class="resize-handle" data-resize="true"></div>
+                            </div>
+                        `;
+
+                assetData = {
+                  type: "navigation",
+                  title: hotspot.title,
+                  linkType: hotspot.link_type,
+                  linkPathId: hotspot.link_path_id,
+                  linkPointIndex: hotspot.link_point_index,
+                  linkFloorNumber: hotspot.link_floor_number,
+                  targetOfficeId: hotspot.target_office_id,
+                  targetUrl: hotspot.target_url,
+                  navigationAngle: hotspot.navigation_angle || 0,
+                  targetPitch: hotspot.target_pitch || 0,
+                };
+              } else if (isVideo || isGif) {
+                // Handle media hotspots
+                let assetUrl = isVideo
+                  ? hotspot.video_hotspot_path
+                  : hotspot.animated_icon_path;
+
+                // Validate asset URL exists
+                if (!assetUrl) {
+                  throw new Error(
+                    `Hotspot ${hotspot.id} has no valid asset URL`
+                  );
+                }
+
+                // Normalize path to be web-accessible and add cache-busting
+                assetUrl = this.normalizeAssetUrl(assetUrl);
+
+                const width = hotspot.size?.width || 100;
+                const height = hotspot.size?.height || 100;
+                const sizeStyle = `width: ${width}px; height: ${height}px;`;
+
+                if (isVideo) {
+                  markerHTML = `
+                                <div class="video-marker draggable-marker" title="${
+                                  hotspot.title || "Video Hotspot"
+                                }" data-marker-id="${
+                    hotspot.id
+                  }" style="${sizeStyle}">
+                                    <video autoplay loop muted playsinline preload="auto" onError="console.error('Video load failed:', this.src)">
+                                        <source src="${assetUrl}" type="video/mp4">
+                                        <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f0f0f0; color: #666; font-size: 12px;">Video Error</div>
+                                    </video>
+                                    <div class="resize-handle" data-resize="true"></div>
+                                </div>
+                            `;
+                } else {
+                  markerHTML = `
+                                <div class="gif-marker draggable-marker" title="${
+                                  hotspot.title || "GIF Hotspot"
+                                }" data-marker-id="${
+                    hotspot.id
+                  }" style="${sizeStyle}">
+                                    <img src="${assetUrl}" alt="${
+                    hotspot.title || "GIF Hotspot"
+                  }" onError="console.error('Image load failed:', this.src); this.style.display='none';">
+                                    <div class="resize-handle" data-resize="true"></div>
+                                </div>
+                            `;
+                }
+
+                assetData = {
+                  type: isVideo ? "video" : "gif",
+                  url: assetUrl,
+                  name: isVideo
+                    ? hotspot.video_hotspot_name
+                    : hotspot.animated_icon_name,
+                };
+              } else {
+                throw new Error(
+                  `Hotspot ${hotspot.id} has no valid content type`
+                );
+              }
+
+              const marker = {
+                id: hotspot.id,
+                position: { yaw: spherical.yaw, pitch: spherical.pitch },
+                html: markerHTML,
+                anchor: "center center",
+                tooltip: {
+                  content:
+                    hotspot.title ||
+                    (isNavigation ? "Navigation Link" : "Media Hotspot"),
+                  position: "top center",
+                },
+                data: {
+                  asset: assetData,
+                  created: hotspot.created || new Date().toISOString(),
+                },
+              };
+
+              // Before adding marker, if it's media, preload the asset to avoid blurred or missing content
+              if (!isNavigation && assetData && assetData.url) {
+                const url = assetData.url;
+                try {
+                  await this._preloadMedia(url, assetData.type);
+                } catch (preloadErr) {
+                  console.warn("⚠️ Preload failed for", url, preloadErr);
+                  // proceed to add marker anyway; the element has onError handlers
+                }
+              }
+
+              this.markersPlugin.addMarker(marker);
+
+              // Add to hotspots array with full data
+              this.hotspots.push({
+                ...hotspot,
+                yaw: spherical.yaw,
+                pitch: spherical.pitch,
+              });
+
+              console.log(
+                `✅ Loaded ${
+                  isNavigation ? "navigation" : isVideo ? "video" : "gif"
+                } hotspot:`,
+                hotspot.title || hotspot.id
+              );
+
+              // Debug: log navigation data when loading
+              if (isNavigation) {
+                console.log(
+                  `🔍 Navigation hotspot ${hotspot.id} loaded with:`,
+                  {
+                    linkPathId: hotspot.linkPathId,
+                    linkPointIndex: hotspot.linkPointIndex,
+                    link_path_id: hotspot.link_path_id,
+                    link_point_index: hotspot.link_point_index,
+                    linkFloorNumber: hotspot.linkFloorNumber,
+                  }
+                );
+              }
+
+              // Debug: log normalized asset url
+              if (!isNavigation && assetData && assetData.url) {
+                console.log(
+                  "🔍 Normalized asset URL used for hotspot",
+                  hotspot.id,
+                  assetData.url
+                );
+              }
+
+              resolve();
+            } catch (error) {
+              console.error("Error converting hotspot:", hotspot, error);
+              reject(error);
+            }
+          });
+        }
+
+        convertPositionToYawPitch(position) {
+          // Convert Cartesian coordinates to spherical
+          const x = position.x || 0;
+          const y = position.y || 0;
+          const z = position.z || -10; // Default depth
+
+          const radius = Math.sqrt(x * x + y * y + z * z);
+          const yaw = Math.atan2(x, -z) * (180 / Math.PI);
+          const pitch = Math.asin(y / radius) * (180 / Math.PI);
+
+          return { yaw, pitch };
+        }
+
+        convertYawPitchToPosition(yaw, pitch) {
+          // Convert spherical coordinates to Cartesian
+          const radius = 10; // Standard radius
+          const yawRad = (yaw * Math.PI) / 180;
+          const pitchRad = (pitch * Math.PI) / 180;
+
+          return {
+            x: radius * Math.sin(yawRad) * Math.cos(pitchRad),
+            y: radius * Math.sin(pitchRad),
+            z: -radius * Math.cos(yawRad) * Math.cos(pitchRad),
+          };
+        }
+
+        // Ensure asset paths are web-accessible and add cache-busting query
+        normalizeAssetUrl(assetUrl) {
+          if (!assetUrl) return assetUrl;
+
+          // Convert backslashes to forward slashes
+          let path = String(assetUrl).replace(/\\/g, "/");
+
+          // If server returned a full filesystem path, extract basename
+          if (
+            /^[a-zA-Z]:\//.test(path) ||
+            path.includes("/var/www") ||
+            path.includes("htdocs")
+          ) {
+            path = path.split("/").pop();
+          }
+
+          // If it's already an absolute URL or contains directory separators, leave the path structure intact
+          if (
+            path.startsWith("http") ||
+            path.startsWith("/") ||
+            path.includes("/")
+          ) {
+            // append cache-buster
+            return path + (path.includes("?") ? "&" : "?") + "v=" + Date.now();
+          }
+
+          // Otherwise treat as bare filename and prefix animated_hotspot_icons/
+          const basename = path.split("/").pop();
+          const webPath = `animated_hotspot_icons/${basename}`;
+          return webPath + "?v=" + Date.now();
+        }
+
+        // Preload media (image or video). Resolves when loaded or rejects on timeout/error
+        _preloadMedia(url, type) {
+          return new Promise((resolve, reject) => {
+            const timeoutMs = 3000; // 3s
+            let timedOut = false;
+            const to = setTimeout(() => {
+              timedOut = true;
+              reject(new Error("Preload timeout"));
+            }, timeoutMs);
+
+            if (type === "video" || /\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
+              const vid = document.createElement("video");
+              vid.preload = "auto";
+              vid.muted = true;
+              vid.playsInline = true;
+              vid.src = url;
+              // canplaythrough is a good indicator
+              const onCanPlay = () => {
+                if (timedOut) return;
+                clearTimeout(to);
+                cleanup();
+                resolve();
+              };
+              const onError = (e) => {
+                if (timedOut) return;
+                clearTimeout(to);
+                cleanup();
+                reject(new Error("Video preload error"));
+              };
+              const cleanup = () => {
+                vid.removeEventListener("canplaythrough", onCanPlay);
+                vid.removeEventListener("error", onError);
+                try {
+                  vid.src = "";
+                } catch (e) {}
+              };
+              vid.addEventListener("canplaythrough", onCanPlay);
+              vid.addEventListener("error", onError);
+              // start loading
+              try {
+                vid.load();
+              } catch (e) {}
+            } else {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = () => {
+                if (timedOut) return;
+                clearTimeout(to);
+                resolve();
+              };
+              img.onerror = (e) => {
+                if (timedOut) return;
+                clearTimeout(to);
+                reject(new Error("Image preload error"));
+              };
+              img.src = url;
+            }
+          });
+        }
+
+        saveHotspots() {
+          // Allow saving even with zero hotspots - this clears all hotspots from the database
+          if (this.hotspots.length === 0) {
+            this.showMessage("💾 Clearing all hotspots...", "info");
+          }
+
+          this.updateStatus("Saving hotspots...");
+
+          // Prepare hotspots data for database
+          const hotspotsForSave = this.hotspots.map((hotspot) => ({
+            id: hotspot.id,
+            title: hotspot.title || hotspot.asset?.name || "Untitled Hotspot",
+            description: hotspot.description || "",
+            type: hotspot.type || "info",
+            // 3D Position in panorama space (for database storage)
+            position_x: hotspot.position_x || hotspot.position?.x || 0,
+            position_y: hotspot.position_y || hotspot.position?.y || 0,
+            position_z: hotspot.position_z || hotspot.position?.z || 0,
+            // Also keep position object for compatibility
+            position: hotspot.position,
+            yaw: hotspot.yaw,
+            pitch: hotspot.pitch,
+            path_id: this.pathId,
+            point_index: this.pointIndex,
+            floor_number: this.floor || 1,
+            // Asset-specific fields
+            video_hotspot_id: hotspot.video_hotspot_id,
+            video_hotspot_path: hotspot.video_hotspot_path,
+            video_hotspot_name: hotspot.video_hotspot_name,
+            animated_icon_id: hotspot.animated_icon_id,
+            animated_icon_path: hotspot.animated_icon_path,
+            animated_icon_name: hotspot.animated_icon_name,
+            asset_type: hotspot.asset_type,
+            asset_path: hotspot.asset_path,
+            icon_path: hotspot.icon_path,
+            always_visible: hotspot.always_visible,
+            // Navigation-specific fields (CRITICAL - preserve these when moving hotspots)
+            // Support both camelCase (from PHP) and snake_case naming
+            link_type: hotspot.link_type || hotspot.linkType,
+            link_path_id: hotspot.link_path_id || hotspot.linkPathId,
+            link_point_index:
+              hotspot.link_point_index ?? hotspot.linkPointIndex, // Use ?? to allow 0
+            link_floor_number:
+              hotspot.link_floor_number || hotspot.linkFloorNumber,
+            linked_panorama_id: hotspot.linked_panorama_id, // ADD THIS - primary navigation link field
+            target_path_id: hotspot.target_path_id || hotspot.targetPathId,
+            target_point_index:
+              hotspot.target_point_index ?? hotspot.targetPointIndex,
+            target_floor: hotspot.target_floor || hotspot.targetFloor,
+            navigation_angle:
+              hotspot.navigation_angle ?? hotspot.navigationAngle ?? 0,
+            target_pitch: hotspot.target_pitch ?? hotspot.targetPitch ?? 0,
+            target_office_id: hotspot.target_office_id,
+            target_url: hotspot.target_url,
+            is_navigation: hotspot.is_navigation,
+            // Size data for drag and resize
+            size: hotspot.size || { width: 100, height: 100 },
+            created: hotspot.created || new Date().toISOString(),
+          }));
+
+          console.log("💾 Saving hotspots:", hotspotsForSave);
+
+          // Log 3D coordinates for verification
+          hotspotsForSave.forEach((h) => {
+            console.log(`📍 Hotspot ${h.id} 3D position:`, {
+              position_x: h.position_x,
+              position_y: h.position_y,
+              position_z: h.position_z,
+            });
+          });
+
+          // Debug navigation hotspots
+          const navigationHotspots = hotspotsForSave.filter(
+            (h) => h.is_navigation
+          );
+          if (navigationHotspots.length > 0) {
+            console.log(
+              "🚀 Navigation hotspots being saved:",
+              navigationHotspots
+            );
+            navigationHotspots.forEach((h) => {
+              console.log(`🎯 Navigation hotspot ${h.id}:`, {
+                link_path_id: h.link_path_id,
+                link_point_index: h.link_point_index,
+                link_floor_number: h.link_floor_number,
+                linked_panorama_id: h.linked_panorama_id,
+                point_index: h.point_index,
+                hotspot_original_link_point_index: this.hotspots.find(
+                  (hot) => hot.id === h.id
+                )?.link_point_index,
+                hotspot_original_linkPointIndex: this.hotspots.find(
+                  (hot) => hot.id === h.id
+                )?.linkPointIndex,
+              });
+            });
+          }
+
+          const formData = new FormData();
+          formData.append("action", "save_hotspots");
+          formData.append("path_id", this.pathId);
+          formData.append("point_index", this.pointIndex);
+          formData.append("floor_number", this.floor || 1);
+          formData.append("hotspots", JSON.stringify(hotspotsForSave));
+
+          fetch("panorama_api.php", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                const count = this.hotspots.length;
+                const message = count === 0 
+                  ? "✅ All hotspots cleared successfully!" 
+                  : `✅ Successfully saved ${count} hotspot${count !== 1 ? 's' : ''}!`;
+                this.showMessage(message, "success");
+                this.updateStatus(count === 0 ? "Hotspots cleared" : "Hotspots saved");
+              } else {
+                this.showMessage(
+                  `❌ Save failed: ${data.error || "Unknown error"}`,
+                  "error"
+                );
+                this.updateStatus("Save failed");
+              }
+            })
+            .catch((error) => {
+              console.error("Save error:", error);
+              this.showMessage("❌ Network error while saving", "error");
+              this.updateStatus("Save failed");
+            });
+        }
+
+        showInfo() {
+          const info = `
+🏢 GABAY Panorama Viewer
+
+📍 Current Location:
+• Path: ${this.pathId || "N/A"}
+• Point: ${this.pointIndex || "N/A"}  
+• Floor: ${this.floor || 1}
+
+📊 Statistics:
+• Total Hotspots: ${this.hotspots.length}
+• Video Hotspots: ${
+            this.hotspots.filter((h) => h.asset?.type === "video").length
+          }
+• GIF Hotspots: ${this.hotspots.filter((h) => h.asset?.type === "gif").length}
+
+🎮 Controls:
+• Mouse: Look around
+• Wheel: Zoom in/out
+• Double-click: Reset view
+• Keyboard arrows: Navigate (fullscreen)
+                `;
+
+          alert(info);
+        }
+
+        showMessage(text, type = "info") {
+          const container = document.getElementById("messageContainer");
+          const message = document.createElement("div");
+          message.className = `message ${type}`;
+          message.textContent = text;
+
+          container.appendChild(message);
+
+          // Trigger animation
+          setTimeout(() => message.classList.add("show"), 100);
+
+          // Remove after 5 seconds
+          setTimeout(() => {
+            message.classList.remove("show");
+            setTimeout(() => {
+              if (container.contains(message)) {
+                container.removeChild(message);
+              }
+            }, 400);
+          }, 5000);
+        }
+
+        showHotspotPurposeDialog(hotspotType) {
+          return new Promise((resolve) => {
+            // Store resolve function for access from other methods
+            this.currentResolve = resolve;
+            // Create modal overlay
+            const overlay = document.createElement("div");
+            overlay.className = "modal-overlay";
+            overlay.style.cssText = `
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background: rgba(0, 0, 0, 0.8);
+              z-index: 10000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            `;
+
+            // Create modal content
+            const modal = document.createElement("div");
+            modal.className = "purpose-selection-modal";
+            modal.style.cssText = `
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              border-radius: 20px;
+              padding: 30px;
+              max-width: 450px;
+              width: 90%;
+              color: white;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+              text-align: center;
+              transform: scale(0.9);
+              animation: modalSlideIn 0.3s ease-out forwards;
+            `;
+
+            const typeLabel = hotspotType === "video" ? "Video" : "GIF";
+
+            modal.innerHTML = `
+              <style>
+                @keyframes modalSlideIn {
+                  to { transform: scale(1); }
+                }
+                .purpose-btn {
+                  display: block;
+                  width: 100%;
+                  margin: 15px 0;
+                  padding: 15px 20px;
+                  border: 2px solid rgba(255,255,255,0.3);
+                  border-radius: 12px;
+                  background: rgba(255,255,255,0.1);
+                  color: white;
+                  font-size: 16px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  backdrop-filter: blur(10px);
+                }
+                .purpose-btn:hover {
+                  background: rgba(255,255,255,0.2);
+                  border-color: rgba(255,255,255,0.6);
+                  transform: translateY(-2px);
+                  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                }
+                .purpose-btn i {
+                  margin-right: 12px;
+                  font-size: 18px;
+                }
+                .modal-title {
+                  font-size: 24px;
+                  font-weight: bold;
+                  margin-bottom: 10px;
+                }
+                .modal-subtitle {
+                  font-size: 16px;
+                  opacity: 0.9;
+                  margin-bottom: 25px;
+                }
+                .navigation-config {
+                  margin-top: 20px;
+                  padding: 20px;
+                  background: rgba(255,255,255,0.1);
+                  border-radius: 12px;
+                  text-align: left;
+                  display: none;
+                }
+                .nav-option {
+                  margin: 12px 0;
+                }
+                .nav-option label {
+                  display: flex;
+                  align-items: center;
+                  cursor: pointer;
+                  font-weight: 500;
+                }
+                .nav-option input[type="radio"] {
+                  margin-right: 10px;
+                  transform: scale(1.2);
+                }
+                .confirm-btn {
+                  margin-top: 15px;
+                  padding: 12px 30px;
+                  background: #4CAF50;
+                  border: none;
+                  border-radius: 8px;
+                  color: white;
+                  font-weight: bold;
+                  cursor: pointer;
+                  transition: background 0.3s;
+                }
+                .confirm-btn:hover {
+                  background: #45a049;
+                }
+                .confirm-btn:disabled {
+                  background: #666;
+                  cursor: not-allowed;
+                }
+                .panorama-selection {
+                  margin-bottom: 15px;
+                }
+                .panorama-list {
+                  max-height: 200px;
+                  overflow-y: auto;
+                  border: 1px solid rgba(255,255,255,0.2);
+                  border-radius: 8px;
+                  background: rgba(0,0,0,0.3);
+                }
+                .panorama-item {
+                  padding: 10px 15px;
+                  cursor: pointer;
+                  border-bottom: 1px solid rgba(255,255,255,0.1);
+                  transition: background 0.3s;
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                }
+                .panorama-item:hover {
+                  background: rgba(255,255,255,0.1);
+                }
+                .panorama-item:last-child {
+                  border-bottom: none;
+                }
+                .panorama-item.selected {
+                  background: rgba(76, 175, 80, 0.3);
+                  border-color: #4CAF50;
+                }
+                .panorama-info {
+                  flex: 1;
+                }
+                .panorama-title {
+                  font-weight: 600;
+                  color: #fff;
+                  font-size: 14px;
+                }
+                .panorama-details {
+                  font-size: 12px;
+                  opacity: 0.7;
+                  color: #fff;
+                  margin-top: 2px;
+                }
+                .panorama-badge {
+                  background: rgba(4, 170, 109, 0.8);
+                  color: white;
+                  padding: 2px 8px;
+                  border-radius: 12px;
+                  font-size: 10px;
+                  font-weight: 600;
+                }
+                .back-arrow {
+                  position: absolute;
+                  top: 20px;
+                  left: 20px;
+                  background: rgba(255, 255, 255, 0.15);
+                  border: none;
+                  border-radius: 12px;
+                  padding: 12px 20px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 8px;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  font-size: 24px;
+                  font-weight: bold;
+                  color: white;
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                }
+                .back-arrow:hover {
+                  background: rgba(255, 255, 255, 0.25);
+                  transform: translateX(-5px);
+                  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+                }
+              </style>
+              <button class="back-arrow" id="backArrow" title="Go back">
+                ←
+              </button>
+              <div class="modal-title"> ${typeLabel} Hotspot Purpose</div>
+              <div class="modal-subtitle">What should this ${typeLabel.toLowerCase()} hotspot do?</div>
+              
+              <button class="purpose-btn" data-purpose="information">
+                <i class="fas fa-info-circle"></i>
+                Information Display
+                <div style="font-size: 14px; margin-top: 5px; opacity: 0.8;">
+                  Show ${typeLabel.toLowerCase()} content when clicked
+                </div>
+              </button>
+              
+              <button class="purpose-btn" data-purpose="office">
+                <i class="fas fa-building"></i>
+                Office Information
+                <div style="font-size: 14px; margin-top: 5px; opacity: 0.8;">
+                  Display office name and details
+                </div>
+              </button>
+              
+              <button class="purpose-btn" data-purpose="navigation">
+                <i class="fas fa-route"></i>
+                Navigation Link
+                <div style="font-size: 14px; margin-top: 5px; opacity: 0.8;">
+                  Navigate to another panorama point
+                </div>
+              </button>
+              
+              <div class="navigation-config" id="navigationConfig">
+                <h4 style="margin-top: 0; color: #fff;">🔗 Navigation Configuration</h4>
+                
+                <div class="panorama-selection" id="panoramaSelection">
+                  <h5 style="color: #fff; margin-bottom: 10px;">Select Target Panorama:</h5>
+                  <div class="loading-panoramas" id="loadingPanoramas">
+                    <div style="text-align: center; color: #fff; opacity: 0.7;">
+                      <div style="font-size: 20px;">🔄</div>
+                      Loading panoramas...
+                    </div>
+                  </div>
+                  <div class="panorama-list" id="panoramaList" style="display: none;"></div>
+                </div>
+
+                <div class="nav-option">
+                  <label>
+                    <input type="radio" name="navType" value="same_floor" checked>
+                    Same Floor Navigation
+                  </label>
+                </div>
+                <div class="nav-option">
+                  <label>
+                    <input type="radio" name="navType" value="cross_floor">
+                    Cross Floor Navigation
+                  </label>
+                </div>
+                <button class="confirm-btn" id="confirmNavigation" disabled>
+                  <i class="fas fa-check"></i> Create Navigation Hotspot
+                </button>
+              </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Handle purpose selection
+            const purposeBtns = modal.querySelectorAll(".purpose-btn");
+            const navigationConfig = modal.querySelector("#navigationConfig");
+            const confirmBtn = modal.querySelector("#confirmNavigation");
+            const backArrow = modal.querySelector("#backArrow");
+            const self = this; // Store reference to this for use in event handlers
+
+            // Handle back arrow click
+            if (backArrow) {
+              backArrow.addEventListener("click", () => {
+                document.body.removeChild(overlay);
+                resolve(null); // User cancelled/went back
+              });
+            }
+
+            purposeBtns.forEach((btn) => {
+              btn.addEventListener("click", async () => {
+                const purpose = btn.dataset.purpose;
+
+                if (purpose === "information") {
+                  // Information hotspot - show title/description prompt
+                  document.body.removeChild(overlay);
+
+                  // Show information input modal
+                  const infoData = await self.showInformationInputModal(
+                    typeLabel
+                  );
+
+                  if (infoData) {
+                    resolve({
+                      purpose: "information",
+                      navigationType: null,
+                      title: infoData.title,
+                      description: infoData.description,
+                    });
+                  } else {
+                    // User cancelled - return to purpose selection
+                    resolve(null);
+                  }
+                } else if (purpose === "office") {
+                  // Office hotspot - show office selector
+                  document.body.removeChild(overlay);
+
+                  // Show office selection modal
+                  const officeData = await self.showOfficeSelectionModal(
+                    typeLabel
+                  );
+
+                  if (officeData) {
+                    resolve({
+                      purpose: "information",
+                      navigationType: null,
+                      title: officeData.officeName,
+                      description: officeData.officeDetails,
+                      officeId: officeData.officeId,
+                    });
+                  } else {
+                    // User cancelled - return to purpose selection
+                    resolve(null);
+                  }
+                } else if (purpose === "navigation") {
+                  // Navigation hotspot - show configuration
+                  navigationConfig.style.display = "block";
+                  btn.style.background = "rgba(76, 175, 80, 0.3)";
+                  btn.style.borderColor = "#4CAF50";
+
+                  // Hide other buttons
+                  purposeBtns.forEach((b, idx) => {
+                    if (b !== btn) b.style.display = "none";
+                  });
+
+                  // Reset previous handlers and disable confirmation until a target is chosen
+                  confirmBtn.disabled = true;
+                  confirmBtn.onclick = null;
+
+                  // Load available panoramas
+                  console.log("🚀 Loading panoramas for navigation...");
+                  try {
+                    self.loadPanoramasForNavigation(modal);
+                  } catch (error) {
+                    console.error(
+                      "💥 Error calling loadPanoramasForNavigation:",
+                      error
+                    );
+                  }
+                }
+              });
+            });
+
+            // Handle overlay click to close
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(null); // User cancelled
+              }
+            });
+          });
+        }
+
+        async showInformationInputModal(typeLabel) {
+          return new Promise((resolve) => {
+            const overlay = document.createElement("div");
+            overlay.style.cssText = `
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: rgba(0, 0, 0, 0.8);
+              backdrop-filter: blur(8px);
+              z-index: 10000;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              animation: fadeIn 0.3s ease;
+            `;
+
+            const modal = document.createElement("div");
+            modal.style.cssText = `
+              background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+              border-radius: 16px;
+              padding: 30px;
+              max-width: 500px;
+              width: 90%;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+              border: 1px solid rgba(4, 170, 109, 0.3);
+              animation: slideUp 0.3s ease;
+            `;
+
+            modal.innerHTML = `
+              <style>
+                @keyframes fadeIn {
+                  from { opacity: 0; }
+                  to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                  from { transform: translateY(30px); opacity: 0; }
+                  to { transform: translateY(0); opacity: 1; }
+                }
+                .info-modal-title {
+                  font-size: 24px;
+                  font-weight: 600;
+                  margin-bottom: 10px;
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                }
+                .info-modal-subtitle {
+                  font-size: 14px;
+                  color: rgba(255, 255, 255, 0.7);
+                  margin-bottom: 25px;
+                }
+                .input-group {
+                  margin-bottom: 20px;
+                }
+                .input-label {
+                  display: block;
+                  color: #04aa6d;
+                  font-size: 13px;
+                  font-weight: 600;
+                  margin-bottom: 8px;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                }
+                .input-field {
+                  width: 100%;
+                  padding: 12px 16px;
+                  background: rgba(255, 255, 255, 0.05);
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  border-radius: 8px;
+                  color: #fff;
+                  font-size: 14px;
+                  font-family: inherit;
+                  transition: all 0.3s ease;
+                }
+                .input-field:focus {
+                  outline: none;
+                  border-color: #04aa6d;
+                  background: rgba(255, 255, 255, 0.08);
+                  box-shadow: 0 0 0 3px rgba(4, 170, 109, 0.1);
+                }
+                .input-field::placeholder {
+                  color: rgba(255, 255, 255, 0.4);
+                }
+                textarea.input-field {
+                  min-height: 100px;
+                  resize: vertical;
+                }
+                .modal-actions {
+                  display: flex;
+                  gap: 10px;
+                  margin-top: 25px;
+                }
+                .modal-btn {
+                  flex: 1;
+                  padding: 12px 20px;
+                  border: none;
+                  border-radius: 8px;
+                  font-size: 14px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 8px;
+                }
+                .modal-btn-confirm {
+                  background: linear-gradient(135deg, #04aa6d, #036551);
+                  color: white;
+                }
+                .modal-btn-confirm:hover:not(:disabled) {
+                  background: linear-gradient(135deg, #036551, #025244);
+                  transform: translateY(-2px);
+                  box-shadow: 0 6px 20px rgba(4, 170, 109, 0.3);
+                }
+                .modal-btn-confirm:disabled {
+                  background: #666;
+                  opacity: 0.5;
+                  cursor: not-allowed;
+                }
+                .modal-btn-cancel {
+                  background: rgba(255, 255, 255, 0.1);
+                  color: #fff;
+                }
+                .modal-btn-cancel:hover {
+                  background: rgba(255, 255, 255, 0.15);
+                }
+                .char-count {
+                  font-size: 12px;
+                  color: rgba(255, 255, 255, 0.5);
+                  text-align: right;
+                  margin-top: 5px;
+                }
+              </style>
+              <div class="info-modal-title">
+                <span>📝</span> ${typeLabel} Information
+              </div>
+              <div class="info-modal-subtitle">
+                Add a title and description for this ${typeLabel.toLowerCase()} information display
+              </div>
+              
+              <div class="input-group">
+                <label class="input-label">
+                  <i class="fas fa-heading"></i> Title *
+                </label>
+                <input 
+                  type="text" 
+                  class="input-field" 
+                  id="infoTitle" 
+                  placeholder="Enter a catchy title..." 
+                  maxlength="100"
+                  required
+                />
+                <div class="char-count">
+                  <span id="titleCount">0</span>/100
+                </div>
+              </div>
+              
+              <div class="input-group">
+                <label class="input-label">
+                  <i class="fas fa-align-left"></i> Description *
+                </label>
+                <textarea 
+                  class="input-field" 
+                  id="infoDescription" 
+                  placeholder="Provide detailed information..." 
+                  maxlength="500"
+                  required
+                ></textarea>
+                <div class="char-count">
+                  <span id="descCount">0</span>/500
+                </div>
+              </div>
+              
+              <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="cancelBtn">
+                  <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="modal-btn modal-btn-confirm" id="confirmBtn" disabled>
+                  <i class="fas fa-check"></i> Create Information Hotspot
+                </button>
+              </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Get elements
+            const titleInput = modal.querySelector("#infoTitle");
+            const descInput = modal.querySelector("#infoDescription");
+            const confirmBtn = modal.querySelector("#confirmBtn");
+            const cancelBtn = modal.querySelector("#cancelBtn");
+            const titleCount = modal.querySelector("#titleCount");
+            const descCount = modal.querySelector("#descCount");
+
+            // Character counters
+            titleInput.addEventListener("input", () => {
+              titleCount.textContent = titleInput.value.length;
+              validateInputs();
+            });
+
+            descInput.addEventListener("input", () => {
+              descCount.textContent = descInput.value.length;
+              validateInputs();
+            });
+
+            // Validation function
+            function validateInputs() {
+              const titleValid = titleInput.value.trim().length > 0;
+              const descValid = descInput.value.trim().length > 0;
+              confirmBtn.disabled = !(titleValid && descValid);
+            }
+
+            // Confirm button
+            confirmBtn.addEventListener("click", () => {
+              const title = titleInput.value.trim();
+              const description = descInput.value.trim();
+
+              if (title && description) {
+                document.body.removeChild(overlay);
+                resolve({ title, description });
+              }
+            });
+
+            // Cancel button
+            cancelBtn.addEventListener("click", () => {
+              document.body.removeChild(overlay);
+              resolve(null);
+            });
+
+            // Handle overlay click to close
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(null);
+              }
+            });
+
+            // Handle Enter key in title input
+            titleInput.addEventListener("keydown", (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                descInput.focus();
+              }
+            });
+
+            // Focus title input
+            setTimeout(() => titleInput.focus(), 100);
+          });
+        }
+
+        async showOfficeSelectionModal(typeLabel) {
+          return new Promise(async (resolve) => {
+            const overlay = document.createElement("div");
+            overlay.style.cssText = `
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: rgba(0, 0, 0, 0.8);
+              backdrop-filter: blur(8px);
+              z-index: 10000;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              animation: fadeIn 0.3s ease;
+            `;
+
+            const modal = document.createElement("div");
+            modal.style.cssText = `
+              background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+              border-radius: 16px;
+              padding: 30px;
+              max-width: 600px;
+              width: 90%;
+              max-height: 80vh;
+              overflow-y: auto;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+              border: 1px solid rgba(4, 170, 109, 0.3);
+              animation: slideUp 0.3s ease;
+            `;
+
+            modal.innerHTML = `
+              <style>
+                .office-modal-title {
+                  font-size: 24px;
+                  font-weight: 600;
+                  margin-bottom: 10px;
+                  color: #fff;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                }
+                .office-modal-subtitle {
+                  font-size: 14px;
+                  color: rgba(255, 255, 255, 0.7);
+                  margin-bottom: 25px;
+                }
+                .office-search {
+                  margin-bottom: 20px;
+                }
+                .office-search input {
+                  width: 100%;
+                  padding: 12px 16px;
+                  background: rgba(255, 255, 255, 0.05);
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  border-radius: 8px;
+                  color: #fff;
+                  font-size: 14px;
+                  transition: all 0.3s ease;
+                }
+                .office-search input:focus {
+                  outline: none;
+                  border-color: #04aa6d;
+                  background: rgba(255, 255, 255, 0.08);
+                  box-shadow: 0 0 0 3px rgba(4, 170, 109, 0.1);
+                }
+                .office-list {
+                  max-height: 400px;
+                  overflow-y: auto;
+                  margin-bottom: 20px;
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  border-radius: 8px;
+                }
+                .office-item {
+                  padding: 15px;
+                  background: rgba(255, 255, 255, 0.03);
+                  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                  cursor: pointer;
+                  transition: all 0.3s ease;
+                }
+                .office-item:hover {
+                  background: rgba(4, 170, 109, 0.1);
+                }
+                .office-item.selected {
+                  background: rgba(4, 170, 109, 0.2);
+                  border-left: 3px solid #04aa6d;
+                }
+                .office-item:last-child {
+                  border-bottom: none;
+                }
+                .office-name {
+                  font-size: 16px;
+                  font-weight: 600;
+                  color: #fff;
+                  margin-bottom: 5px;
+                }
+                .office-details {
+                  font-size: 13px;
+                  color: rgba(255, 255, 255, 0.6);
+                  line-height: 1.4;
+                }
+                .office-floor {
+                  display: inline-block;
+                  background: rgba(4, 170, 109, 0.3);
+                  color: #04aa6d;
+                  padding: 2px 8px;
+                  border-radius: 4px;
+                  font-size: 11px;
+                  font-weight: 600;
+                  margin-top: 5px;
+                }
+                .loading-offices {
+                  text-align: center;
+                  padding: 40px;
+                  color: rgba(255, 255, 255, 0.6);
+                }
+                .no-offices {
+                  text-align: center;
+                  padding: 40px;
+                  color: rgba(255, 255, 255, 0.6);
+                }
+              </style>
+              <div class="office-modal-title">
+                <span>🏢</span> Select Office
+              </div>
+              <div class="office-modal-subtitle">
+                Choose an office to display its information in the ${typeLabel.toLowerCase()} hotspot
+              </div>
+              
+              <div class="office-search">
+                <input 
+                  type="text" 
+                  id="officeSearchInput" 
+                  placeholder="🔍 Search offices by name or details..." 
+                />
+              </div>
+              
+              <div class="office-list" id="officeList">
+                <div class="loading-offices">
+                  <div style="font-size: 30px; margin-bottom: 10px;">⏳</div>
+                  <div>Loading offices...</div>
+                </div>
+              </div>
+              
+              <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="cancelOfficeBtn">
+                  <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="modal-btn modal-btn-confirm" id="confirmOfficeBtn" disabled>
+                  <i class="fas fa-check"></i> Use This Office
+                </button>
+              </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Get elements
+            const searchInput = modal.querySelector("#officeSearchInput");
+            const officeList = modal.querySelector("#officeList");
+            const confirmBtn = modal.querySelector("#confirmOfficeBtn");
+            const cancelBtn = modal.querySelector("#cancelOfficeBtn");
+
+            let allOffices = [];
+            let selectedOffice = null;
+
+            // Load offices from database
+            try {
+              const response = await fetch(
+                "panorama_api.php?action=get_all_offices"
+              );
+              const data = await response.json();
+
+              if (data.success && data.offices && data.offices.length > 0) {
+                allOffices = data.offices;
+                renderOffices(allOffices);
+              } else {
+                officeList.innerHTML = `
+                  <div class="no-offices">
+                    <div style="font-size: 30px; margin-bottom: 10px;">📭</div>
+                    <div>No offices found in the system</div>
+                  </div>
+                `;
+              }
+            } catch (error) {
+              console.error("Error loading offices:", error);
+              officeList.innerHTML = `
+                <div class="no-offices">
+                  <div style="font-size: 30px; margin-bottom: 10px;">⚠️</div>
+                  <div>Failed to load offices: ${error.message}</div>
+                </div>
+              `;
+            }
+
+            // Render offices function
+            function renderOffices(offices) {
+              if (offices.length === 0) {
+                officeList.innerHTML = `
+                  <div class="no-offices">
+                    <div style="font-size: 30px; margin-bottom: 10px;">🔍</div>
+                    <div>No offices match your search</div>
+                  </div>
+                `;
+                return;
+              }
+
+              officeList.innerHTML = offices
+                .map(
+                  (office) => `
+                <div class="office-item" data-office-id="${office.id}">
+                  <div class="office-name">${
+                    office.name || "Unnamed Office"
+                  }</div>
+                  <div class="office-details">${
+                    office.details || "No details available"
+                  }</div>
+                  <div class="office-floor">Floor ${
+                    office.floor || "Unknown"
+                  } | Location: ${office.location || "N/A"}</div>
+                </div>
+              `
+                )
+                .join("");
+
+              // Add click handlers
+              officeList.querySelectorAll(".office-item").forEach((item) => {
+                item.addEventListener("click", () => {
+                  // Clear other selections
+                  officeList
+                    .querySelectorAll(".office-item")
+                    .forEach((i) => i.classList.remove("selected"));
+
+                  // Select this item
+                  item.classList.add("selected");
+
+                  const officeId = parseInt(item.dataset.officeId);
+                  selectedOffice = allOffices.find((o) => o.id === officeId);
+
+                  // Enable confirm button
+                  confirmBtn.disabled = false;
+
+                  console.log("🏢 Selected office:", selectedOffice);
+                });
+              });
+            }
+
+            // Search functionality
+            searchInput.addEventListener("input", (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              const filtered = allOffices.filter((office) => {
+                const name = (office.name || "").toLowerCase();
+                const details = (office.details || "").toLowerCase();
+                const location = (office.location || "").toLowerCase();
+                return (
+                  name.includes(searchTerm) ||
+                  details.includes(searchTerm) ||
+                  location.includes(searchTerm)
+                );
+              });
+              renderOffices(filtered);
+            });
+
+            // Confirm button
+            confirmBtn.addEventListener("click", () => {
+              if (selectedOffice) {
+                document.body.removeChild(overlay);
+                resolve({
+                  officeId: selectedOffice.id,
+                  officeName: selectedOffice.name || "Unnamed Office",
+                  officeDetails:
+                    selectedOffice.details || "No details available",
+                  officeFloor: selectedOffice.floor,
+                  officeLocation: selectedOffice.location,
+                });
+              }
+            });
+
+            // Cancel button
+            cancelBtn.addEventListener("click", () => {
+              document.body.removeChild(overlay);
+              resolve(null);
+            });
+
+            // Handle overlay click to close
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(null);
+              }
+            });
+
+            // Focus search input
+            setTimeout(() => searchInput.focus(), 100);
+          });
+        }
+
+        async loadPanoramasForNavigation(modal) {
+          console.log("� Starting loadPanoramasForNavigation");
+
+          const loadingDiv = modal.querySelector("#loadingPanoramas");
+          const listDiv = modal.querySelector("#panoramaList");
+          const confirmBtn = modal.querySelector("#confirmNavigation");
+
+          if (!loadingDiv || !listDiv || !confirmBtn) {
+            console.error("❌ Required elements not found:", {
+              loadingDiv,
+              listDiv,
+              confirmBtn,
+            });
+            return;
+          }
+
+          console.log("✅ Elements found, proceeding with API call");
+          let selectedPanorama = null;
+
+          try {
+            const response = await fetch(
+              "panorama_api.php?action=get_all_active"
+            );
+            if (!response.ok) {
+              throw new Error(
+                `HTTP ${response.status}: ${response.statusText}`
+              );
+            }
+
+            const data = await response.json();
+            console.log("📥 API response:", data);
+
+            // Hide loading and show list
+            loadingDiv.style.display = "none";
+            listDiv.style.display = "block";
+
+            if (data.success && data.panoramas && data.panoramas.length > 0) {
+              console.log("✅ Rendering panoramas:", data.panoramas.length);
+
+              // Clear list and add panoramas
+              listDiv.innerHTML = "";
+
+              // Group by floor
+              const byFloor = {};
+              data.panoramas.forEach((pano) => {
+                const floor = pano.floor_number || "Unknown";
+                if (!byFloor[floor]) byFloor[floor] = [];
+                byFloor[floor].push(pano);
+              });
+
+              // Render each floor
+              Object.keys(byFloor)
+                .sort()
+                .forEach((floor) => {
+                  // Floor header
+                  const header = document.createElement("div");
+                  header.style.cssText = `
+                  background: rgba(4, 170, 109, 0.2);
+                  padding: 8px 15px;
+                  font-weight: 600;
+                  color: #04aa6d;
+                  border-bottom: 1px solid rgba(4, 170, 109, 0.3);
+                  font-size: 13px;
+                `;
+                  header.textContent = `Floor ${floor}`;
+                  listDiv.appendChild(header);
+
+                  // Panoramas for this floor
+                  byFloor[floor].forEach((pano) => {
+                    const item = document.createElement("div");
+                    item.className = "panorama-item";
+                    item.innerHTML = `
+                    <div class="panorama-info">
+                      <div class="panorama-title">${
+                        pano.title || `Point ${pano.point_index}`
+                      }</div>
+                      <div class="panorama-details">Path: ${
+                        pano.path_id
+                      } | Point: ${pano.point_index}</div>
+                    </div>
+                    <div class="panorama-badge">${pano.status || "Active"}</div>
+                  `;
+
+                    item.addEventListener("click", () => {
+                      // Clear other selections
+                      listDiv
+                        .querySelectorAll(".panorama-item")
+                        .forEach((i) => i.classList.remove("selected"));
+
+                      // Select this item
+                      item.classList.add("selected");
+                      selectedPanorama = pano;
+
+                      // Enable confirm button
+                      confirmBtn.disabled = false;
+                      confirmBtn.style.background = "#4CAF50";
+
+                      console.log(
+                        "🎯 Selected panorama:",
+                        pano.title || `Point ${pano.point_index}`
+                      );
+                    });
+
+                    listDiv.appendChild(item);
+                  });
+                });
+
+              console.log("✅ Panorama list rendered successfully");
+            } else {
+              listDiv.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #fff; opacity: 0.7;">
+                  <div style="font-size: 24px; margin-bottom: 10px;">📭</div>
+                  <div>No active panoramas found</div>
+                </div>
+              `;
+            }
+          } catch (error) {
+            console.error("💥 Error loading panoramas:", error);
+            loadingDiv.style.display = "none";
+            listDiv.style.display = "block";
+            listDiv.innerHTML = `
+              <div style="padding: 20px; text-align: center; color: #ff6b6b;">
+                <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
+                <div>Failed to load panoramas: ${error.message}</div>
+              </div>
+            `;
+          }
+
+          // Store the selected panorama for the confirm handler
+          const self = this;
+          const originalConfirmHandler = confirmBtn.onclick;
+
+          confirmBtn.onclick = function () {
+            if (selectedPanorama) {
+              const navType =
+                modal.querySelector('input[name="navType"]:checked')?.value ||
+                "same_floor";
+              console.log("🎯 Confirming navigation with:", {
+                selectedPanorama,
+                navType,
+              });
+
+              // Close modal
+              const overlay =
+                modal.closest(".modal-overlay") || modal.parentNode;
+              if (overlay) document.body.removeChild(overlay);
+
+              // Resolve with panorama data
+              if (self.currentResolve) {
+                self.currentResolve({
+                  purpose: "navigation",
+                  navigationType: navType,
+                  targetPanorama: selectedPanorama,
+                });
+              }
+            }
+          };
+        }
+
+        formatFileSize(bytes) {
+          if (!bytes) return "Unknown";
+          if (bytes === 0) return "0 B";
+          const k = 1024;
+          const sizes = ["B", "KB", "MB", "GB"];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return (
+            parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+          );
+        }
+      }
+
+      // Initialize viewer
+      let viewer;
+      document.addEventListener("DOMContentLoaded", () => {
+        viewer = new GABAYPanoramaViewer();
+        // Make viewer globally available for debugging
+        window.viewer = viewer;
+        // Expose reload method for parent modal
+        window.reloadPhotosphereHotspots = function () {
+          if (
+            window.viewer &&
+            typeof window.viewer.reloadHotspotsAndAssets === "function"
+          ) {
+            window.viewer.reloadHotspotsAndAssets();
+          }
+        };
+        // Ensure hotspots are loaded once after init in case parent calls early
+        try {
+          if (
+            window.viewer &&
+            typeof window.viewer.reloadHotspotsAndAssets === "function"
+          ) {
+            // Delay slightly to allow internal plugins to initialize
+            setTimeout(() => {
+              window.viewer.reloadHotspotsAndAssets();
+            }, 500);
+          }
+        } catch (e) {
+          console.debug("Could not auto-reload hotspots after init:", e);
+        }
+
+        // Also reload hotspots when the window gains focus (helps when popup finishes loading later)
+        window.addEventListener("focus", () => {
+          try {
+            if (
+              window.viewer &&
+              typeof window.viewer.reloadHotspotsAndAssets === "function"
+            ) {
+              window.viewer.reloadHotspotsAndAssets();
+            }
+          } catch (e) {
+            // ignore
+          }
+        });
+      });
+    </script>
+  </body>
+</html>                               

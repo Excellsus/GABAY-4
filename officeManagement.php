@@ -1,4 +1,7 @@
 <?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 include 'connect_db.php';
 
 // Handle edit selection
@@ -77,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['name']) && isset($_PO
     // --- QR CODE GENERATION ---
     require_once __DIR__ . '/phpqrcode/qrlib.php';
     // Set your base URL (should match generate_qrcodes.php)
-    $baseUrl = "http:// 192.168.254.164/FinalDev/mobileScreen/";
+    $baseUrl = "https://192.168.254.164gabay/mobileScreen/";
     $qrDir = __DIR__ . '/qrcodes/';
     if (!file_exists($qrDir)) { mkdir($qrDir, 0777, true); }
     $qrData = $baseUrl . "explore.php?office_id=" . $office_id;
@@ -156,8 +159,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   exit;
 }
 
+// AJAX endpoint for checking room occupancy in real-time
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === 'checkRoomOccupancy') {
+  $location = $_POST['location'] ?? '';
+  $office_id = $_POST['office_id'] ?? ''; // Current office being edited (if any)
+  
+  if (empty($location)) {
+    echo json_encode(['occupied' => false, 'officeName' => '']);
+    exit;
+  }
+  
+  // Check if another office already uses this location
+  $query = "SELECT id, name FROM offices WHERE location = ?" . ($office_id ? " AND id != ?" : "");
+  $params = $office_id ? [$location, $office_id] : [$location];
+  $stmt = $connect->prepare($query);
+  $stmt->execute($params);
+  $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+  
+  if ($existing) {
+    echo json_encode(['occupied' => true, 'officeName' => $existing['name'], 'officeId' => $existing['id']]);
+  } else {
+    echo json_encode(['occupied' => false, 'officeName' => '']);
+  }
+  exit;
+}
+
 // AJAX endpoint for saving office data
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === 'saveOffice') {
+  // Validate CSRF token
+  if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+    exit;
+  }
+  
   $office_id = $_POST['office_id'] ?? '';
   $name = $_POST['name'];
   $details = $_POST['details'];
@@ -198,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
       
       // --- QR CODE GENERATION (AJAX) ---
       require_once __DIR__ . '/phpqrcode/qrlib.php';
-      $baseUrl = "http://192.168.254.164/FinalDev/mobileScreen/";
+      $baseUrl = "https://192.168.254.164/gabay/mobileScreen/";
       $qrDir = __DIR__ . '/qrcodes/';
       if (!file_exists($qrDir)) { mkdir($qrDir, 0777, true); }
       $qrData = $baseUrl . "explore.php?office_id=" . $office_id;
@@ -255,6 +290,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
 
 // AJAX endpoint for deleting office
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === 'deleteOffice') {
+  // Validate CSRF token
+  if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+    exit;
+  }
+  
   $office_id = $_POST['office_id'] ?? '';
   $result = ['success' => false];
   if ($office_id) {
@@ -299,6 +341,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
 
 // AJAX endpoint for saving office hours
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === 'saveOfficeHours') {
+    // Validate CSRF token
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+        exit;
+    }
+    
     $office_id = $_POST['edit_hours_office_id'] ?? '';
     $result = ['success' => false];
 
@@ -330,14 +379,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="csrf-token" content="<?php echo csrfToken(); ?>">
     <title>GABAY Admin Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="officeManagement.css" />
+  <link rel="stylesheet" href="assets/css/system-fonts.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
     <!-- Updated Font Awesome to version 6.5.2 for modern icons and styling -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="./mobileNav.js"></script>
     <link rel="stylesheet" href="mobileNav.css" />
+    <script>window.CSRF_TOKEN = '<?php echo csrfToken(); ?>';</script>
+    <script src="auth_helper.js"></script>
       
   <style>
    /* Modal Dialog Styles */
@@ -499,6 +552,158 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Door QR List Styles */
+.door-qr-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.door-qr-info {
+  flex: 1;
+}
+
+.door-qr-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.door-qr-status {
+  font-size: 0.85em;
+  color: #666;
+}
+
+.door-qr-status.active {
+  color: #2e7d32;
+}
+
+.door-qr-status.inactive {
+  color: #d32f2f;
+}
+
+.door-qr-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.door-qr-toggle {
+  margin-right: 10px;
+}
+
+.door-qr-btn {
+  padding: 6px 12px;
+  border: 1px solid #04aa6d;
+  background: white;
+  color: #04aa6d;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+}
+
+.door-qr-btn:hover {
+  background: #04aa6d;
+  color: white;
+}
+
+.door-qr-btn.download {
+  background: #04aa6d;
+  color: white;
+}
+
+.door-qr-btn.download:hover {
+  background: #038f5a;
+}
+
+.door-qr-btn.delete {
+  border-color: #d32f2f;
+  color: #d32f2f;
+}
+
+.door-qr-btn.delete:hover {
+  background: #d32f2f;
+  color: white;
+}
+
+.door-qr-empty {
+  text-align: center;
+  padding: 30px;
+  color: #666;
+}
+
+/* Action Button Tooltip Styles */
+.action-btn-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.action-tooltip {
+  position: fixed; /* Changed from absolute to fixed to avoid clipping */
+  background-color: #2d3748;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+  z-index: 10000; /* Higher z-index to ensure visibility */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.action-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #2d3748;
+}
+
+.action-btn-wrapper:hover .action-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Search and Filter Styles */
+.office-list-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.search-box input:focus,
+.floor-filter select:focus {
+  outline: none;
+  border-color: #04aa6d;
+  box-shadow: 0 0 0 3px rgba(4, 170, 109, 0.1);
+}
+
+.search-box input::placeholder {
+  color: #a0aec0;
+}
+
+/* Office item transition for filter animations */
+.office-item {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.office-item[style*="display: none"] {
+  opacity: 0;
+  transform: scale(0.98);
+}
   </style>
 </head>
 <body>
@@ -572,8 +777,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
         <div class="office-list-card">
           <div class="office-list-header">
               <h3 class="office-list-title">Office List</h3>
+              
+              <!-- Search and Filter Controls -->
+              <div class="office-list-controls" style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                <!-- Search Box -->
+                <div class="search-box" style="flex: 1; min-width: 200px;">
+                  <input type="text" id="office-search" placeholder="Search offices..." 
+                         style="width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                </div>
+                
+                <!-- Floor Filter -->
+                <div class="floor-filter" style="min-width: 150px;">
+                  <select id="floor-filter" 
+                          style="width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; cursor: pointer;">
+                    <option value="all">All Floors</option>
+                    <option value="1">Floor 1</option>
+                    <option value="2">Floor 2</option>
+                    <option value="3">Floor 3</option>
+                    <option value="unassigned">Unassigned</option>
+                  </select>
+                </div>
+              </div>
           </div>
-          <div class="office-list-content">
+          <div class="office-list-content" id="office-list-content">
           <?php 
               if (!isset($connect)) { die('Database connection not established.'); }
               
@@ -590,8 +816,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
               while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $officeId = $row['id'];
                 $officeName = $row['name'];
+                $officeLocation = $row['location'] ?? '';
                 $qrImagePath = "qrcodes/office_$officeId.png";
                 $imageThumb = isset($officeImages[$officeId]) ? $officeImages[$officeId] : '';
+                
+                // Extract floor number from location (e.g., room-101-1 -> floor 1)
+                $floorNumber = 'unassigned';
+                if (!empty($officeLocation) && preg_match('/room-\d+-(\d+)/', $officeLocation, $matches)) {
+                  $floorNumber = $matches[1];
+                }
 
                 // Fetch office hours for this office
                 $hoursStmt = $connect->prepare("SELECT day_of_week, open_time, close_time FROM office_hours WHERE office_id = ?");
@@ -604,7 +837,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
                   ];
                 }
 
-                echo '<div class="office-item" style="display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; padding: 8px 12px;">';
+                echo '<div class="office-item" data-office-name="' . htmlspecialchars(strtolower($officeName)) . '" data-floor="' . $floorNumber . '" style="display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; padding: 8px 12px;">';
                 // Main row (flex)
                 echo '<div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">';
                 // Only icon and name are clickable
@@ -619,31 +852,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
                 if (!empty($imageThumb)) {
                   echo '<img src="office_images/' . htmlspecialchars($imageThumb) . '" alt="Office Image" style="width:32px;height:32px;object-fit:cover;border-radius:5px;margin-right:10px;border:1px solid #ccc;">';
                 }
-                // Clock icon button
-                echo '<button type="button" class="toggle-hours-edit-btn" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;" title="Edit Office Hours">';
+                // Clock icon button with tooltip
+                echo '<div class="action-btn-wrapper" style="position: relative;">';
+                echo '<button type="button" class="toggle-hours-edit-btn action-btn-with-tooltip" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
                 echo '<img src="./srcImage/time-logo.png" alt="Clock" style="width: 20px; height: 20px;">';
                 echo '</button>';
-                // Trash button
-                echo '<button type="button" class="delete-office-btn" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
+                echo '<span class="action-tooltip">Edit Office Hours</span>';
+                echo '</div>';
+                
+                // Trash button with tooltip
+                echo '<div class="action-btn-wrapper" style="position: relative;">';
+                echo '<button type="button" class="delete-office-btn action-btn-with-tooltip" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
                 echo '<img src="./srcImage/trash.png" alt="Delete" style="width: 20px; height: 20px;">';
                 echo '</button>';
-                // QR code button
+                echo '<span class="action-tooltip">Delete Office</span>';
+                echo '</div>';
+                
+                // Office QR code button with tooltip
+                echo '<div class="action-btn-wrapper" style="position: relative;">';
                 echo '<form method="POST" action="download_qr.php" class="qr-download-form" style="margin: 0;">';
                 echo '<input type="hidden" name="office_id" value="' . $officeId . '">';
-                echo '<button type="button" class="download-qr-btn" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
+                echo '<button type="button" class="download-qr-btn action-btn-with-tooltip" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
                 echo '<img src="./srcImage/qr-code.png" alt="Download" class="download-icon" style="width: 20px; height: 20px;">';
                 echo '</button>';
                 echo '</form>';
-                // Edit button
-                echo '<button type="button" class="edit-office-btn" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
+                echo '<span class="action-tooltip">Manage QR Codes</span>';
+                echo '</div>';
+                
+                // Edit button with tooltip
+                echo '<div class="action-btn-wrapper" style="position: relative;">';
+                echo '<button type="button" class="edit-office-btn action-btn-with-tooltip" data-office-id="' . $officeId . '" style="background: none; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center;">';
                 echo '<img src="./srcImage/edit-logo.png" alt="Edit" style="width: 20px; height: 20px;">';
                 echo '</button>';
+                echo '<span class="action-tooltip">Edit Office</span>';
+                echo '</div>';
                 echo '</div>';
                 echo '</div>';
                 // Office hours edit form (hidden by default)
                 echo '<div class="office-hours-edit-container" id="office-hours-edit-' . $officeId . '" style="display:none; margin-top:8px; background:#f8fafc; border-radius:6px; padding:10px 12px;">';
                 echo '<form method="POST" class="office-hours-edit-form" style="margin:0;">';
                 echo '<input type="hidden" name="edit_hours_office_id" value="' . $officeId . '">';
+                echo '<input type="hidden" name="csrf_token" value="' . csrfToken() . '">';
                 // Header and table header in green
 
                 echo '<div style="font-weight:600;color:#2e7d32;margin-bottom:6px;">Office Hours</div>';
@@ -688,6 +937,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
             </div>
             <input type="hidden" name="office_id" id="office_id" value="<?= htmlspecialchars($editData['id'] ?? '') ?>">
             <input type="hidden" name="location" id="location" value="<?= htmlspecialchars($editData['location'] ?? '') ?>">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="form-group">
               <label for="details" class="form-label">Details</label>
               <textarea name="details" id="details" class="form-input" rows="1"
@@ -701,6 +951,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
             <div class="form-group">
               <label for="services" class="form-label">Services Offered</label>
               <textarea name="services" id="services" class="form-input" rows="1"
+                        style="font-family: Arial, sans-serif;"
                         placeholder="List services offered, one per line..."><?= htmlspecialchars($editData['services'] ?? '') ?></textarea>
             </div>
             <div class="form-group">
@@ -709,6 +960,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
                 <span id="selected-room-label" style="color:#2e7d32;"></span>
               </div>
               <button type="button" id="open-map-btn" class="save-button" style="margin-top:10px;">Pick Room on Map</button>
+              <!-- Room occupancy status indicator -->
+              <div id="room-occupancy-status" style="display: none; margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 14px;"></div>
             </div>
             <div class="form-group">
               <label for="office-image" class="form-label">Office Image (optional)</label>
@@ -773,10 +1026,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
 
         openMapBtn.addEventListener('click',function(){
           mapModal.style.display = 'flex';
-          // Reset to 1st floor view when opening
+          
+          // Get current location to determine floor
+          const currentLocation = locationInput.value;
+          let targetFloor = 1; // Default to floor 1
+          
+          // Extract floor number from location (format: room-101-1 -> floor 1)
+          if (currentLocation) {
+            const floorMatch = currentLocation.match(/room-\d+-(\d+)/);
+            if (floorMatch && floorMatch[1]) {
+              targetFloor = parseInt(floorMatch[1]);
+            }
+          }
+          
+          // Update floor button styles
           floorButtonsModal.forEach(btn => btn.classList.remove('active'));
-          document.querySelector('.floor-btn-modal[data-floor="1"]').classList.add('active');
-          mapFrame.src = floorMaps[1];
+          const targetButton = document.querySelector('.floor-btn-modal[data-floor="' + targetFloor + '"]');
+          if (targetButton) {
+            targetButton.classList.add('active');
+          }
+          
+          // Load the floor map with current room highlighted
+          if (currentLocation) {
+            mapFrame.src = floorMaps[targetFloor] + '&highlightRoom=' + encodeURIComponent(currentLocation);
+          } else {
+            mapFrame.src = floorMaps[targetFloor];
+          }
         });
         closeMapBtn.addEventListener('click',function(){
           mapModal.style.display = 'none';
@@ -784,10 +1059,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
         window.addEventListener('message',function(e){
           if(e.data && e.data.selectedRoomId && e.data.selectedRoomLabel){
             locationInput.value = e.data.selectedRoomId;
-            selectedRoomLabel.textContent = e.data.selectedRoomLabel;
+            
+            // Extract floor number from room ID (format: room-101-1 -> floor 1)
+            const floorMatch = e.data.selectedRoomId.match(/room-\d+-(\d+)/);
+            const floorNumber = floorMatch ? floorMatch[1] : '';
+            
+            // Display room label with floor information
+            if (floorNumber) {
+              selectedRoomLabel.textContent = e.data.selectedRoomLabel + ' (Floor ' + floorNumber + ')';
+            } else {
+              selectedRoomLabel.textContent = e.data.selectedRoomLabel;
+            }
+            
             mapModal.style.display = 'none';
+            
+            // Check room occupancy in real-time
+            checkRoomOccupancy(e.data.selectedRoomId);
           }
         });
+        
+        // Function to check if selected room is occupied
+        function checkRoomOccupancy(roomLocation) {
+          const officeId = document.getElementById('office_id').value;
+          const statusDiv = document.getElementById('room-occupancy-status');
+          
+          // Show loading state
+          statusDiv.style.display = 'block';
+          statusDiv.style.background = '#e3f2fd';
+          statusDiv.style.color = '#1976d2';
+          statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking room availability...';
+          
+          $.ajax({
+            url: 'officeManagement.php',
+            method: 'POST',
+            data: {
+              ajax: 'checkRoomOccupancy',
+              location: roomLocation,
+              office_id: officeId
+            },
+            dataType: 'json',
+            success: function(response) {
+              if (response.occupied) {
+                // Room is occupied
+                statusDiv.style.background = '#fee';
+                statusDiv.style.color = '#c62828';
+                statusDiv.style.border = '1px solid #ef5350';
+                statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>Room Occupied!</strong> This room is currently assigned to <strong>"' + response.officeName + '"</strong>. Please choose a different room.';
+                
+                // Disable the save button
+                document.querySelector('.save-button[type="submit"]').disabled = true;
+                document.querySelector('.save-button[type="submit"]').style.opacity = '0.5';
+                document.querySelector('.save-button[type="submit"]').style.cursor = 'not-allowed';
+              } else {
+                // Room is available
+                statusDiv.style.background = '#e8f5e9';
+                statusDiv.style.color = '#2e7d32';
+                statusDiv.style.border = '1px solid #66bb6a';
+                statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>Room Available!</strong> This room is ready to be assigned.';
+                
+                // Enable the save button
+                document.querySelector('.save-button[type="submit"]').disabled = false;
+                document.querySelector('.save-button[type="submit"]').style.opacity = '1';
+                document.querySelector('.save-button[type="submit"]').style.cursor = 'pointer';
+              }
+            },
+            error: function() {
+              statusDiv.style.background = '#fff3e0';
+              statusDiv.style.color = '#e65100';
+              statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error checking room availability. Please try again.';
+            }
+          });
+        }
         </script>
       </div>
     </main>
@@ -811,34 +1153,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
 
 <!-- Download QR Confirmation Modal -->
 <div id="downloadModal" class="modal-overlay">
-  <div class="modal-dialog" style="max-width: 450px;">
+  <div class="modal-dialog" style="max-width: 650px;">
     <div class="modal-header">
       <h4 class="modal-title">QR Code Management</h4>
+      <button class="modal-close" id="closeDownloadModal">&times;</button>
     </div>
     <div class="modal-body">
-      <p style="margin-bottom: 15px;">Manage QR code settings for this office:</p>
-      
-      <!-- QR Code Status Toggle -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <div>
-          <strong style="color: #2e7d32;">QR Code Status</strong>
-          <p style="margin: 2px 0 0 0; font-size: 0.9em; color: #666;">
-            <span id="qr-status-text">Active</span> - QR code is <span id="qr-status-desc">visible to visitors</span>
-          </p>
-        </div>
-        <div class="toggle-switch" id="qr-toggle-switch">
-          <input type="checkbox" id="qr-status-toggle" checked>
-          <label for="qr-status-toggle" class="toggle-label">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
+      <!-- Door QR Management Content (Removed tabs) -->
+      <div style="margin-bottom: 15px;">
+        <p style="margin-bottom: 15px;">Manage individual door QR codes for this office:</p>
+        <button class="btn" id="generate-all-doors-btn" style="background: #04aa6d; color: white; padding: 8px 16px; border-radius: 5px;">
+          Generate All Door QR Codes
+        </button>
       </div>
       
-      <p style="margin-bottom: 0;">Do you want to download this QR code?</p>
+      <div id="door-qr-list" style="margin-top: 15px;">
+        <!-- Door QR codes will be loaded here -->
+      </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" id="cancelDownload">Cancel</button>
-      <button class="btn btn-primary" id="confirmDownload">Download</button>
+      <button class="btn btn-secondary" id="cancelDownload">Close</button>
     </div>
   </div>
 </div>
@@ -863,7 +1197,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
     $(document).ready(function() {
   // Store the original form data
   let formData = null;
-  let downloadQrForm = null;
   
   // Function to clear the form
   function clearForm() {
@@ -877,6 +1210,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
     $('#selected-room-label').text('');
     $('#image-preview').empty();
     $('#office-image').val('');
+    
+    // Clear room occupancy status and re-enable save button
+    $('#room-occupancy-status').hide();
+    $('.save-button[type="submit"]').prop('disabled', false).css({
+      'opacity': '1',
+      'cursor': 'pointer'
+    });
   }
 
   // Handle clear button click
@@ -909,10 +1249,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
         $('#location').val(data.location);
         $('#services').val(data.services);
         $('#room-id-value').text(data.location ? data.location : '');
-        if (data.name) {
-          $('#selected-room-label').text(data.name);
-        } else if (data.location) {
-          $('#selected-room-label').text(data.location);
+        
+        // Display room label with floor information
+        if (data.location) {
+          // Extract room number and floor from location (format: room-101-1)
+          const roomMatch = data.location.match(/room-(\d+)-(\d+)/);
+          if (roomMatch) {
+            const roomNumber = roomMatch[1];
+            const floorNumber = roomMatch[2];
+            $('#selected-room-label').text('Room ' + roomNumber + ' (Floor ' + floorNumber + ')');
+          } else {
+            $('#selected-room-label').text(data.location);
+          }
         } else {
           $('#selected-room-label').text('');
         }
@@ -970,7 +1318,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
             location.reload();
           }, 3000);
         } else {
-          $('#formMessage').html('<div style="color: red;">' + response.message + '</div>');
+          // Check if it's a room occupancy error
+          if (response.message && response.message.includes('occupied')) {
+            $('#formMessage').html('<div style="color: red; padding: 10px; background: #fee; border: 1px solid #ef5350; border-radius: 6px;"><i class="fas fa-exclamation-triangle"></i> <strong>Cannot Save:</strong> The chosen room is already occupied by another office. Please select a different room.</div>');
+          } else {
+            $('#formMessage').html('<div style="color: red;">' + response.message + '</div>');
+          }
         }
       },
       error: function() {
@@ -982,25 +1335,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   // Handle QR download button click
   $(document).on('click', '.download-qr-btn', function(e) {
     e.preventDefault();
-    downloadQrForm = $(this).closest('form');
-    const officeId = downloadQrForm.find('input[name="office_id"]').val();
+    const form = $(this).closest('form');
+    const officeId = form.find('input[name="office_id"]').val();
     
-    // Load QR status and show modal
-    loadQrStatus(officeId);
+    // Load door QR data only
+    loadDoorQrData(officeId);
+    
     $('#downloadModal').addClass('active');
   });
   
   // Close download modal when clicking X or Cancel
   $('#closeDownloadModal, #cancelDownload').on('click', function() {
     $('#downloadModal').removeClass('active');
-  });
-  
-  // Handle download confirmation
-  $('#confirmDownload').on('click', function() {
-    $('#downloadModal').removeClass('active');
-    if (downloadQrForm) {
-      downloadQrForm.submit();
-    }
   });
   
   // QR Status Management Functions
@@ -1129,7 +1475,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
     $.ajax({
       type: 'POST',
       url: 'officeManagement.php',
-      data: { ajax: 'deleteOffice', office_id: deleteOfficeId },
+      data: { 
+        ajax: 'deleteOffice', 
+        office_id: deleteOfficeId,
+        csrf_token: (window.CSRF_TOKEN || $('meta[name="csrf-token"]').attr('content') || '')
+      },
       dataType: 'json',
       success: function(response) {
         $('#deleteModal').removeClass('active');
@@ -1196,6 +1546,448 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
   $(document).on('click', '.toggle-hours-edit-btn, .delete-office-btn, .download-qr-btn', function(e) {
     e.stopPropagation();
   });
+  
+  // ============================================================
+  // DOOR QR CODE MANAGEMENT
+  // ============================================================
+  
+  let currentDoorQrOfficeId = null;
+  
+  // Load door QR data for an office
+  function loadDoorQrData(officeId) {
+    currentDoorQrOfficeId = officeId;
+    $('#door-qr-list').html('<p style="text-align: center; color: #666; padding: 20px;"><i class="fa fa-spinner fa-spin"></i> Loading door information...</p>');
+    
+    // First get office details
+    $.ajax({
+      type: 'POST',
+      url: 'officeManagement.php',
+      data: {
+        ajax: 'getOffice',
+        office_id: officeId
+      },
+      dataType: 'json',
+      success: function(office) {
+        if (!office.location) {
+          $('#door-qr-list').html('<div class="door-qr-empty"><p style="color: #e53e3e;">❌ This office has no location assigned.</p><p style="font-size: 0.9em; color: #666;">Please assign a location in the floor plan first.</p></div>');
+          return;
+        }
+        
+        // Load floor graph to get entry points
+        const roomId = office.location;
+        let floorNumber = 1;
+        const floorMatch = roomId.match(/room-\d+-(\d+)/);
+        if (floorMatch) {
+          floorNumber = parseInt(floorMatch[1]);
+        }
+        
+        // Use relative path from current page location
+        const graphPath = './' + 'floor_graph' + (floorNumber > 1 ? '_' + floorNumber : '') + '.json';
+        
+        console.log('Loading floor graph:', graphPath, 'for room:', roomId);
+        
+        $.getJSON(graphPath, function(graphData) {
+          console.log('Floor graph loaded successfully', graphData);
+          
+          if (!graphData.rooms || !graphData.rooms[roomId] || !graphData.rooms[roomId].doorPoints) {
+            console.error('No doorPoints found for room:', roomId);
+            console.log('Available rooms:', Object.keys(graphData.rooms || {}));
+            console.log('Room data:', graphData.rooms ? graphData.rooms[roomId] : 'No rooms object');
+            $('#door-qr-list').html('<div class="door-qr-empty"><p style="color: #e53e3e;">❌ No door points found for this room.</p><p style="font-size: 0.9em; color: #666;">Configure doorPoints in the floor graph file.</p><p style="font-size: 0.85em; color: #999;">Looking for: ' + roomId + '</p></div>');
+            return;
+          }
+          
+          const doorPoints = graphData.rooms[roomId].doorPoints;
+          console.log('Found doorPoints:', doorPoints);
+          
+          // Now check which doors already have QR codes
+          $.ajax({
+            type: 'GET',
+            url: 'door_qr_api.php',
+            data: {
+              action: 'get_all',
+              office_id: officeId
+            },
+            dataType: 'json',
+            success: function(response) {
+              console.log('Door QR API response:', response);
+              const existingQrs = response.doors || [];
+              renderDoorQrList(office, doorPoints, existingQrs);
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+              console.error('Door QR API error:', textStatus, errorThrown);
+              renderDoorQrList(office, doorPoints, []);
+            }
+          });
+        }).fail(function(jqXHR, textStatus, errorThrown) {
+          console.error('Failed to load floor graph:', textStatus, errorThrown);
+          console.error('Attempted path:', graphPath);
+          $('#door-qr-list').html('<div class="door-qr-empty"><p style="color: #e53e3e;">❌ Failed to load floor graph data.</p><p style="font-size: 0.9em; color: #666;">Path: ' + graphPath + '</p><p style="font-size: 0.85em; color: #999;">Error: ' + textStatus + '</p></div>');
+        });
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        console.error('Failed to load office data:', textStatus, errorThrown);
+        $('#door-qr-list').html('<div class="door-qr-empty"><p style="color: #e53e3e;">❌ Failed to load office data.</p><p style="font-size: 0.85em; color: #999;">Error: ' + textStatus + '</p></div>');
+      }
+    });
+  }
+  
+  // Render the list of doors with QR management options
+  function renderDoorQrList(office, doorPoints, existingQrs) {
+    console.log('renderDoorQrList called with:', {office, doorPoints, existingQrs});
+    
+    let html = '<div style="margin-bottom: 15px; padding: 12px; background: #e8f5e9; border-radius: 6px;">';
+    html += '<div style="font-weight: 600; color: #2e7d32; margin-bottom: 4px;">' + office.name + '</div>';
+    html += '<div style="font-size: 0.9em; color: #666;">Room: ' + office.location + ' • ' + doorPoints.length + ' door(s)</div>';
+    html += '</div>';
+    
+    if (doorPoints.length === 0) {
+      html += '<div class="door-qr-empty"><p>No doors found for this office.</p></div>';
+      $('#door-qr-list').html(html);
+      return;
+    }
+    
+    doorPoints.forEach(function(door, index) {
+      const existingQr = existingQrs.find(qr => qr.door_index == index);
+      const hasQr = !!existingQr;
+      const isActive = hasQr ? existingQr.is_active : true;
+      
+      html += '<div class="door-qr-item">';
+      
+      // Door info
+      html += '<div class="door-qr-info">';
+      html += '<div class="door-qr-name">Door ' + (index + 1) + '</div>';
+      html += '<div class="door-qr-status ' + (isActive ? 'active' : 'inactive') + '">';
+      if (hasQr) {
+        html += '<i class="fa fa-check-circle"></i> QR Code: ' + (isActive ? 'Active' : 'Inactive');
+      } else {
+        html += '<i class="fa fa-circle-o"></i> No QR code generated';
+      }
+      html += '</div>';
+      html += '</div>';
+      
+      // Actions
+      html += '<div class="door-qr-actions">';
+      
+      if (hasQr) {
+        // Toggle switch
+        html += '<div class="door-qr-toggle toggle-switch">';
+        html += '<input type="checkbox" id="door-qr-toggle-' + office.id + '-' + index + '" ' + (isActive ? 'checked' : '') + ' onchange="toggleDoorQrStatus(' + office.id + ', ' + index + ', this.checked)">';
+        html += '<label for="door-qr-toggle-' + office.id + '-' + index + '" class="toggle-label">';
+        html += '<span class="toggle-slider"></span>';
+        html += '</label>';
+        html += '</div>';
+        
+        // Download button - DISABLED if inactive
+        if (isActive) {
+          html += '<button class="door-qr-btn download" onclick="downloadDoorQr(' + office.id + ', ' + index + ', \'' + existingQr.qr_code_image + '\')" title="Download QR Code">';
+          html += '<i class="fa fa-download"></i>';
+          html += '</button>';
+        } else {
+          html += '<button class="door-qr-btn download" disabled title="Cannot download inactive QR code" style="opacity: 0.3; cursor: not-allowed;">';
+          html += '<i class="fa fa-download"></i>';
+          html += '</button>';
+        }
+        
+        // Regenerate button
+        html += '<button class="door-qr-btn" onclick="regenerateDoorQr(' + office.id + ', ' + index + ')" title="Regenerate QR Code">';
+        html += '<i class="fa fa-refresh"></i>';
+        html += '</button>';
+        
+        // Delete button
+        html += '<button class="door-qr-btn delete" onclick="deleteDoorQr(' + office.id + ', ' + index + ')" title="Delete QR Code">';
+        html += '<i class="fa fa-trash"></i>';
+        html += '</button>';
+      } else {
+        // Generate button
+        html += '<button class="door-qr-btn download" onclick="generateSingleDoorQr(' + office.id + ', ' + index + ')" style="width: 140px;">';
+        html += '<i class="fa fa-qrcode"></i> Generate QR';
+        html += '</button>';
+      }
+      
+      html += '</div>';
+      html += '</div>';
+    });
+    
+    console.log('Setting door-qr-list HTML. Length:', html.length);
+    console.log('HTML preview:', html.substring(0, 200));
+    $('#door-qr-list').html(html);
+    console.log('door-qr-list updated. Current content:', $('#door-qr-list').html().substring(0, 200));
+  }
+  
+  // Generate all missing door QR codes
+  $('#generate-all-doors-btn').on('click', function() {
+    if (!currentDoorQrOfficeId) return;
+    
+    const btn = $(this);
+    btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Generating...');
+    
+    $.ajax({
+      type: 'POST',
+      url: 'door_qr_api.php',
+      data: {
+        action: 'generate',
+        office_id: currentDoorQrOfficeId,
+        csrf_token: window.CSRF_TOKEN
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          alert('✅ Successfully generated ' + response.doors.length + ' door QR codes!');
+          loadDoorQrData(currentDoorQrOfficeId);
+        } else {
+          const errorMsg = response.error || response.message || 'Unknown error';
+          console.error('QR Generation Error:', response);
+          alert('❌ Error: ' + errorMsg);
+        }
+      },
+      error: function(xhr, status, error) {
+        console.error('AJAX Error:', {
+          status: status,
+          error: error,
+          response: xhr.responseText
+        });
+        
+        let errorMsg = 'Failed to generate door QR codes. ';
+        try {
+          const response = JSON.parse(xhr.responseText);
+          errorMsg += response.error || response.message || error;
+        } catch(e) {
+          errorMsg += 'Server error: ' + error;
+        }
+        alert('❌ ' + errorMsg);
+      },
+      complete: function() {
+        btn.prop('disabled', false).html('Generate All Door QR Codes');
+      }
+    });
+  });
+  
+  // Global functions for door QR actions
+  window.generateSingleDoorQr = function(officeId, doorIndex) {
+    $.ajax({
+      type: 'POST',
+      url: 'door_qr_api.php',
+      data: {
+        action: 'generate',
+        office_id: officeId,
+        csrf_token: window.CSRF_TOKEN
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          alert('✅ Door QR code generated successfully!');
+          loadDoorQrData(officeId);
+        } else {
+          // Enhanced error display with detailed message
+          const errorMsg = response.error || response.message || 'Unknown error';
+          console.error('QR Generation Error:', response);
+          alert('❌ Error: ' + errorMsg);
+        }
+      },
+      error: function(xhr, status, error) {
+        // Enhanced error handling with response details
+        console.error('AJAX Error:', {
+          status: status,
+          error: error,
+          response: xhr.responseText
+        });
+        
+        let errorMsg = 'Failed to generate QR code. ';
+        try {
+          const response = JSON.parse(xhr.responseText);
+          errorMsg += response.error || response.message || error;
+        } catch(e) {
+          errorMsg += 'Server error: ' + error;
+        }
+        alert('❌ ' + errorMsg);
+      }
+    });
+  };
+  
+  window.regenerateDoorQr = function(officeId, doorIndex) {
+    if (!confirm('Regenerate QR code for Door ' + (doorIndex + 1) + '?\n\nThis will create a new QR code image.')) return;
+    
+    // Delete then generate
+    $.ajax({
+      type: 'POST',
+      url: 'door_qr_api.php',
+      data: {
+        action: 'delete',
+        office_id: officeId,
+        door_index: doorIndex,
+        csrf_token: window.CSRF_TOKEN
+      },
+      dataType: 'json',
+      success: function() {
+        window.generateSingleDoorQr(officeId, doorIndex);
+      },
+      error: function() {
+        alert('❌ Failed to regenerate QR code. Please try again.');
+      }
+    });
+  };
+  
+  window.deleteDoorQr = function(officeId, doorIndex) {
+    if (!confirm('Delete QR code for Door ' + (doorIndex + 1) + '?\n\nThis action cannot be undone.')) return;
+    
+    $.ajax({
+      type: 'POST',
+      url: 'door_qr_api.php',
+      data: {
+        action: 'delete',
+        office_id: officeId,
+        door_index: doorIndex,
+        csrf_token: window.CSRF_TOKEN
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          alert('✅ Door QR code deleted successfully!');
+          loadDoorQrData(officeId);
+        } else {
+          alert('❌ Error: ' + response.error);
+        }
+      },
+      error: function() {
+        alert('❌ Failed to delete QR code. Please try again.');
+      }
+    });
+  };
+  
+  window.downloadDoorQr = function(officeId, doorIndex, filename) {
+    const link = document.createElement('a');
+    link.href = 'qrcodes/doors/' + filename;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  window.toggleDoorQrStatus = function(officeId, doorIndex, isActive) {
+    $.ajax({
+      type: 'POST',
+      url: 'door_qr_api.php',
+      data: {
+        action: 'toggle_status',
+        office_id: officeId,
+        door_index: doorIndex,
+        is_active: isActive ? 1 : 0,
+        csrf_token: window.CSRF_TOKEN
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          // Update UI to reflect new status
+          const statusEl = $('#door-qr-toggle-' + officeId + '-' + doorIndex).closest('.door-qr-item').find('.door-qr-status');
+          if (isActive) {
+            statusEl.removeClass('inactive').addClass('active').html('<i class="fa fa-check-circle"></i> QR Code: Active');
+          } else {
+            statusEl.removeClass('active').addClass('inactive').html('<i class="fa fa-check-circle"></i> QR Code: Inactive');
+          }
+        } else {
+          alert('❌ Error: ' + response.error);
+          // Revert toggle
+          $('#door-qr-toggle-' + officeId + '-' + doorIndex).prop('checked', !isActive);
+        }
+      },
+      error: function() {
+        alert('❌ Failed to update status. Please try again.');
+        // Revert toggle
+        $('#door-qr-toggle-' + officeId + '-' + doorIndex).prop('checked', !isActive);
+      }
+    });
+  };
+  
+  // ============================================================
+  // SEARCH AND FILTER FUNCTIONALITY
+  // ============================================================
+  
+  const officeSearch = document.getElementById('office-search');
+  const floorFilter = document.getElementById('floor-filter');
+  const officeItems = document.querySelectorAll('.office-item');
+  
+  // Search functionality
+  if (officeSearch) {
+    officeSearch.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase().trim();
+      filterOffices();
+    });
+  }
+  
+  // Floor filter functionality
+  if (floorFilter) {
+    floorFilter.addEventListener('change', function() {
+      filterOffices();
+    });
+  }
+  
+  // ============================================================
+  // TOOLTIP POSITIONING
+  // ============================================================
+  
+  // Position tooltips dynamically to avoid clipping
+  document.querySelectorAll('.action-btn-wrapper').forEach(wrapper => {
+    const button = wrapper.querySelector('.action-btn-with-tooltip');
+    const tooltip = wrapper.querySelector('.action-tooltip');
+    
+    if (button && tooltip) {
+      button.addEventListener('mouseenter', function() {
+        const rect = button.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        
+        // Position tooltip above the button
+        tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+        tooltip.style.top = (rect.top - tooltipRect.height - 10) + 'px';
+        tooltip.style.transform = 'translateX(-50%)';
+      });
+    }
+  });
+  
+  // Combined filter function
+  function filterOffices() {
+    const searchTerm = officeSearch ? officeSearch.value.toLowerCase().trim() : '';
+    const selectedFloor = floorFilter ? floorFilter.value : 'all';
+    
+    let visibleCount = 0;
+    
+    officeItems.forEach(item => {
+      const officeName = item.getAttribute('data-office-name') || '';
+      const officeFloor = item.getAttribute('data-floor') || 'unassigned';
+      
+      // Check search match
+      const matchesSearch = searchTerm === '' || officeName.includes(searchTerm);
+      
+      // Check floor match
+      const matchesFloor = selectedFloor === 'all' || officeFloor === selectedFloor;
+      
+      // Show or hide item
+      if (matchesSearch && matchesFloor) {
+        item.style.display = 'flex';
+        visibleCount++;
+      } else {
+        item.style.display = 'none';
+      }
+    });
+    
+    // Show "no results" message if needed
+    const listContent = document.getElementById('office-list-content');
+    let noResultsMsg = document.getElementById('no-results-message');
+    
+    if (visibleCount === 0 && listContent) {
+      if (!noResultsMsg) {
+        noResultsMsg = document.createElement('div');
+        noResultsMsg.id = 'no-results-message';
+        noResultsMsg.style.cssText = 'text-align: center; padding: 40px 20px; color: #718096;';
+        noResultsMsg.innerHTML = '<i class="fa fa-search" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i><p style="font-size: 16px; margin: 0;">No offices found matching your criteria.</p>';
+        listContent.appendChild(noResultsMsg);
+      }
+      noResultsMsg.style.display = 'block';
+    } else if (noResultsMsg) {
+      noResultsMsg.style.display = 'none';
+    }
+  }
+  
 });
 </script>
 </body>

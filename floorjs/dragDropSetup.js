@@ -414,110 +414,45 @@ function handleMouseUp(e) {
     const targetPath = dropTarget.querySelector("path, rect");
 
     if (draggedPath && targetPath) {
-      // Get the current styles
-      const draggedStyle = window.getComputedStyle(draggedPath);
-      const targetStyle = window.getComputedStyle(targetPath);
-
-      const draggedFill = draggedStyle.fill;
-      const targetFill = targetStyle.fill;
-
       // Get office IDs
       const draggedOfficeId =
         draggedElement.dataset.officeId || draggedPath.dataset.officeId;
       const targetOfficeId =
         dropTarget.dataset.officeId || targetPath.dataset.officeId;
-
-      console.log("Before swap - Office IDs:", {
-        draggedElement: {
-          id: draggedElement.id,
-          officeId: draggedOfficeId,
-        },
-        dropTarget: {
-          id: dropTarget.id,
-          officeId: targetOfficeId,
-        },
-      });
-
-      // Swap fills
-      draggedPath.style.fill = targetFill;
-      targetPath.style.fill = draggedFill;
-
-      // Handle office data swapping
+      
+      // Check if BOTH rooms have offices (swap scenario)
       if (draggedOfficeId && targetOfficeId) {
-        // Both rooms have office data - swap them
-        draggedPath.dataset.officeId = targetOfficeId;
-        targetPath.dataset.officeId = draggedOfficeId;
-        draggedElement.dataset.officeId = targetOfficeId;
-        dropTarget.dataset.officeId = draggedOfficeId;
-
-        // Find the corresponding office data
-        const draggedOffice = officesData.find(
-          (o) => o.id.toString() === draggedOfficeId
-        );
-        const targetOffice = officesData.find(
-          (o) => o.id.toString() === targetOfficeId
-        );
-
+        // Find office data
+        const draggedOffice = officesData.find(o => o.id.toString() === draggedOfficeId);
+        const targetOffice = officesData.find(o => o.id.toString() === targetOfficeId);
+        
         if (draggedOffice && targetOffice) {
-          // Update the labels with the swapped office names
-          const draggedText = draggedElement.querySelector("text");
-          const targetText = dropTarget.querySelector("text");
-
-          if (draggedText && targetText) {
-            // Update labels
-            updateRoomLabel(draggedText, targetOffice.name);
-            updateRoomLabel(targetText, draggedOffice.name);
+          // Show confirmation modal
+          if (typeof window.showSwapConfirmation === 'function') {
+            window.showSwapConfirmation(
+              draggedOffice,
+              targetOffice,
+              draggedElement.id,
+              dropTarget.id,
+              // onConfirm callback
+              function() {
+                performSwap(draggedElement, dropTarget, draggedPath, targetPath, draggedOfficeId, targetOfficeId);
+              },
+              // onCancel callback
+              function() {
+                console.log('Swap cancelled by user');
+              }
+            );
+          } else {
+            // Fallback if modal not available
+            performSwap(draggedElement, dropTarget, draggedPath, targetPath, draggedOfficeId, targetOfficeId);
           }
-        }
-      } else if (draggedOfficeId) {
-        // Only dragged element has office data - move it to target
-        draggedPath.dataset.officeId = "";
-        targetPath.dataset.officeId = draggedOfficeId;
-        draggedElement.dataset.officeId = "";
-        dropTarget.dataset.officeId = draggedOfficeId;
-
-        // Update labels
-        const draggedText = draggedElement.querySelector("text");
-        const targetText = dropTarget.querySelector("text");
-        const draggedOffice = officesData.find(
-          (o) => o.id.toString() === draggedOfficeId
-        );
-
-        if (draggedText && targetText && draggedOffice) {
-          updateRoomLabel(draggedText, "Unassigned");
-          updateRoomLabel(targetText, draggedOffice.name);
-        }
-      } else if (targetOfficeId) {
-        // Only target has office data - move it to dragged element
-        draggedPath.dataset.officeId = targetOfficeId;
-        targetPath.dataset.officeId = "";
-        draggedElement.dataset.officeId = targetOfficeId;
-        dropTarget.dataset.officeId = "";
-
-        // Update labels
-        const draggedText = draggedElement.querySelector("text");
-        const targetText = dropTarget.querySelector("text");
-        const targetOffice = officesData.find(
-          (o) => o.id.toString() === targetOfficeId
-        );
-
-        if (draggedText && targetText && targetOffice) {
-          updateRoomLabel(draggedText, targetOffice.name);
-          updateRoomLabel(targetText, "Unassigned");
+          return; // Exit early, swap will be performed in callback
         }
       }
-      // If neither has office data, no need to update anything
-
-      console.log("After swap - Office IDs:", {
-        draggedElement: {
-          id: draggedElement.id,
-          officeId: draggedElement.dataset.officeId,
-        },
-        dropTarget: {
-          id: dropTarget.id,
-          officeId: dropTarget.dataset.officeId,
-        },
-      });
+      
+      // If not a swap scenario (one or both rooms empty), perform move directly
+      performMove(draggedElement, dropTarget, draggedPath, targetPath, draggedOfficeId, targetOfficeId);
     }
   }
 
@@ -528,6 +463,105 @@ function handleMouseUp(e) {
   }
 
   draggedElement = null;
+}
+
+// Helper function to perform swap (both rooms have offices)
+function performSwap(draggedElement, dropTarget, draggedPath, targetPath, draggedOfficeId, targetOfficeId) {
+  console.log('Performing swap:', { draggedOfficeId, targetOfficeId });
+  
+  // Get the current styles
+  const draggedStyle = window.getComputedStyle(draggedPath);
+  const targetStyle = window.getComputedStyle(targetPath);
+  const draggedFill = draggedStyle.fill;
+  const targetFill = targetStyle.fill;
+  
+  // Swap fills
+  draggedPath.style.fill = targetFill;
+  targetPath.style.fill = draggedFill;
+  
+  // Swap office IDs
+  draggedPath.dataset.officeId = targetOfficeId;
+  targetPath.dataset.officeId = draggedOfficeId;
+  draggedElement.dataset.officeId = targetOfficeId;
+  dropTarget.dataset.officeId = draggedOfficeId;
+  
+  // Find the corresponding office data
+  const draggedOffice = officesData.find(o => o.id.toString() === draggedOfficeId);
+  const targetOffice = officesData.find(o => o.id.toString() === targetOfficeId);
+  
+  if (draggedOffice && targetOffice) {
+    // Update the labels with the swapped office names using the robust updateRoomLabelMain function
+    // This function handles proper centering, multi-line text, and all edge cases
+    if (typeof window.updateRoomLabelMain === 'function') {
+      // Use the main label update function for proper formatting
+      window.updateRoomLabelMain(draggedElement, targetOffice.name);
+      window.updateRoomLabelMain(dropTarget, draggedOffice.name);
+      console.log('Labels updated using updateRoomLabelMain');
+    } else {
+      // Fallback to simple label update if main function not available
+      const draggedText = draggedElement.querySelector("text");
+      const targetText = dropTarget.querySelector("text");
+      
+      if (draggedText && targetText) {
+        updateRoomLabel(draggedText, targetOffice.name);
+        updateRoomLabel(targetText, draggedOffice.name);
+      }
+      console.log('Labels updated using fallback updateRoomLabel');
+    }
+  }
+  
+  console.log('Swap completed');
+}
+
+// Helper function to perform move (one or both rooms empty)
+function performMove(draggedElement, dropTarget, draggedPath, targetPath, draggedOfficeId, targetOfficeId) {
+  console.log('Performing move:', { draggedOfficeId, targetOfficeId });
+  
+  // Get the current styles
+  const draggedStyle = window.getComputedStyle(draggedPath);
+  const targetStyle = window.getComputedStyle(targetPath);
+  const draggedFill = draggedStyle.fill;
+  const targetFill = targetStyle.fill;
+  
+  // Swap fills
+  draggedPath.style.fill = targetFill;
+  targetPath.style.fill = draggedFill;
+  
+  if (draggedOfficeId) {
+    // Only dragged element has office data - move it to target
+    draggedPath.dataset.officeId = "";
+    targetPath.dataset.officeId = draggedOfficeId;
+    draggedElement.dataset.officeId = "";
+    dropTarget.dataset.officeId = draggedOfficeId;
+    
+    // Update labels
+    const draggedText = draggedElement.querySelector("text");
+    const targetText = dropTarget.querySelector("text");
+    const draggedOffice = officesData.find(o => o.id.toString() === draggedOfficeId);
+    
+    if (draggedText && targetText && draggedOffice) {
+      updateRoomLabel(draggedText, "Unassigned");
+      updateRoomLabel(targetText, draggedOffice.name);
+    }
+  } else if (targetOfficeId) {
+    // Only target has office data - move it to dragged element
+    draggedPath.dataset.officeId = targetOfficeId;
+    targetPath.dataset.officeId = "";
+    draggedElement.dataset.officeId = targetOfficeId;
+    dropTarget.dataset.officeId = "";
+    
+    // Update labels
+    const draggedText = draggedElement.querySelector("text");
+    const targetText = dropTarget.querySelector("text");
+    const targetOffice = officesData.find(o => o.id.toString() === targetOfficeId);
+    
+    if (draggedText && targetText && targetOffice) {
+      updateRoomLabel(draggedText, targetOffice.name);
+      updateRoomLabel(targetText, "Unassigned");
+    }
+  }
+  
+  console.log('Move completed');
 }
 
 // Helper function to update room labels

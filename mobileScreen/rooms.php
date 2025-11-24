@@ -83,7 +83,7 @@ if ($is_ajax) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     
     <!-- GABAY Geofencing System -->
-    <script src="js/geofencing.js"></script>
+    <!-- <script src="js/geofencing.js"></script> -->
 </head>
 <body>
     <header class="header">
@@ -148,21 +148,24 @@ if ($is_ajax) {
                     <?php endif; ?>
                 </div>
             <?php else: ?>                <?php foreach ($offices as $office): ?>
-                    <?php 
-                    // Extract floor number from location
+                    <?php
+                    // Extract floor number and room number from location
+                    // Pattern: room-<roomnumber>-<floornumber>
+                    // The second number (after the second dash) indicates the floor
                     $floor_number = 'N/A';
+                    $room_number = 'N/A';
                     if (!empty($office['location'])) {
-                        // Try to extract floor number from room ID patterns like "room-101-1", "room-201-1", etc.
-                        if (preg_match('/room-(\d)(\d{2})-/', $office['location'], $matches)) {
-                            $floor_number = $matches[1];
+                        $loc = trim($office['location']);
+
+                        // Match room-<roomnumber>-<floornumber> pattern
+                        // Example: room-101-1 -> room 101, floor 1
+                        if (preg_match('/room-(\d+)-(\d+)/i', $loc, $m)) {
+                            $room_number = (string) intval($m[1]);
+                            $floor_number = (string) intval($m[2]);
                         }
-                        // Alternative: if location contains direct floor info
-                        elseif (preg_match('/(\d+)(st|nd|rd|th)?\s*floor/i', $office['location'], $matches)) {
-                            $floor_number = $matches[1];
-                        }
-                        // If room number starts with floor digit (e.g., 101, 201, 301)
-                        elseif (preg_match('/\b([1-9])0\d\b/', $office['location'], $matches)) {
-                            $floor_number = $matches[1];
+                        // Fallback: if no floor number found, try textual forms
+                        elseif (preg_match('/(\d+)(?:st|nd|rd|th)?\s*floor/i', $loc, $m)) {
+                            $floor_number = (string) intval($m[1]);
                         }
                     }
                     ?>
@@ -177,9 +180,15 @@ if ($is_ajax) {
                             <?php endif; ?>
                             <div class="room-info">
                                 <h3 class="room-name"><?php echo htmlspecialchars($office['name'] ?? 'N/A'); ?></h3>
-                                <div class="floor-indicator">
-                                    <i class="fas fa-layer-group"></i>
-                                    <span>Floor <?php echo htmlspecialchars($floor_number); ?></span>
+                                <div class="indicators-container">
+                                    <div class="floor-indicator">
+                                        <i class="fas fa-layer-group"></i>
+                                        <span>Floor <?php echo htmlspecialchars($floor_number); ?></span>
+                                    </div>
+                                    <div class="room-indicator">
+                                        <i class="fas fa-door-closed"></i>
+                                        <span>Room: <?php echo htmlspecialchars($room_number); ?></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -229,24 +238,23 @@ if ($is_ajax) {
 
             // Function to create room card HTML
             function createRoomCard(office) {
-                // Extract floor number from location
+                // Extract floor number and room number from location
+                // Pattern: room-<roomnumber>-<floornumber>
+                // The second number (after the second dash) indicates the floor
                 let floorNumber = 'N/A';
+                let roomNumber = 'N/A';
                 if (office.location) {
-                    // Try to extract floor number from room ID patterns
-                    const roomMatch = office.location.match(/room-(\d)(\d{2})-/);
+                    // Match room-<roomnumber>-<floornumber> pattern
+                    // Example: room-101-1 -> room 101, floor 1
+                    const roomMatch = office.location.match(/room-(\d+)-(\d+)/i);
                     if (roomMatch) {
-                        floorNumber = roomMatch[1];
+                        roomNumber = roomMatch[1];
+                        floorNumber = roomMatch[2];
                     } else {
-                        // Alternative: if location contains direct floor info
+                        // Fallback: if location contains direct floor info
                         const floorMatch = office.location.match(/(\d+)(st|nd|rd|th)?\s*floor/i);
                         if (floorMatch) {
                             floorNumber = floorMatch[1];
-                        } else {
-                            // If room number starts with floor digit
-                            const numberMatch = office.location.match(/\b([1-9])0\d\b/);
-                            if (numberMatch) {
-                                floorNumber = numberMatch[1];
-                            }
                         }
                     }
                 }
@@ -262,9 +270,15 @@ if ($is_ajax) {
                             ${imageOrIconHTML}
                             <div class="room-info">
                                 <h3 class="room-name">${office.name || 'N/A'}</h3>
-                                <div class="floor-indicator">
-                                    <i class="fas fa-layer-group"></i>
-                                    <span>Floor ${floorNumber}</span>
+                                <div class="indicators-container">
+                                    <div class="floor-indicator">
+                                        <i class="fas fa-layer-group"></i>
+                                        <span>Floor ${floorNumber}</span>
+                                    </div>
+                                    <div class="room-indicator">
+                                        <i class="fas fa-door-closed"></i>
+                                        <span>Room: ${roomNumber}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -386,6 +400,107 @@ if ($is_ajax) {
                     roomsGrid.innerHTML = originalContent; // Restore original content
                 }
             });
+
+            // ===== GEOFENCING ENFORCEMENT =====
+            // This will block the UI until the user's location is verified as inside an allowed zone.
+            (async function setupGeofenceEnforcement(){
+                // First, check if geofencing is enabled
+                try {
+                    const statusResp = await fetch('../check_geofence_status.php');
+                    const statusData = await statusResp.json();
+                    
+                    if (statusData.success && !statusData.enabled) {
+                        console.log('Geofencing is disabled by admin - skipping enforcement');
+                        return; // Exit without showing overlay
+                    }
+                } catch (err) {
+                    console.warn('Could not check geofence status, proceeding with enforcement as safety measure', err);
+                    // Continue with geofencing if check fails (fail-safe)
+                }
+
+                // Create overlay element
+                const overlay = document.createElement('div');
+                overlay.id = 'geofence-overlay';
+                overlay.style.cssText = `position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:99999;background:rgba(0,0,0,0.85);color:#fff;padding:20px;`;
+                overlay.innerHTML = `
+                    <div style="max-width:420px;text-align:center;">
+                        <div style="font-size:28px;margin-bottom:8px;">📍 Verifying your location...</div>
+                        <div id="geofence-msg" style="margin-bottom:12px;opacity:0.95">Please allow location access so we can confirm you're inside the permitted area.</div>
+                        <div id="geofence-actions" style="margin-top:8px;"></div>
+                    </div>`;
+
+                // Add overlay to DOM but hidden initially
+                document.body.appendChild(overlay);
+
+                function showMessage(msg, html=false){
+                    const el = document.getElementById('geofence-msg');
+                    if (!el) return;
+                    el[html? 'innerHTML' : 'textContent'] = msg;
+                }
+
+                function allowAccess(){
+                    overlay.style.transition = 'opacity 0.25s';
+                    overlay.style.opacity = '0';
+                    setTimeout(()=> overlay.remove(), 300);
+                }
+
+                function denyAccess(msg){
+                    showMessage(msg + '\n\nYou will not be able to use this app outside the allowed area.');
+                    const actions = document.getElementById('geofence-actions');
+                    actions.innerHTML = `<button id="geofence-retry" style="padding:10px 16px;border-radius:8px;background:#fff;color:#111;border:none;cursor:pointer;font-weight:bold;">Retry</button>`;
+                    document.getElementById('geofence-retry').addEventListener('click', ()=>{ startCheck(); });
+                }
+
+                async function startCheck(){
+                    showMessage('Requesting location from device...');
+
+                    if (!navigator.geolocation){
+                        denyAccess('Geolocation is not supported by your browser.');
+                        return;
+                    }
+
+                    navigator.geolocation.getCurrentPosition(async (pos) => {
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
+                        showMessage('Checking location against allowed area...');
+
+                        try{
+                            const resp = await fetch('../verify_location.php', {
+                                method: 'POST',
+                                headers: {'Content-Type':'application/json'},
+                                body: JSON.stringify({ lat, lng, office_id: null, page: 'rooms' })
+                            });
+                            const data = await resp.json();
+                            if (data && data.success && data.result){
+                                const r = data.result;
+                                // Permit only if inside zone1 (strict) or zone2 if you prefer
+                                if (r.inside_zone1 || r.inside_zone2){
+                                    showMessage('Location verified — access granted.');
+                                    setTimeout(allowAccess, 600);
+                                } else {
+                                    denyAccess('Access denied — your device appears to be outside the allowed geofence.');
+                                }
+                            } else {
+                                denyAccess('Could not verify location (server error).');
+                            }
+                        }catch(err){
+                            console.error('Geofence verification failed', err);
+                            denyAccess('Network error while verifying location.');
+                        }
+
+                    }, (err) => {
+                        console.warn('Geolocation error', err);
+                        denyAccess('Unable to read your location: ' + (err.message || 'Permission denied'));
+                    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+                }
+
+                // Auto-start the check when DOM is ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', startCheck);
+                } else {
+                    startCheck();
+                }
+            })();
         });
     </script>
 </body>

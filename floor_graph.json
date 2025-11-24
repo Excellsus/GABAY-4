@@ -7,6 +7,37 @@
             "enforceTransitions": true
         }
     },
+    "entranceAccessRules": {
+    },
+    "entrances": [
+        {
+            "id": "entrance_main_1",
+            "label": "Main Entrance",
+            "type": "entrance",
+            "floor": 1,
+            "x": 950,
+            "y": 90,
+            "nearestPathId": "path2"
+        },
+        {
+            "id": "entrance_west_1",
+            "label": "West Entrance",
+            "type": "entrance",
+            "floor": 1,
+            "x": 70,
+            "y": 340,
+            "nearestPathId": "path1"
+        },
+        {
+            "id": "entrance_east_1",
+            "label": "East Entrance",
+            "type": "entrance",
+            "floor": 1,
+            "x": 1850,
+            "y": 215,
+            "nearestPathId": "path2"
+        }
+    ],
     "rooms": {
         "stair_west_1-1": {
             "type": "stair",
@@ -415,7 +446,7 @@
             "style": {
                 "color": "#4CAF50",
                 "width": 3,
-                "opacity": 0.8,
+                "opacity": 0.8000000000000000444089209850062616169452667236328125,
                 "highlight": true,
                 "pointMarker": {
                     "type": "circle",
@@ -453,7 +484,10 @@
                 {
                     "x": 165,
                     "y": 340,
-                    "isPano": true
+                    "isPano": true,
+                    "panoImage": "pano_path1_5_1763538306_691d75822ccc5.jpg",
+                    "panoTitle": "ICTD",
+                    "panoDescription": null
                 },
                 {
                     "x": 185,
@@ -469,8 +503,8 @@
                     "y": 340,
                     "isPano": true,
                     "isIntersection": true,
-                    "panoImage": "pano_path1_8_1760923990_68f59156e6d9b.jpg",
-                    "panoTitle": "Exit ",
+                    "panoImage": "pano_path1_8_1763538536_691d766817a8c.jpg",
+                    "panoTitle": "SP Staff",
                     "panoDescription": null
                 }
             ]
@@ -480,7 +514,7 @@
             "style": {
                 "color": "#4CAF50",
                 "width": 3,
-                "opacity": 0.8,
+                "opacity": 0.8000000000000000444089209850062616169452667236328125,
                 "highlight": true,
                 "pointMarker": {
                     "type": "circle",
@@ -495,7 +529,10 @@
                 {
                     "x": 467,
                     "y": 220,
-                    "isPano": true
+                    "isPano": true,
+                    "panoImage": "pano_path2_0_1763662577_691f5af169cee.jpg",
+                    "panoTitle": "asd",
+                    "panoDescription": "asd"
                 },
                 {
                     "x": 615,
@@ -532,24 +569,27 @@
                     "isPano": true
                 },
                 {
-                    "x": 1020,
+                    "x": 1017,
                     "y": 130,
                     "isPano": true
                 },
                 {
-                    "x": 1045,
+                    "x": 1047,
                     "y": 130,
                     "isPano": true
                 },
                 {
-                    "x": 1045,
+                    "x": 1047,
                     "y": 215,
                     "isPano": true
                 },
                 {
                     "x": 1084,
                     "y": 215,
-                    "isPano": true
+                    "isPano": true,
+                    "panoImage": "pano_path2_11_1762616197_690f6385b6646.png",
+                    "panoTitle": "asdsad",
+                    "panoDescription": "dasdasdasd"
                 },
                 {
                     "x": 1184,

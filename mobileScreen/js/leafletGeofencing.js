@@ -4,10 +4,10 @@
 
 const geofenceConfig = {
   // center: [lat, lng] - this will be overwritten by the admin page when updated
-  center: [10.6496, 122.96192],
+  center: [10.66561, 122.95784],
   zones: [
-    { name: "Main Palace Building", radius: 50 },
-    { name: "Palace Complex", radius: 100 },
+    { name: "Main Palace Building", radius: 150 },
+    { name: "Palace Complex", radius: 150 },
     { name: "Government Building Grounds", radius: 150 },
   ],
 };

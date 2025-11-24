@@ -1,4 +1,7 @@
 <?php
+    
+require_once __DIR__ . '/../auth_guard.php';
+
 include '../connect_db.php'; // Use correct relative path
 
 header('Content-Type: application/json'); // Ensure JSON response

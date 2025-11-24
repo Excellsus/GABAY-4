@@ -1,8 +1,29 @@
 <?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 include("connect_db.php");
-$stmt = $connect->prepare("SELECT * FROM admin WHERE username = 'admin_user' LIMIT 1");
-$stmt->execute();
+
+// Get the current logged-in admin user from session using admin_id (set by auth_guard.php)
+if (!isset($_SESSION['admin_id'])) {
+    session_destroy();
+    header("Location: login.php");
+    exit;
+}
+
+$stmt = $connect->prepare("SELECT * FROM admin WHERE id = ? LIMIT 1");
+$stmt->execute([$_SESSION['admin_id']]);
 $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// If admin not found, redirect to login
+if (!$admin) {
+    session_destroy();
+    header("Location: login.php");
+    exit;
+}
+
+// Store current username for comparison (used in username change validation)
+$current_username = $admin['username'];
 
 // Fetch recent activities with office names
 $activityStmt = $connect->prepare("
@@ -53,12 +74,24 @@ function getActivityIcon($type) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === 'updateAccount') {
   $result = ['success' => false];
   
+  // Validate CSRF token
+  if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+    exit;
+  }
+  
   try {
+    $username = $_POST['username'] ?? '';
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     
     // Validate inputs
+    if (empty($username)) {
+      throw new Exception("Username is required");
+    }
+    
     if (empty($email)) {
       throw new Exception("Email is required");
     }
@@ -67,16 +100,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
       throw new Exception("Passwords do not match");
     }
     
+    // Check if username already exists (if changed)
+    if ($username !== $current_username) {
+      $checkStmt = $connect->prepare("SELECT id FROM admin WHERE username = ?");
+      $checkStmt->execute([$username]);
+      if ($checkStmt->fetch()) {
+        throw new Exception("Username already exists. Please choose a different username.");
+      }
+    }
+    
     // Update the admin record
     if (!empty($password)) {
-      // Update email and password
+      // Update username, email and password
       $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-      $stmt = $connect->prepare("UPDATE admin SET email = ?, password = ? WHERE username = 'admin_user'");
-      $stmt->execute([$email, $hashedPassword]);
+      $stmt = $connect->prepare("UPDATE admin SET username = ?, email = ?, password = ? WHERE username = ?");
+      $stmt->execute([$username, $email, $hashedPassword, $current_username]);
     } else {
-      // Update email only
-      $stmt = $connect->prepare("UPDATE admin SET email = ? WHERE username = 'admin_user'");
-      $stmt->execute([$email]);
+      // Update username and email only
+      $stmt = $connect->prepare("UPDATE admin SET username = ?, email = ? WHERE username = ?");
+      $stmt->execute([$username, $email, $current_username]);
+    }
+    
+    // Update session username if it changed
+    if ($username !== $current_username) {
+      $_SESSION['username'] = $username;
     }
     
     $result = ['success' => true, 'message' => 'Account updated successfully'];
@@ -84,6 +131,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['aj
     $result = ['success' => false, 'message' => $e->getMessage()];
   }
   
+  echo json_encode($result);
+  exit;
+}
+
+// AJAX endpoint for toggling geofence status
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax']) && $_POST['ajax'] === 'toggleGeofence') {
+  $result = ['success' => false];
+  
+  // Validate CSRF token
+  if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+    exit;
+  }
+  
+  try {
+    $enabled = isset($_POST['enabled']) && $_POST['enabled'] === 'true' ? 1 : 0;
+    
+    // Update or insert geofence enabled status in database
+    if (isset($connect) && $connect) {
+      $name = 'default';
+      // Check if record exists
+      $stmt = $connect->prepare('SELECT id FROM geofences WHERE name = :name LIMIT 1');
+      $stmt->execute([':name' => $name]);
+      $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+      
+      if ($existing && isset($existing['id'])) {
+        // Update existing record
+        $upd = $connect->prepare('UPDATE geofences SET enabled = :enabled WHERE id = :id');
+        $upd->execute([':enabled' => $enabled, ':id' => $existing['id']]);
+      } else {
+        // Insert new record with default values
+        $ins = $connect->prepare('INSERT INTO geofences (name, enabled, center_lat, center_lng, radius1, radius2, radius3) VALUES (:name, :enabled, 10.6496, 122.96192, 50, 100, 150)');
+        $ins->execute([':name' => $name, ':enabled' => $enabled]);
+      }
+      
+      $result = [
+        'success' => true, 
+        'message' => $enabled ? 'Geofencing enabled successfully' : 'Geofencing disabled successfully',
+        'enabled' => $enabled
+      ];
+    } else {
+      throw new Exception("Database connection not available");
+    }
+  } catch (Exception $e) {
+    $result = ['success' => false, 'message' => $e->getMessage()];
+  }
+  
+  header('Content-Type: application/json');
   echo json_encode($result);
   exit;
 }
@@ -210,18 +306,19 @@ if (isset($_POST['action']) && $_POST['action'] === 'test_location') {
     ];
 }
 
-// Read current geofence coordinates from DB or JavaScript file
+// Read current geofence coordinates and enabled status from DB or JavaScript file
 $currentLat = 10.6496;
 $currentLng = 122.96192;
 $currentRadius1 = 50;
 $currentRadius2 = 100;
 $currentRadius3 = 150;
+$geofenceEnabled = true; // Default to enabled for safety
 
 $jsFile = 'mobileScreen/js/leafletGeofencing.js';
 // Prefer DB geofence if available
 try {
     if (isset($connect) && $connect) {
-        $stmt = $connect->query("SELECT center_lat, center_lng, radius1, radius2, radius3 FROM geofences WHERE name = 'default' LIMIT 1");
+        $stmt = $connect->query("SELECT center_lat, center_lng, radius1, radius2, radius3, enabled FROM geofences WHERE name = 'default' LIMIT 1");
         $g = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($g) {
             $currentLat = floatval($g['center_lat']);
@@ -229,6 +326,7 @@ try {
             $currentRadius1 = intval($g['radius1']);
             $currentRadius2 = intval($g['radius2']);
             $currentRadius3 = intval($g['radius3']);
+            $geofenceEnabled = isset($g['enabled']) ? (bool)$g['enabled'] : true;
         }
     }
 } catch (Exception $e) {
@@ -260,14 +358,18 @@ if (file_exists($jsFile)) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="csrf-token" content="<?php echo csrfToken(); ?>">
   <title>GABAY Admin Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="systemSetting.css" />
+  <link rel="stylesheet" href="assets/css/system-fonts.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <script src="./mobileNav.js"></script>
   <link rel="stylesheet" href="mobileNav.css" />
+  <script>window.CSRF_TOKEN = '<?php echo csrfToken(); ?>';</script>
+  <script src="auth_helper.js"></script>
   <style>
     /* Custom modal styles */
     .modal-overlay {
@@ -432,7 +534,7 @@ if (file_exists($jsFile)) {
             <h3 class="gabay-card-title">Account Settings</h3>
             <div class="gabay-form-group">
               <label>Username</label>
-              <input type="text" value="<?= htmlspecialchars($admin['username']) ?>" disabled />
+              <input type="text" name="username" id="username" value="<?= htmlspecialchars($admin['username']) ?>" required />
             </div>
             <div class="gabay-form-group">
               <label>Email</label>
@@ -440,11 +542,36 @@ if (file_exists($jsFile)) {
             </div>
             <div class="gabay-form-group">
               <label>Change Password</label>
-              <input type="password" name="password" id="password" placeholder="Enter new password" />
+              <div style="position: relative;">
+                <input type="password" name="password" id="password" placeholder="Enter new password" style="padding-right: 45px;" />
+                <button type="button" class="password-toggle" onclick="togglePassword('password', this)" style="position: absolute; right: 12px; top: 60%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px; color: #666; z-index: 10;">
+                  <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="gabay-form-group">
               <label>Confirm Password</label>
-              <input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm new password" />
+              <div style="position: relative;">
+                <input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm new password" style="padding-right: 45px;" />
+                <button type="button" class="password-toggle" onclick="togglePassword('confirm_password', this)" style="position: absolute; right: 12px; top: 60%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px; color: #666; z-index: 10;">
+                  <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
+              <div id="passwordMatchMessage" style="margin-top: 8px; font-size: 0.9em; display: none;"></div>
             </div>
             <div id="updateMessage" style="margin-bottom: 10px;"></div>
             <div class="gabay-button-wrapper">
@@ -488,6 +615,25 @@ if (file_exists($jsFile)) {
                 <strong>✅ Success!</strong> <?= htmlspecialchars($geofenceSuccess) ?>
               </div>
             <?php endif; ?>
+
+            <!-- Geofence Enable/Disable Toggle -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #e0e0e0;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <h4 style="margin: 0 0 5px 0; color: #333;">
+                    <i class="fa fa-shield" style="margin-right: 8px;"></i>Geofencing System Status
+                  </h4>
+                  <p style="margin: 0; color: #666; font-size: 0.9em;">
+                    Control whether geofencing is enforced for mobile visitors
+                  </p>
+                </div>
+                <label class="geofence-toggle-switch">
+                  <input type="checkbox" id="geofenceEnabled" <?= isset($geofenceEnabled) && $geofenceEnabled ? 'checked' : '' ?>>
+                  <span class="geofence-toggle-slider"></span>
+                </label>
+              </div>
+              <div id="geofenceStatusMessage" style="margin-top: 15px; padding: 10px; border-radius: 5px; display: none;"></div>
+            </div>
 
             <div class="gabay-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
               
@@ -550,27 +696,63 @@ if (file_exists($jsFile)) {
 
             </div>
 
-            <!-- Test Location Section -->
+            <!-- GPS Coordinate Getter Section -->
             <div class="gabay-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
               
-              <form method="POST" class="gabay-form">
-                <h4 style="margin-top: 0;">🧪 Test Location</h4>
-                <p style="color: #666; font-size: 14px;">Test if a GPS coordinate is inside your geofence zones.</p>
+              <form method="POST" class="gabay-form" id="gpsCoordinateForm">
+                <h4 style="margin-top: 0;">📍 Get GPS Coordinates</h4>
+                <p style="color: #666; font-size: 14px;">Get your current GPS location and test if it's inside your geofence zones.</p>
                 
                 <input type="hidden" name="action" value="test_location">
                 
                 <div class="gabay-form-group">
-                  <label>Test Latitude:</label>
-                  <input type="number" name="test_latitude" step="0.000001" placeholder="14.599500" required>
+                  <label>Current Latitude:</label>
+                  <input type="number" 
+                         name="test_latitude" 
+                         id="gpsLatitude" 
+                         step="0.000001" 
+                         placeholder="Click 'Get My Location' to fetch" 
+                         readonly
+                         required>
                 </div>
                 
                 <div class="gabay-form-group">
-                  <label>Test Longitude:</label>
-                  <input type="number" name="test_longitude" step="0.000001" placeholder="120.984200" required>
+                  <label>Current Longitude:</label>
+                  <input type="number" 
+                         name="test_longitude" 
+                         id="gpsLongitude" 
+                         step="0.000001" 
+                         placeholder="Click 'Get My Location' to fetch" 
+                         readonly
+                         required>
+                </div>
+
+                <!-- GPS Accuracy and Status Display -->
+                <div id="gpsStatus" style="display: none; margin: 10px 0; padding: 10px; border-radius: 6px; font-size: 13px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                    <i class="fas fa-circle-notch fa-spin" id="gpsLoadingIcon"></i>
+                    <span id="gpsStatusText">Getting location...</span>
+                  </div>
+                  <div id="gpsAccuracy" style="font-size: 12px; color: #666;"></div>
                 </div>
                 
                 <div class="gabay-button-wrapper">
-                  <button type="submit" class="gabay-btn" style="background: #4CAF50;">🎯 Test Location</button>
+                  <button type="button" 
+                          id="getLocationBtn" 
+                          class="gabay-btn" 
+                          style="background: #667eea;">
+                    <i class="fas fa-location-arrow"></i> Get My Location
+                  </button>
+                </div>
+
+                <!-- Help text for GPS accuracy -->
+                <div style="margin-top: 10px; padding: 8px; background: #f0f4f8; border-radius: 4px; font-size: 12px; color: #666;">
+                  <strong>💡 Tips for accuracy:</strong>
+                  <ul style="margin: 5px 0; padding-left: 20px;">
+                    <li>Enable high accuracy mode in browser</li>
+                    <li>Use outdoors or near windows</li>
+                    <li>Wait for accuracy &lt; 20m for best results</li>
+                  </ul>
                 </div>
               </form>
               
@@ -645,6 +827,61 @@ if (file_exists($jsFile)) {
 
   <!-- Add the button styles -->
   <style>
+    /* Geofence Toggle Switch Styles */
+    .geofence-toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .geofence-toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .geofence-toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+
+    .geofence-toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    .geofence-toggle-switch input:checked + .geofence-toggle-slider {
+      background-color: #4CAF50;
+    }
+
+    .geofence-toggle-switch input:focus + .geofence-toggle-slider {
+      box-shadow: 0 0 1px #4CAF50;
+    }
+
+    .geofence-toggle-switch input:checked + .geofence-toggle-slider:before {
+      transform: translateX(26px);
+    }
+
+    .geofence-toggle-switch input:disabled + .geofence-toggle-slider {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .logout-section {
       display: flex;
       justify-content: center;
@@ -703,16 +940,73 @@ if (file_exists($jsFile)) {
   <script src="darkMode.js"></script>
   
   <script>
+  // Password visibility toggle function
+  function togglePassword(inputId, button) {
+    const input = document.getElementById(inputId);
+    const eyeOpen = button.querySelector('.eye-open');
+    const eyeClosed = button.querySelector('.eye-closed');
+    
+    if (input.type === 'password') {
+      input.type = 'text';
+      eyeOpen.style.display = 'none';
+      eyeClosed.style.display = 'block';
+    } else {
+      input.type = 'password';
+      eyeOpen.style.display = 'block';
+      eyeClosed.style.display = 'none';
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
+    // Real-time password matching validation
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
+    const passwordMatchMessage = document.getElementById('passwordMatchMessage');
+    
+    function checkPasswordMatch() {
+      const password = passwordInput.value;
+      const confirmPassword = confirmPasswordInput.value;
+      
+      // Only show message if confirm password field has content
+      if (confirmPassword.length > 0) {
+        if (password === confirmPassword) {
+          passwordMatchMessage.style.display = 'block';
+          passwordMatchMessage.style.color = '#2e7d32';
+          passwordMatchMessage.innerHTML = '✓ Passwords match';
+          confirmPasswordInput.style.borderColor = '#4CAF50';
+        } else {
+          passwordMatchMessage.style.display = 'block';
+          passwordMatchMessage.style.color = '#c62828';
+          passwordMatchMessage.innerHTML = '✗ Passwords do not match';
+          confirmPasswordInput.style.borderColor = '#f44336';
+        }
+      } else {
+        passwordMatchMessage.style.display = 'none';
+        confirmPasswordInput.style.borderColor = '';
+      }
+    }
+    
+    // Add event listeners for real-time validation
+    if (passwordInput && confirmPasswordInput) {
+      passwordInput.addEventListener('input', checkPasswordMatch);
+      confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+    }
+    
     // Account settings form submission
     $('#accountSettingsForm').on('submit', function(e) {
       e.preventDefault();
       
+      const username = $('#username').val();
       const email = $('#email').val();
       const password = $('#password').val();
       const confirm_password = $('#confirm_password').val();
       
       // Basic validation
+      if (!username) {
+        $('#updateMessage').html('<div style="color: red;">Username is required</div>');
+        return;
+      }
+      
       if (!email) {
         $('#updateMessage').html('<div style="color: red;">Email is required</div>');
         return;
@@ -729,9 +1023,11 @@ if (file_exists($jsFile)) {
         url: 'systemSettings.php',
         data: {
           ajax: 'updateAccount',
+          username: username,
           email: email,
           password: password,
-          confirm_password: confirm_password
+          confirm_password: confirm_password,
+          csrf_token: '<?php echo csrfToken(); ?>'
         },
         dataType: 'json',
         success: function(response) {
@@ -740,14 +1036,17 @@ if (file_exists($jsFile)) {
             // Clear password fields
             $('#password').val('');
             $('#confirm_password').val('');
+            // Clear password match message
+            $('#passwordMatchMessage').hide();
+            $('#confirm_password').css('borderColor', '');
           } else {
             $('#updateMessage').html('<div style="color: red;">' + response.message + '</div>');
           }
           
-          // Clear message after 3 seconds
+          // Clear message after 5 seconds
           setTimeout(function() {
             $('#updateMessage').html('');
-          }, 3000);
+          }, 5000);
         },
         error: function() {
           $('#updateMessage').html('<div style="color: red;">An error occurred. Please try again.</div>');
@@ -786,7 +1085,7 @@ if (file_exists($jsFile)) {
     
     if (confirmLogout) {
       confirmLogout.addEventListener('click', function() {
-        window.location.href = "login.php";
+        window.location.href = "logout.php";
       });
     }
     
@@ -798,6 +1097,329 @@ if (file_exists($jsFile)) {
         }
       });
     }
+
+    // ===== GEOFENCE TOGGLE FUNCTIONALITY =====
+    const geofenceToggle = document.getElementById('geofenceEnabled');
+    const geofenceStatusMessage = document.getElementById('geofenceStatusMessage');
+    
+    if (geofenceToggle) {
+      geofenceToggle.addEventListener('change', function() {
+        const enabled = this.checked;
+        
+        // Disable toggle while processing
+        geofenceToggle.disabled = true;
+        
+        // Show loading message
+        geofenceStatusMessage.style.display = 'block';
+        geofenceStatusMessage.style.background = '#e3f2fd';
+        geofenceStatusMessage.style.color = '#1976d2';
+        geofenceStatusMessage.style.border = '1px solid #2196F3';
+        geofenceStatusMessage.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> ' + (enabled ? 'Enabling geofencing...' : 'Disabling geofencing...');
+        
+        // AJAX request to update geofence status (include CSRF token)
+        $.ajax({
+          type: 'POST',
+          url: 'systemSettings.php',
+          data: {
+            ajax: 'toggleGeofence',
+            enabled: enabled ? 'true' : 'false',
+            csrf_token: (window.CSRF_TOKEN || $('meta[name="csrf-token"]').attr('content') || '')
+          },
+          dataType: 'json',
+          success: function(response) {
+            if (response.success) {
+              // Show success message
+              geofenceStatusMessage.style.background = '#e8f5e9';
+              geofenceStatusMessage.style.color = '#2e7d32';
+              geofenceStatusMessage.style.border = '1px solid #4CAF50';
+              geofenceStatusMessage.innerHTML = '<i class="fa fa-check-circle"></i> ' + response.message;
+              
+              // Hide message after 3 seconds
+              setTimeout(function() {
+                geofenceStatusMessage.style.display = 'none';
+              }, 3000);
+            } else {
+              // Show error message
+              geofenceStatusMessage.style.background = '#ffebee';
+              geofenceStatusMessage.style.color = '#c62828';
+              geofenceStatusMessage.style.border = '1px solid #f44336';
+              geofenceStatusMessage.innerHTML = '<i class="fa fa-exclamation-circle"></i> Error: ' + response.message;
+              
+              // Revert toggle state
+              geofenceToggle.checked = !enabled;
+            }
+          },
+          error: function() {
+            // Show error message
+            geofenceStatusMessage.style.background = '#ffebee';
+            geofenceStatusMessage.style.color = '#c62828';
+            geofenceStatusMessage.style.border = '1px solid #f44336';
+            geofenceStatusMessage.innerHTML = '<i class="fa fa-exclamation-circle"></i> An error occurred. Please try again.';
+            
+            // Revert toggle state
+            geofenceToggle.checked = !enabled;
+          },
+          complete: function() {
+            // Re-enable toggle
+            geofenceToggle.disabled = false;
+          }
+        });
+      });
+    }
+
+    // ===== GPS COORDINATE GETTER FUNCTIONALITY =====
+    
+    // Get references to GPS form elements
+    const getLocationBtn = document.getElementById('getLocationBtn');
+    const gpsLatInput = document.getElementById('gpsLatitude');
+    const gpsLngInput = document.getElementById('gpsLongitude');
+    const gpsStatus = document.getElementById('gpsStatus');
+    const gpsStatusText = document.getElementById('gpsStatusText');
+    const gpsAccuracy = document.getElementById('gpsAccuracy');
+    const gpsLoadingIcon = document.getElementById('gpsLoadingIcon');
+    
+    // Store the watchPosition ID for cleanup
+    let watchId = null;
+    let bestAccuracy = Infinity;
+    let locationTimeout = null;
+
+    /**
+     * Update GPS status display with appropriate styling
+     * @param {string} message - Status message to display
+     * @param {string} type - Status type: 'loading', 'success', 'error', 'info'
+     */
+    function updateGPSStatus(message, type = 'info') {
+      if (!gpsStatus || !gpsStatusText || !gpsLoadingIcon) return;
+      
+      gpsStatus.style.display = 'block';
+      gpsStatusText.textContent = message;
+      
+      // Update styling based on status type
+      switch(type) {
+        case 'loading':
+          gpsStatus.style.background = '#e3f2fd';
+          gpsStatus.style.border = '1px solid #2196F3';
+          gpsStatus.style.color = '#1976d2';
+          gpsLoadingIcon.style.display = 'inline-block';
+          gpsLoadingIcon.className = 'fas fa-circle-notch fa-spin';
+          break;
+        case 'success':
+          gpsStatus.style.background = '#e8f5e9';
+          gpsStatus.style.border = '1px solid #4CAF50';
+          gpsStatus.style.color = '#2e7d32';
+          gpsLoadingIcon.style.display = 'inline-block';
+          gpsLoadingIcon.className = 'fas fa-check-circle';
+          break;
+        case 'error':
+          gpsStatus.style.background = '#ffebee';
+          gpsStatus.style.border = '1px solid #f44336';
+          gpsStatus.style.color = '#c62828';
+          gpsLoadingIcon.style.display = 'inline-block';
+          gpsLoadingIcon.className = 'fas fa-exclamation-circle';
+          break;
+        case 'info':
+          gpsStatus.style.background = '#fff3e0';
+          gpsStatus.style.border = '1px solid #ff9800';
+          gpsStatus.style.color = '#e65100';
+          gpsLoadingIcon.style.display = 'inline-block';
+          gpsLoadingIcon.className = 'fas fa-info-circle';
+          break;
+      }
+    }
+
+    /**
+     * Update GPS accuracy display with visual indicators
+     * @param {number} accuracy - Accuracy in meters
+     */
+    function updateAccuracyDisplay(accuracy) {
+      if (!gpsAccuracy) return;
+      
+      let qualityText = '';
+      let qualityColor = '';
+      
+      // Categorize accuracy quality
+      if (accuracy <= 10) {
+        qualityText = 'Excellent';
+        qualityColor = '#4CAF50';
+      } else if (accuracy <= 20) {
+        qualityText = 'Good';
+        qualityColor = '#8BC34A';
+      } else if (accuracy <= 50) {
+        qualityText = 'Fair';
+        qualityColor = '#FFC107';
+      } else if (accuracy <= 100) {
+        qualityText = 'Poor';
+        qualityColor = '#FF9800';
+      } else {
+        qualityText = 'Very Poor';
+        qualityColor = '#f44336';
+      }
+      
+      gpsAccuracy.innerHTML = `
+        <span style="color: ${qualityColor}; font-weight: bold;">●</span>
+        Accuracy: <strong>${accuracy.toFixed(1)}m</strong> (${qualityText})
+      `;
+    }
+
+    /**
+     * Handle successful geolocation retrieval
+     * @param {GeolocationPosition} position - Position object from Geolocation API
+     */
+    function handleLocationSuccess(position) {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
+      
+      console.log('GPS Location received:', { lat, lng, accuracy });
+      
+      // Update accuracy display
+      updateAccuracyDisplay(accuracy);
+      
+      // Only update coordinates if this is more accurate than previous reading
+      // or if it's the first reading
+      if (accuracy < bestAccuracy || bestAccuracy === Infinity) {
+        bestAccuracy = accuracy;
+        
+        // Populate the input fields with 5 decimal places for display (≈ 1.1m accuracy)
+        // This provides clean display while maintaining sufficient precision
+        gpsLatInput.value = lat.toFixed(5);
+        gpsLngInput.value = lng.toFixed(5);
+        
+        // Update status based on accuracy quality
+        if (accuracy <= 20) {
+          updateGPSStatus('✓ Location acquired with high accuracy!', 'success');
+          
+          // Stop watching for better accuracy after 3 seconds if accuracy is good
+          if (locationTimeout) clearTimeout(locationTimeout);
+          locationTimeout = setTimeout(() => {
+            stopWatchingLocation();
+          }, 3000);
+          
+        } else if (accuracy <= 50) {
+          updateGPSStatus('Location acquired. Improving accuracy...', 'info');
+        } else {
+          updateGPSStatus('Location acquired but accuracy is low. Refining...', 'info');
+        }
+      }
+    }
+
+    /**
+     * Handle geolocation errors with detailed user-friendly messages
+     * @param {GeolocationPositionError} error - Error object from Geolocation API
+     */
+    function handleLocationError(error) {
+      console.error('GPS Error:', error);
+      
+      let errorMessage = '';
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = '❌ Location access denied. Please enable location permissions in your browser settings.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = '❌ Location information unavailable. Please check your device GPS settings.';
+          break;
+        case error.TIMEOUT:
+          errorMessage = '⏱️ Location request timed out. Please try again.';
+          break;
+        default:
+          errorMessage = '❌ An unknown error occurred while getting location.';
+      }
+      
+      updateGPSStatus(errorMessage, 'error');
+      
+      // Reset button state
+      if (getLocationBtn) {
+        getLocationBtn.disabled = false;
+        getLocationBtn.innerHTML = '<i class="fas fa-location-arrow"></i> Get My Location';
+      }
+      
+      // Stop watching on error
+      stopWatchingLocation();
+    }
+
+    /**
+     * Stop watching user's location
+     */
+    function stopWatchingLocation() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        console.log('Stopped watching location');
+      }
+      
+      // Reset button state
+      if (getLocationBtn) {
+        getLocationBtn.disabled = false;
+        getLocationBtn.innerHTML = '<i class="fas fa-location-arrow"></i> Get My Location';
+      }
+    }
+
+    /**
+     * Start getting user's GPS coordinates with high accuracy
+     */
+    function getGPSCoordinates() {
+      // Check if Geolocation API is supported
+      if (!navigator.geolocation) {
+        updateGPSStatus('❌ Geolocation is not supported by your browser.', 'error');
+        return;
+      }
+      
+      // Reset state
+      bestAccuracy = Infinity;
+      if (locationTimeout) clearTimeout(locationTimeout);
+      
+      // Update UI to show loading state
+      updateGPSStatus('📡 Acquiring GPS signal...', 'loading');
+      
+      if (getLocationBtn) {
+        getLocationBtn.disabled = true;
+        getLocationBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Getting Location...';
+      }
+      
+      // Clear previous values
+      if (gpsLatInput) gpsLatInput.value = '';
+      if (gpsLngInput) gpsLngInput.value = '';
+      
+      // Geolocation options for maximum accuracy
+      const options = {
+        enableHighAccuracy: true,    // Request high accuracy (uses GPS)
+        timeout: 30000,              // Wait up to 30 seconds
+        maximumAge: 0                // Don't use cached position
+      };
+      
+      // Use watchPosition for continuous updates to get best accuracy
+      // This is better than getCurrentPosition for accuracy improvement
+      watchId = navigator.geolocation.watchPosition(
+        handleLocationSuccess,
+        handleLocationError,
+        options
+      );
+      
+      // Fallback: Stop watching after 30 seconds even if accuracy isn't perfect
+      setTimeout(() => {
+        if (watchId !== null) {
+          stopWatchingLocation();
+          
+          // If we have any coordinates at all, consider it a success
+          if (gpsLatInput && gpsLatInput.value) {
+            updateGPSStatus('Location acquired. You can now test.', 'success');
+          } else {
+            updateGPSStatus('⏱️ Could not get location within time limit. Please try again.', 'error');
+          }
+        }
+      }, 30000);
+    }
+
+    // Add click event listener to "Get My Location" button
+    if (getLocationBtn) {
+      getLocationBtn.addEventListener('click', getGPSCoordinates);
+    }
+
+    // Cleanup: Stop watching location when user leaves the page
+    window.addEventListener('beforeunload', stopWatchingLocation);
+
+    // ===== END GPS COORDINATE GETTER FUNCTIONALITY =====
 
     // Auto-refresh activities every 30 seconds
     setInterval(function() {

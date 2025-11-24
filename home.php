@@ -1,4 +1,8 @@
+
 <?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 include 'connect_db.php';
 
 // Get selected month/year or use current
@@ -135,37 +139,46 @@ $feedbackData = $ratingStmt->fetch(PDO::FETCH_ASSOC);
 $avgRating = $feedbackData['avg_rating'] ?? '0.0';
 $totalReviews = $feedbackData['total_reviews'] ?? 0;
 
-// Office QR Monitoring Data (similar to panorama monitoring)
-// Get office QR codes with last scanned information
+// Office QR Monitoring Data (with doorpoint support)
+// Get office QR codes AND door QR codes with last scanned information
+// CRITICAL: Only count door-level scans (where door_index IS NOT NULL)
+// This excludes legacy office-level scans from statistics
 $officeQrMonitoringStmt = $connect->prepare("
     SELECT 
         o.id as office_id,
         o.name as office_name,
         o.location as room_location,
-        qc.is_active,
-        COUNT(qsl.id) as total_scans,
+        dqr.id as door_qr_id,
+        dqr.door_index,
+        dqr.is_active,
+        COUNT(DISTINCT qsl.id) as total_scans,
         MAX(qsl.check_in_time) as last_scanned_at,
         COALESCE(
             CASE 
                 WHEN MAX(qsl.check_in_time) IS NULL THEN 999
                 ELSE DATEDIFF(NOW(), MAX(qsl.check_in_time))
             END, 999
-        ) as days_since_last_scan
+        ) as days_since_last_scan,
+        -- Count today's scans (only door-level scans)
+        SUM(CASE WHEN DATE(qsl.check_in_time) = CURDATE() THEN 1 ELSE 0 END) as today_scans
     FROM offices o
-    LEFT JOIN qrcode_info qc ON o.id = qc.office_id  
-    LEFT JOIN qr_scan_logs qsl ON o.id = qsl.office_id
-    WHERE qc.office_id IS NOT NULL
-    GROUP BY o.id, o.name, o.location, qc.is_active
+    INNER JOIN door_qrcodes dqr ON o.id = dqr.office_id
+    LEFT JOIN qr_scan_logs qsl ON (
+        o.id = qsl.office_id 
+        AND dqr.door_index = qsl.door_index 
+        AND qsl.door_index IS NOT NULL
+    )
+    GROUP BY o.id, o.name, o.location, dqr.id, dqr.door_index, dqr.is_active
     ORDER BY days_since_last_scan DESC, total_scans DESC
 ");
 $officeQrMonitoringStmt->execute();
 $officeQrMonitoringData = $officeQrMonitoringStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Count offices by QR status categories
-$activeQrCount = count(array_filter($officeQrMonitoringData, fn($office) => $office['is_active'] == 1));
-$inactiveQrCount = count(array_filter($officeQrMonitoringData, fn($office) => $office['is_active'] == 0));
-$staleQrCount = count(array_filter($officeQrMonitoringData, fn($office) => $office['days_since_last_scan'] >= 7));
-$neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => $office['last_scanned_at'] === null));
+// Count door QR codes by status categories
+$activeQrCount = count(array_filter($officeQrMonitoringData, fn($door) => $door['is_active'] == 1));
+$inactiveQrCount = count(array_filter($officeQrMonitoringData, fn($door) => $door['is_active'] == 0));
+$staleQrCount = count(array_filter($officeQrMonitoringData, fn($door) => $door['is_active'] == 1 && $door['days_since_last_scan'] >= 7 && $door['last_scanned_at'] !== null));
+$neverScannedCount = count(array_filter($officeQrMonitoringData, fn($door) => $door['last_scanned_at'] === null));
 ?>
 
 
@@ -176,16 +189,48 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="csrf-token" content="<?php echo csrfToken(); ?>">
   <title>GABAY Admin Dashboard</title>
   <link rel="stylesheet" href="home.css" />
+  <link rel="stylesheet" href="assets/css/system-fonts.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
   <script src="./mobileNav.js"></script>
   <link rel="stylesheet" href="mobileNav.css" />
     <link rel="stylesheet" href="filter-styles.css"> <!-- Add this line -->
+  <script>window.CSRF_TOKEN = '<?php echo csrfToken(); ?>';</script>
+  <script src="auth_helper.js"></script>
     <style>
+  /* SVG Text Styling - Professional & Accessible with Forced Font Loading */
+  .room-label,
+  text[id*="roomlabel"],
+  text[id*="text-"],
+  tspan[id*="roomlabel"],
+  svg text,
+  svg tspan {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    fill: #1a1a1a !important;
+    stroke: #ffffff !important;
+    stroke-width: 3px !important;
+    stroke-linejoin: round !important;
+    paint-order: stroke fill !important;
+    text-anchor: middle !important;
+    dominant-baseline: central !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    vector-effect: non-scaling-stroke !important;
+    font-display: swap !important;
+  }
+  
   /* Stale warning pin style: do not change base pin fill; overlay a warning icon instead */
-  .panorama-pin .pin-shape { fill: #04aa6d; stroke: #1976d2; stroke-width: 1px; }
+  .panorama-pin .pin-shape { fill: #04aa6d; stroke-width: 1px; }
   .panorama-pin .pin-circle { fill: #fff; }
       .panorama-pin .pin-text { font-size: 12px; fill: #111; font-weight: 600; }
 
@@ -206,7 +251,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     display: flex;
     flex-direction: column;
     gap: 20px;
-    max-height: 400px;
+    /* Removed max-height constraint to allow full content display */
   }
   
   .office-qr-stats {
@@ -244,20 +289,23 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
   }
   
   .office-qr-list {
-    max-height: 300px;
+    min-height: 500px;
+    max-height: 800px;
     overflow-y: auto;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     background: white;
+    padding: 10px;
   }
   
   .office-qr-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 18px 20px;
     border-bottom: 1px solid #f1f5f9;
     transition: background-color 0.2s;
+    min-height: 70px;
   }
   
   .office-qr-item:hover {
@@ -276,24 +324,25 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
   }
   
   .office-name strong {
     color: #2e7d32;
-    font-size: 14px;
+    font-size: 16px;
   }
   
   .scan-stats {
     display: flex;
-    gap: 15px;
-    font-size: 12px;
+    gap: 20px;
+    font-size: 14px;
     color: #666;
   }
   
   .scan-count {
     font-weight: 600;
     color: #1976d2;
+    font-size: 14px;
   }
   
   .last-scan.never {
@@ -309,9 +358,9 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
   .qr-status {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 600;
   }
   
@@ -348,6 +397,555 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     border: 1px solid #d1d5db;
     border-radius: 4px;
     font-size: 13px;
+  }
+  
+  /* Full-width panel styles */
+  .full-width {
+    width: 100%;
+    max-width: none;
+    margin: 20px 0;
+    box-sizing: border-box;
+  }
+  
+  .activity-panel.full-width,
+  .actions-panel.full-width {
+    width: 100%;
+    padding: 20px 30px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Ensure panels don't get constrained by any parent containers */
+  .activity-panel.full-width > *,
+  .actions-panel.full-width > * {
+    max-width: 100%;
+  }
+
+  /* Clickable Card Styles */
+  .clickable-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .clickable-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .clickable-card:active {
+    transform: translateY(-2px);
+  }
+
+  .clickable-card::after {
+    content: '→';
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 24px;
+    opacity: 0;
+    transition: opacity 0.2s ease, right 0.2s ease;
+    color: currentColor;
+  }
+
+  .clickable-card:hover::after {
+    opacity: 0.6;
+    right: 15px;
+  }
+
+  /* QR Report Modal Styles */
+  .report-modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+  }
+
+  .report-modal-content {
+    background-color: #fefefe;
+    margin: 20px auto;
+    border-radius: 12px;
+    width: 95%;
+    max-width: 1400px;
+    max-height: 95vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .report-modal-header {
+    padding: 20px 30px;
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .report-modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+  }
+
+  .report-modal-close {
+    color: white;
+    font-size: 32px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    transition: transform 0.2s;
+  }
+
+  .report-modal-close:hover {
+    transform: scale(1.2);
+  }
+
+  .report-modal-body {
+    padding: 30px;
+  }
+
+  .report-controls-compact {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .controls-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .control-group label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333;
+    font-size: 13px;
+  }
+
+  .control-group select,
+  .control-group input {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .control-group select:focus,
+  .control-group input:focus {
+    outline: none;
+    border-color: #2e7d32;
+  }
+
+  .button-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* Modern Button Styles */
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #2e7d32 0%, #1a5632 100%);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #1a5632 0%, #0d3018 100%);
+  }
+
+  .btn-primary::before {
+    content: "🔄";
+    font-size: 14px;
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+  }
+
+  .btn-secondary:last-child::before {
+    content: "🖨️";
+    font-size: 14px;
+  }
+
+  /* Dropdown Container Styles */
+  .dropdown-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .dropdown-trigger {
+    position: relative;
+    padding-right: 35px;
+  }
+
+  .dropdown-trigger::after {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.3s ease;
+  }
+
+  .dropdown-container.active .dropdown-trigger::after {
+    transform: translateY(-50%) rotate(180deg);
+  }
+
+  .report-section-modal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .report-section-modal h3 {
+    margin-top: 0;
+    color: #2e7d32;
+    border-bottom: 2px solid #e8f5e8;
+    padding-bottom: 10px;
+    font-size: 18px;
+  }
+
+  .summary-grid-modal {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+  }
+
+  .summary-card-modal {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8fafc 0%, #e8f5e8 100%);
+    border-radius: 8px;
+    border: 1px solid #d1e7dd;
+  }
+
+  .summary-card-modal h4 {
+    font-size: 32px;
+    margin: 10px 0;
+    color: #2e7d32;
+  }
+
+  .summary-card-modal p {
+    margin: 0;
+    color: #666;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .chart-container-modal {
+    position: relative;
+    height: 300px;
+    margin-top: 15px;
+  }
+
+  .chart-container-modal-small {
+    position: relative;
+    height: 250px;
+    margin-top: 15px;
+  }
+
+  .report-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .report-tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 20px;
+  }
+
+  .table-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .report-section-modal table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+
+  .report-section-modal th,
+  .report-section-modal td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 13px;
+  }
+
+  .report-section-modal th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #2e7d32;
+    position: sticky;
+    top: 0;
+  }
+
+  .report-section-modal tr:hover {
+    background: #f8fafc;
+  }
+
+  .modal-loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    z-index: 10001;
+  }
+
+  .spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #2e7d32;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Download Dropdown Styles */
+  .dropdown-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .dropdown-trigger {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .download-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-top: 8px;
+    z-index: 10002;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+
+  .download-dropdown.show {
+    display: block;
+    animation: dropdownFadeIn 0.3s ease;
+  }
+
+  .download-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    color: #333;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .download-dropdown a:last-child {
+    border-bottom: none;
+  }
+
+  .download-dropdown a:hover {
+    background: linear-gradient(135deg, #e8f5e9 0%, #f0f9ff 100%);
+    color: #2e7d32;
+    padding-left: 22px;
+  }
+
+  .download-dropdown a:hover svg {
+    transform: scale(1.1);
+  }
+
+  .download-dropdown a svg {
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+  }
+
+  @keyframes dropdownFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .report-modal-content {
+      width: 98%;
+      margin: 10px auto;
+    }
+    
+    .controls-row {
+      grid-template-columns: 1fr;
+    }
+    
+    .report-charts-grid,
+    .report-tables-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Print Styles for Report Modal */
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    
+    #qr-report-modal,
+    #qr-report-modal * {
+      visibility: visible;
+    }
+    
+    #qr-report-modal {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: auto;
+      background: white !important;
+      overflow: visible;
+    }
+    
+    .report-modal-overlay {
+      position: relative;
+      background: white !important;
+    }
+    
+    .report-modal-container {
+      max-width: 100%;
+      max-height: none;
+      overflow: visible;
+      box-shadow: none;
+    }
+    
+    .report-modal-content {
+      max-height: none;
+      overflow: visible;
+    }
+    
+    .report-modal-close,
+    .button-row,
+    .report-controls-compact {
+      display: none !important;
+    }
+    
+    .report-section-modal {
+      page-break-inside: avoid;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      padding: 15px;
+    }
+    
+    .report-section-modal h3 {
+      color: #2e7d32 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    .summary-card-modal {
+      border: 1px solid #ddd !important;
+      background: #f5f5f5 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    th, td {
+      border: 1px solid #333 !important;
+      padding: 8px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: #e0e0e0 !important;
+      font-weight: bold;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    canvas {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+    
+    .chart-container-modal {
+      page-break-inside: avoid;
+      margin: 20px 0;
+    }
   }
     </style>
 
@@ -459,7 +1057,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
       </header>
 
       <section class="cards">
-  <div class="card green">
+  <div class="card green clickable-card" onclick="navigateToReport('office')" title="Click to view detailed Office QR scan report">
     <div class="card-left">
       <p>Office Visitors</p>
       <h3><?php echo $totalVisitors; ?></h3>
@@ -469,6 +1067,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
         </svg>
         QR Scans
       </span>
+      <span class="report-badge">Generate Report</span>
     </div>
     <div class="card-right">
       <svg class="icon large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -477,7 +1076,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     </div>
   </div>
 
-  <div class="card blue">
+  <div class="card blue clickable-card" onclick="navigateToReport('panorama')" title="Click to view detailed Panorama QR scan report">
     <div class="card-left">
       <p>Panorama Views</p>
       <h3><?php echo $totalPanoramaViews; ?></h3>
@@ -487,6 +1086,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
         </svg>
         360° Views
       </span>
+      <span class="report-badge">Generate Report</span>
     </div>
     <div class="card-right">
       <svg class="icon large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -537,25 +1137,199 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
   </div>
 </section>
 
-<section class="content-area">
-  <!-- Most Visited Offices Chart -->
-  <div class="activity-panel">
-    <div class="panel-header">
-      <h3>Most Visited Offices</h3>
+<!-- Most Visited Offices Chart -->
+<div class="activity-panel full-width">
+  <div class="panel-header">
+    <h3>Most Visited Offices</h3>
+    <button type="button" id="view-all-offices-btn" class="view-all" style="cursor: pointer;">
+      <i class="fa fa-list" style="margin-right: 4px;"></i>
+      View All
+    </button>
+  </div>
+  <canvas id="topOfficesChart" height="250"></canvas>
+</div>
+
+<!-- Monthly Visitor Log Chart -->
+<div class="actions-panel full-width">
+  <h3>Monthly Visitor Log</h3>
+  <canvas id="visitorLogChart" height="250"></canvas>
+</div>
+
+<!-- Office QR Monitoring (moved to top) -->
+<div class="actions-panel full-width">
+  <div class="panel-header">
+    <h3>Office QR Code Monitoring</h3>
+    <div class="panel-controls" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+      <div class="office-qr-filter">
+        <label for="qr-sort-by" style="display: block; font-size: 13px; color: #666; margin-bottom: 5px;">Sort by Scans:</label>
+        <select id="qr-sort-by" class="time-filter-select">
+          <option value="desc">Most Scanned First</option>
+          <option value="asc">Least Scanned First</option>
+        </select>
+      </div>
+      <div class="office-qr-filter">
+        <label for="qr-filter-by" style="display: block; font-size: 13px; color: #666; margin-bottom: 5px;">Filter:</label>
+        <select id="qr-filter-by" class="time-filter-select">
+          <option value="all">All Door QR Codes</option>
+          <option value="today">Today's Scans Only</option>
+          <option value="latest">Latest Scanned</option>
+          <option value="active">Active Only</option>
+          <option value="inactive">Inactive Only</option>
+          <option value="stale">Stale (7+ days)</option>
+          <option value="never">Never Scanned</option>
+        </select>
+      </div>
+      <div class="office-qr-filter">
+        <button type="button" onclick="location.reload();" style="padding: 8px 16px; background: #04aa6d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-top: 23px;" title="Reload data to see latest scans">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+          Refresh Data
+        </button>
+      </div>
+      <div style="margin-top: 23px; font-size: 12px; color: #666;">
+        <small>Last updated: <?php echo date('M j, Y g:i:s A'); ?></small>
+      </div>
     </div>
-    <canvas id="topOfficesChart" height="250"></canvas>
   </div>
+  <div class="office-qr-monitoring-container">
+    <!-- QR Statistics -->
+    <div class="office-qr-stats">
+      <div class="stat-item">
+        <h4><?php echo $activeQrCount; ?></h4>
+        <p>Active Door QR Codes</p>
+        <small>Ready for visitors</small>
+      </div>
+      <div class="stat-item">
+        <h4><?php echo $staleQrCount; ?></h4>
+        <p>Stale Door QR Codes</p>
+        <small>Not scanned in 7+ days</small>
+      </div>
+      <div class="stat-item">
+        <h4><?php echo $neverScannedCount; ?></h4>
+        <p>Never Scanned</p>
+        <small>Door QR codes with no visits</small>
+      </div>
+    </div>
 
-  <!-- Monthly Visitor Log Chart -->
-  <div class="actions-panel">
-    <h3>Monthly Visitor Log</h3>
-    <canvas id="visitorLogChart" height="250"></canvas>
+    <!-- Door QR List -->
+    <div class="office-qr-list" id="office-qr-list">
+      <?php 
+      // Group by office for better display
+      $groupedData = [];
+      foreach ($officeQrMonitoringData as $door) {
+        $officeId = $door['office_id'];
+        if (!isset($groupedData[$officeId])) {
+          $groupedData[$officeId] = [
+            'office_name' => $door['office_name'],
+            'room_location' => $door['room_location'],
+            'doors' => []
+          ];
+        }
+        $groupedData[$officeId]['doors'][] = $door;
+      }
+
+      foreach ($groupedData as $officeId => $officeData): ?>
+        <div class="office-group" style="margin-bottom: 30px; border: 2px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+          <!-- Office Header -->
+          <div class="office-group-header" style="background: linear-gradient(135deg, #04aa6d 0%, #039e61 100%); padding: 20px 25px; color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3 style="margin: 0; font-size: 20px; font-weight: 600;"><?php echo htmlspecialchars($officeData['office_name']); ?></h3>
+                <p style="margin: 8px 0 0 0; font-size: 15px; opacity: 0.95;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style="vertical-align: middle; margin-right: 6px;">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                  <?php echo htmlspecialchars($officeData['room_location']); ?>
+                </p>
+              </div>
+              <div style="background: rgba(255,255,255,0.25); padding: 8px 16px; border-radius: 20px; font-size: 15px; font-weight: 600;">
+                <?php echo count($officeData['doors']); ?> Door<?php echo count($officeData['doors']) != 1 ? 's' : ''; ?>
+              </div>
+            </div>
+          </div>
+
+          <!-- Door QR Codes List -->
+          <div class="door-qr-list">
+            <?php foreach ($officeData['doors'] as $door): ?>
+              <div class="office-qr-item door-qr-item" 
+                   data-status="<?php echo $door['is_active'] ? 'active' : 'inactive'; ?>"
+                   data-days="<?php echo $door['days_since_last_scan']; ?>"
+                   data-scanned="<?php echo $door['last_scanned_at'] ? 'yes' : 'no'; ?>"
+                   data-scan-count="<?php echo $door['total_scans']; ?>"
+                   data-today-scans="<?php echo $door['today_scans'] ?? 0; ?>"
+                   data-last-scan-timestamp="<?php echo $door['last_scanned_at'] ? strtotime($door['last_scanned_at']) : 0; ?>"
+                   style="border-bottom: 1px solid #f3f4f6; padding: 15px 20px;">
+                <div class="office-qr-info" style="flex: 1;">
+                  <div class="office-name" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span style="background: #f3f4f6; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #374151;">
+                      🚪 Door <?php echo $door['door_index'] + 1; ?>
+                    </span>
+                    <?php if ($door['today_scans'] > 0): ?>
+                      <span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                        +<?php echo $door['today_scans']; ?> today
+                      </span>
+                    <?php endif; ?>
+                  </div>
+                  <div class="scan-stats" style="display: flex; gap: 15px; font-size: 13px; color: #6b7280;">
+                    <span class="scan-count" style="font-weight: 600; color: #374151;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+                        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm15 0h-2v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/>
+                      </svg>
+                      <?php echo $door['total_scans']; ?> total scans
+                    </span>
+                    <?php if ($door['last_scanned_at']): ?>
+                      <span class="last-scan">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+                          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z"/>
+                        </svg>
+                        Last: <?php echo date('M j, Y g:i A', strtotime($door['last_scanned_at'])); ?>
+                      </span>
+                    <?php else: ?>
+                      <span class="last-scan never" style="color: #ef4444; font-weight: 500;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        Never scanned
+                      </span>
+                    <?php endif; ?>
+                  </div>
+                </div>
+                <div class="office-qr-status">
+                  <?php 
+                    $statusClass = 'status-active';
+                    $statusText = 'Active';
+                    $warningIcon = '';
+                    
+                    if (!$door['is_active']) {
+                      $statusClass = 'status-inactive';
+                      $statusText = 'Inactive';
+                      $warningIcon = '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px; vertical-align: middle;"><circle cx="12" cy="12" r="10" fill="#9ca3af"/><path d="M15 9l-6 6M9 9l6 6" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>';
+                    } elseif ($door['last_scanned_at'] === null) {
+                      $statusClass = 'status-warning';
+                      $statusText = 'Never Scanned';
+                      $warningIcon = '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px; vertical-align: middle;"><path d="M12 2 2 20h20L12 2z" fill="#f59e0b"/><rect x="11" y="6.5" width="2" height="7" fill="#fff"/><circle cx="12" cy="16.2" r="1.5" fill="#fff"/></svg>';
+                    } elseif ($door['days_since_last_scan'] >= 7) {
+                      $statusClass = 'status-warning';
+                      $statusText = $door['days_since_last_scan'] . ' days ago';
+                      $warningIcon = '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px; vertical-align: middle;"><path d="M12 2 2 20h20L12 2z" fill="#ff4444"/><rect x="11" y="6.5" width="2" height="7" fill="#fff"/><circle cx="12" cy="16.2" r="1.5" fill="#fff"/></svg>';
+                    }
+                  ?>
+                  <span class="qr-status <?php echo $statusClass; ?>" style="display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                    <?php echo $warningIcon . $statusText; ?>
+                  </span>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
   </div>
-</section>
+</div>
 
-<section class="content-area">
-  <!-- Panorama Analytics Floor Plan -->
-  <div class="activity-panel">
+<!-- Panorama Analytics Floor Plan (moved below Office QR Monitoring) -->
+<div class="activity-panel full-width">
     <div class="panel-header">
       <h3>Panorama Views by Location</h3>
       <div class="panel-controls">
@@ -612,19 +1386,19 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     <div class="map-legend">
       <div class="legend-item">
         <div class="legend-marker high-activity"></div>
-        <span>High Activity (50+ views)</span>
+        <span>High View Count (50+ scans)</span>
       </div>
       <div class="legend-item">
         <div class="legend-marker medium-activity"></div>
-        <span>Medium Activity (10-49 views)</span>
+        <span>Medium View Count (10-49 scans)</span>
       </div>
       <div class="legend-item">
         <div class="legend-marker low-activity"></div>
-        <span>Low Activity (1-9 views)</span>
+        <span>Low View Count (1-9 scans)</span>
       </div>
       <div class="legend-item">
         <div class="legend-marker no-activity"></div>
-        <span>No Activity (0 views)</span>
+        <span>No Views (0 scans)</span>
       </div>
       <div class="legend-item">
         <div class="legend-marker stale-warning" style="display:inline-flex;align-items:center;justify-content:center;padding:2px;">
@@ -638,96 +1412,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
       </div>
     </div>
   </div>
-
-  <!-- Office QR Monitoring -->
-  <div class="actions-panel">
-    <div class="panel-header">
-      <h3>Office QR Code Monitoring</h3>
-      <div class="panel-controls">
-        <!-- Warning count display -->
-        <div id="office-qr-warning-count" style="display:inline-flex;align-items:center;gap:6px;margin-right:12px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M12 2 2 20h20L12 2z" fill="#ff4444" stroke="#8b0000" stroke-width="0.6"></path>
-            <rect x="11" y="6.5" width="2" height="7" fill="#fff"></rect>
-            <circle cx="12" cy="16.2" r="1.5" fill="#fff"></circle>
-          </svg>
-          <span style="font-weight:600">=</span>
-          <span id="office-qr-warning-number" style="font-weight:700;color:#b91c1c;"><?php echo $staleQrCount + $neverScannedCount; ?></span>
-        </div>
-        <div class="office-qr-filter">
-          <label for="office-qr-status-filter">Show:</label>
-          <select id="office-qr-status-filter" class="time-filter-select">
-            <option value="all">All Offices</option>
-            <option value="active">Active QR Codes</option>
-            <option value="inactive">Inactive QR Codes</option>
-            <option value="stale">Stale (7+ days)</option>
-            <option value="never">Never Scanned</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="office-qr-monitoring-container">
-      <div class="office-qr-stats">
-        <div class="stat-item">
-          <h4><?php echo $activeQrCount; ?></h4>
-          <p>Active QR Codes</p>
-          <small>Ready for visitors</small>
-        </div>
-        <div class="stat-item">
-          <h4><?php echo $staleQrCount; ?></h4>
-          <p>Stale QR Codes</p>
-          <small>Not scanned in 7+ days</small>
-        </div>
-        <div class="stat-item">
-          <h4><?php echo $neverScannedCount; ?></h4>
-          <p>Never Scanned</p>
-          <small>QR codes with no visits</small>
-        </div>
-      </div>
-      <div class="office-qr-list" id="office-qr-list">
-        <?php foreach ($officeQrMonitoringData as $office): ?>
-          <div class="office-qr-item" 
-               data-status="<?php echo $office['is_active'] ? 'active' : 'inactive'; ?>"
-               data-days="<?php echo $office['days_since_last_scan']; ?>"
-               data-scanned="<?php echo $office['last_scanned_at'] ? 'yes' : 'no'; ?>">
-            <div class="office-qr-info">
-              <div class="office-name">
-                <strong><?php echo htmlspecialchars($office['office_name']); ?></strong>
-              </div>
-              <div class="scan-stats">
-                <span class="scan-count"><?php echo $office['total_scans']; ?> scans</span>
-                <?php if ($office['last_scanned_at']): ?>
-                  <span class="last-scan">Last: <?php echo date('M j, Y', strtotime($office['last_scanned_at'])); ?></span>
-                <?php else: ?>
-                  <span class="last-scan never">Never scanned</span>
-                <?php endif; ?>
-              </div>
-            </div>
-            <div class="office-qr-status">
-              <?php 
-                $statusClass = 'status-active';
-                $statusText = 'Active';
-                $warningIcon = '';
-                
-                if (!$office['is_active']) {
-                  $statusClass = 'status-inactive';
-                  $statusText = 'Inactive';
-                } elseif ($office['days_since_last_scan'] >= 7) {
-                  $statusClass = 'status-warning';
-                  $statusText = $office['last_scanned_at'] ? $office['days_since_last_scan'] . ' days ago' : 'Never';
-                  $warningIcon = '<svg width="16" height="16" viewBox="0 0 24 24" style="margin-right:4px;"><path d="M12 2 2 20h20L12 2z" fill="#ff4444"/><rect x="11" y="6.5" width="2" height="7" fill="#fff"/><circle cx="12" cy="16.2" r="1.5" fill="#fff"/></svg>';
-                }
-              ?>
-              <span class="qr-status <?php echo $statusClass; ?>">
-                <?php echo $warningIcon . $statusText; ?>
-              </span>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    </div>
-  </div>
-</section>
+</div>
 
     </main>
 
@@ -757,6 +1442,52 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
   const staleQrCount = <?php echo $staleQrCount; ?>;
   const neverScannedCount = <?php echo $neverScannedCount; ?>;
   console.log('🏢 Office QR monitoring data loaded:', officeQrMonitoringData);
+
+  // Open QR Report Modal with pre-selected filter
+  function navigateToReport(reportType) {
+    const selectedMonth = '<?php echo $selectedMonth; ?>';
+    const selectedYear = '<?php echo $selectedYear; ?>';
+    
+    // Set report type
+    document.getElementById('modal-report-type').value = reportType;
+    
+    // Calculate date range based on current dashboard filter
+    if (selectedMonth !== 'all' && selectedYear !== 'all') {
+      const dateFrom = selectedYear + '-' + selectedMonth.padStart(2, '0') + '-01';
+      const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+      const dateTo = selectedYear + '-' + selectedMonth.padStart(2, '0') + '-' + lastDay;
+      document.getElementById('modal-date-from').value = dateFrom;
+      document.getElementById('modal-date-to').value = dateTo;
+    } else if (selectedYear !== 'all') {
+      document.getElementById('modal-date-from').value = selectedYear + '-01-01';
+      document.getElementById('modal-date-to').value = selectedYear + '-12-31';
+    } else {
+      // Default to last 30 days
+      const dateTo = new Date();
+      const dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - 30);
+      document.getElementById('modal-date-from').value = dateFrom.toISOString().split('T')[0];
+      document.getElementById('modal-date-to').value = dateTo.toISOString().split('T')[0];
+    }
+    
+    // Show modal
+    document.getElementById('qr-report-modal').style.display = 'flex';
+    
+    // Auto-generate report
+    generateModalReport();
+  }
+
+  function closeReportModal() {
+    document.getElementById('qr-report-modal').style.display = 'none';
+  }
+
+  // Close modal when clicking outside
+  window.onclick = function(event) {
+    const modal = document.getElementById('qr-report-modal');
+    if (event.target === modal) {
+      closeReportModal();
+    }
+  }
 </script>
 
 <script>
@@ -817,6 +1548,130 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
 
   // Update count after data refresh or when toggling force-show
   window.updatePanoramaWarningCount = updatePanoramaWarningCount;
+</script>
+
+<script>
+  // Door QR Code Filtering and Sorting
+  document.addEventListener('DOMContentLoaded', function() {
+    const sortSelect = document.getElementById('qr-sort-by');
+    const filterSelect = document.getElementById('qr-filter-by');
+    const qrList = document.getElementById('office-qr-list');
+
+    if (!sortSelect || !filterSelect || !qrList) {
+      console.warn('Door QR filter controls not found');
+      return;
+    }
+
+    // Apply filters and sorting
+    function applyFiltersAndSort() {
+      const sortOrder = sortSelect.value; // 'asc' or 'desc'
+      const filterType = filterSelect.value;
+
+      // Get all office groups
+      const officeGroups = Array.from(qrList.querySelectorAll('.office-group'));
+      
+      officeGroups.forEach(group => {
+        const doorItems = Array.from(group.querySelectorAll('.door-qr-item'));
+        let visibleDoors = 0;
+
+        // Filter doors
+        doorItems.forEach(item => {
+          let show = true;
+
+          switch(filterType) {
+            case 'all':
+              show = true;
+              break;
+            case 'today':
+              // Show only doors scanned today
+              show = parseInt(item.dataset.todayScans || '0') > 0;
+              break;
+            case 'latest':
+              // Show all doors that have been scanned at least once
+              const lastScanTimestamp = parseInt(item.dataset.lastScanTimestamp || '0');
+              show = lastScanTimestamp > 0;
+              break;
+            case 'active':
+              show = item.dataset.status === 'active';
+              break;
+            case 'inactive':
+              show = item.dataset.status === 'inactive';
+              break;
+            case 'stale':
+              // Show active doors not scanned in 7+ days (but have been scanned before)
+              show = item.dataset.status === 'active' && 
+                     parseInt(item.dataset.days || '0') >= 7 &&
+                     item.dataset.scanned === 'yes';
+              break;
+            case 'never':
+              // Show doors that have never been scanned
+              show = item.dataset.scanned === 'no';
+              break;
+          }
+
+          if (show) {
+            item.style.display = '';
+            visibleDoors++;
+          } else {
+            item.style.display = 'none';
+          }
+        });
+
+        // Hide office group if no doors are visible
+        if (visibleDoors === 0) {
+          group.style.display = 'none';
+        } else {
+          group.style.display = '';
+
+          // Sort visible doors
+          const visibleDoorItems = doorItems.filter(item => item.style.display !== 'none');
+          
+          // Special sorting for "Latest Scanned" filter - sort by timestamp
+          if (filterType === 'latest') {
+            visibleDoorItems.sort((a, b) => {
+              const timestampA = parseInt(a.dataset.lastScanTimestamp || '0');
+              const timestampB = parseInt(b.dataset.lastScanTimestamp || '0');
+              return timestampB - timestampA; // Most recent first
+            });
+          } else {
+            // Normal sorting by scan count
+            visibleDoorItems.sort((a, b) => {
+              const countA = parseInt(a.dataset.scanCount || '0');
+              const countB = parseInt(b.dataset.scanCount || '0');
+              
+              if (sortOrder === 'asc') {
+                return countA - countB; // Least to most
+              } else {
+                return countB - countA; // Most to least
+              }
+            });
+          }
+
+          // Re-append in sorted order
+          const doorList = group.querySelector('.door-qr-list');
+          if (doorList) {
+            visibleDoorItems.forEach(item => {
+              doorList.appendChild(item);
+            });
+          }
+        }
+      });
+
+      // Count visible items for feedback
+      const visibleCount = officeGroups.filter(g => g.style.display !== 'none').length;
+      console.log(`Showing ${visibleCount} office(s) with matching door QR codes`);
+    }
+
+    // Attach event listeners
+    sortSelect.addEventListener('change', applyFiltersAndSort);
+    filterSelect.addEventListener('change', applyFiltersAndSort);
+
+    // Initial application of filters
+    applyFiltersAndSort();
+
+    // Make function globally accessible for external triggers
+    window.applyDoorQrFiltersAndSort = applyFiltersAndSort;
+  });
 </script>
 
 <script>
@@ -899,50 +1754,21 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
   const visitorCanvas = document.getElementById('visitorLogChart');
   const visitorCtx = visitorCanvas.getContext('2d');
   
-  // Create gradients for visitor log chart
-  const officeGradients = [
-    // Green gradient for Office QR scans
-    (() => {
-      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
-      gradient.addColorStop(0, '#81C784');
-      gradient.addColorStop(1, '#4CAF50');
-      return gradient;
-    })(),
-    (() => {
-      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
-      gradient.addColorStop(0, '#fcf7e2ff');
-      gradient.addColorStop(1, '#ffcb30ff');
-      return gradient;
-    })(),
-    (() => {
-      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
-      gradient.addColorStop(0, '#a58fcbff');
-      gradient.addColorStop(1, '#551db6ff');
-      return gradient;
-    })()
-  ];
+  // Create single consistent gradient for Office QR scans (green)
+  const officeGradient = (() => {
+    const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, '#81C784');
+    gradient.addColorStop(1, '#4CAF50');
+    return gradient;
+  })();
 
-  const panoramaGradients = [
-    // Blue gradients for Panorama views
-    (() => {
-      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
-      gradient.addColorStop(0, '#90CAF9');
-      gradient.addColorStop(1, '#1976D2');
-      return gradient;
-    })(),
-    (() => {
-      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
-      gradient.addColorStop(0, '#BBDEFB');
-      gradient.addColorStop(1, '#1565C0');
-      return gradient;
-    })(),
-    (() => {
-      const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
-      gradient.addColorStop(0, '#E3F2FD');
-      gradient.addColorStop(1, '#0D47A1');
-      return gradient;
-    })()
-  ];
+  // Create single consistent gradient for Panorama views (blue)
+  const panoramaGradient = (() => {
+    const gradient = visitorCtx.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, '#90CAF9');
+    gradient.addColorStop(1, '#1976D2');
+    return gradient;
+  })();
 
   const visitorLogChart = new Chart(document.getElementById('visitorLogChart'), {
     type: 'bar',
@@ -952,13 +1778,13 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
         {
           label: 'Office QR Scans',
           data: [dailyCount, weeklyCount, monthlyCount],
-          backgroundColor: officeGradients,
+          backgroundColor: officeGradient,
           borderRadius: 8
         },
         {
           label: 'Panorama Views',
           data: [dailyPanoramaCount, weeklyPanoramaCount, monthlyPanoramaCount],
-          backgroundColor: panoramaGradients,
+          backgroundColor: panoramaGradient,
           borderRadius: 8
         }
       ]
@@ -985,6 +1811,70 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
       }
     }
   });
+
+  // Store pan-zoom instances for each floor
+  window.panZoomInstances = {};
+
+  // Initialize pan-zoom for panorama map SVGs
+  function initializePanZoom(svgElement, floorNumber) {
+    if (typeof svgPanZoom !== 'undefined' && svgElement) {
+      // Destroy existing instance if it exists
+      if (window.panZoomInstances[floorNumber]) {
+        window.panZoomInstances[floorNumber].destroy();
+      }
+
+      // Create new pan-zoom instance
+      const panZoomInstance = svgPanZoom(svgElement, {
+        zoomEnabled: true,
+        controlIconsEnabled: true,
+        fit: true,
+        center: true,
+        minZoom: 0.5,
+        maxZoom: 10,
+        dblClickZoomEnabled: true,
+        mouseWheelZoomEnabled: true,
+        preventMouseEventsDefault: true,
+        zoomScaleSensitivity: 0.4,
+        beforeZoom: function() {},
+        onZoom: function() {},
+        beforePan: function() {},
+        onPan: function() {}
+      });
+
+      // Store instance for later use
+      window.panZoomInstances[floorNumber] = panZoomInstance;
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        if (window.panZoomInstances[floorNumber]) {
+          window.panZoomInstances[floorNumber].resize();
+          window.panZoomInstances[floorNumber].fit();
+          window.panZoomInstances[floorNumber].center();
+        }
+      });
+
+      console.log(`✅ Pan-zoom initialized for floor ${floorNumber}`);
+    } else {
+      console.error('svg-pan-zoom library not loaded or SVG element not found.');
+    }
+  }
+
+  // Function to apply consistent font styling to all SVG text elements
+  function applyConsistentFontStyling(container) {
+    const textElements = container.querySelectorAll('text, tspan');
+    textElements.forEach(el => {
+      el.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+      el.style.fontWeight = "600";
+      el.style.fontSize = "14px";
+      el.style.fill = "#1a1a1a";
+      el.style.stroke = "#ffffff";
+      el.style.strokeWidth = "3px";
+      el.style.strokeLinejoin = "round";
+      el.style.paintOrder = "stroke fill";
+      el.style.vectorEffect = "non-scaling-stroke";
+      el.setAttribute('class', 'room-label');
+    });
+  }
 
   // Load floor plan SVGs and add panorama markers
   async function loadFloorPlans() {
@@ -1028,20 +1918,98 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
             }
           });
           
+          // CRITICAL FIX: Namespace all <defs> IDs to prevent conflicts between floors
+          // Each floor SVG has duplicate IDs like "swatch51", "linearGradient51", etc.
+          // We need to make them unique by adding a floor prefix
+          const floorPrefix = `floor${floor}-`;
+          
+          // Find all elements with IDs in <defs>
+          const defsElements = loadedSvg.querySelectorAll('defs [id]');
+          const idMap = new Map(); // Track old ID -> new ID mappings
+          
+          defsElements.forEach(el => {
+            const oldId = el.id;
+            const newId = floorPrefix + oldId;
+            el.id = newId;
+            idMap.set(oldId, newId);
+          });
+          
+          // Update all url(#...) and xlink:href references
+          const allElements = loadedSvg.querySelectorAll('*');
+          allElements.forEach(el => {
+            // Update fill attribute
+            if (el.hasAttribute('fill')) {
+              const fill = el.getAttribute('fill');
+              if (fill.startsWith('url(#')) {
+                const refId = fill.match(/url\(#([^)]+)\)/)[1];
+                if (idMap.has(refId)) {
+                  el.setAttribute('fill', `url(#${idMap.get(refId)})`);
+                }
+              }
+            }
+            
+            // Update stroke attribute
+            if (el.hasAttribute('stroke')) {
+              const stroke = el.getAttribute('stroke');
+              if (stroke.startsWith('url(#')) {
+                const refId = stroke.match(/url\(#([^)]+)\)/)[1];
+                if (idMap.has(refId)) {
+                  el.setAttribute('stroke', `url(#${idMap.get(refId)})`);
+                }
+              }
+            }
+            
+            // Update xlink:href attribute
+            if (el.hasAttribute('xlink:href')) {
+              const href = el.getAttribute('xlink:href');
+              if (href.startsWith('#')) {
+                const refId = href.substring(1);
+                if (idMap.has(refId)) {
+                  el.setAttribute('xlink:href', `#${idMap.get(refId)}`);
+                }
+              }
+            }
+            
+            // Update style attribute for inline url() references
+            if (el.hasAttribute('style')) {
+              let style = el.getAttribute('style');
+              const urlMatches = style.match(/url\(#([^)]+)\)/g);
+              if (urlMatches) {
+                urlMatches.forEach(match => {
+                  const refId = match.match(/url\(#([^)]+)\)/)[1];
+                  if (idMap.has(refId)) {
+                    style = style.replace(match, `url(#${idMap.get(refId)})`);
+                  }
+                });
+                el.setAttribute('style', style);
+              }
+            }
+          });
+          
+          console.log(`Floor ${floor} IDs namespaced: ${idMap.size} definitions prefixed with "${floorPrefix}"`);
+          
           // Copy all child elements
           while (loadedSvg.firstChild) {
             svgElement.appendChild(loadedSvg.firstChild);
           }
           
           console.log(`Floor ${floor} SVG loaded successfully`);
+          console.log(`Floor ${floor} IDs namespaced: ${idMap.size} definitions prefixed with "${floorPrefix}"`);
+          
+          // Apply consistent font styling to all text elements in the SVG
+          applyConsistentFontStyling(svgElement);
+          
+          // Initialize pan-zoom for this floor's SVG
+          initializePanZoom(svgElement, floor);
         } else {
           throw new Error(`Invalid SVG content for floor ${floor}`);
         }
         
-        // Add panorama markers for this floor with a small delay
+        // Add panorama markers for this floor with a delay to ensure pan-zoom is ready
+        // Pan-zoom wraps content in a viewport <g>, so markers must be added after initialization
         setTimeout(() => {
           addPanoramaMarkers(floor);
-        }, 50);
+        }, 150);
       } catch (error) {
         console.error(`Error loading floor ${floor} SVG:`, error);
         
@@ -1067,6 +2035,11 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
       console.error(`❌ SVG element not found for floor ${floorNumber}`);
       return;
     }
+    
+    // Find the pan-zoom viewport group (svg-pan-zoom wraps content in a <g> element)
+    // Look for the first <g> child which is the viewport transform group
+    const viewport = svgElement.querySelector('g[transform]') || svgElement.querySelector('g') || svgElement;
+    console.log(`📦 Using viewport element:`, viewport.tagName, viewport.id || '(no id)');
     
     // Check if we have panorama data
     if (!window.panoramaMapData && !panoramaMapData) {
@@ -1099,24 +2072,39 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
       markerGroup.setAttribute('class', `panorama-pin ${markerClass}`);
       markerGroup.setAttribute('transform', `translate(${panorama.point_x}, ${panorama.point_y})`);
       
-      // Create pin shape (teardrop/map pin) - Made larger
+      // Pin size multiplier - ADJUST THIS VALUE TO CHANGE PIN SIZE
+      // 0.5 = small pins, 1.0 = default, 1.5 = large pins, 2.0 = extra large pins
+      const pinScale = 0.6;
+      
+      // Calculate scaled dimensions
+      const pinHeight = 30 * pinScale;
+      const pinWidth = 22 * pinScale;
+      const pinWidthNarrow = 12 * pinScale;
+      const pinNeck = 8 * pinScale;
+      const circleRadius = 12 * pinScale;
+      const circleCenterY = -12 * pinScale;
+      const textY = -8 * pinScale;
+      
+      // Create pin shape (teardrop/map pin) with scaled dimensions
       const pin = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      pin.setAttribute('d', 'M0,-30 C-12,-30 -22,-20 -22,-8 C-22,4 0,30 0,30 C0,30 22,4 22,-8 C22,-20 12,-30 0,-30 Z');
+      pin.setAttribute('d', `M0,${-pinHeight} C${-pinWidthNarrow},${-pinHeight} ${-pinWidth},${-pinHeight + 10 * pinScale} ${-pinWidth},${-pinNeck} C${-pinWidth},${pinNeck / 2} 0,${pinHeight} 0,${pinHeight} C0,${pinHeight} ${pinWidth},${pinNeck / 2} ${pinWidth},${-pinNeck} C${pinWidth},${-pinHeight + 10 * pinScale} ${pinWidthNarrow},${-pinHeight} 0,${-pinHeight} Z`);
       pin.setAttribute('class', 'pin-shape');
       
-      // Create inner circle for count - Made larger
+      // Create inner circle for count with scaled dimensions
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       circle.setAttribute('cx', '0');
-      circle.setAttribute('cy', '-12');
-      circle.setAttribute('r', '12');
+      circle.setAttribute('cy', circleCenterY);
+      circle.setAttribute('r', circleRadius);
       circle.setAttribute('class', 'pin-circle');
       
-      // Create text for scan count
+      // Create text for scan count with scaled position and font size
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', '0');
-      text.setAttribute('y', '-8');
+      text.setAttribute('y', textY);
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('class', 'pin-text');
+      // Scale font size proportionally with the pin (base font size is 12px)
+      text.setAttribute('font-size', `${12 * pinScale}px`);
       text.textContent = panorama.scan_count;
       
       // Add tooltip
@@ -1162,34 +2150,6 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
         else warnText += `Not scanned for ${Math.floor(daysSince/7)} week(s)`;
         title.textContent = warnText;
 
-        // Add custom hover tooltip for clearer UI
-        const tooltip = document.createElement('div');
-        tooltip.className = 'panorama-hover-tooltip';
-        tooltip.style.position = 'absolute';
-        tooltip.style.padding = '6px 8px';
-        tooltip.style.borderRadius = '6px';
-        tooltip.style.background = 'rgba(220, 38, 38, 0.95)';
-        tooltip.style.color = 'white';
-        tooltip.style.fontSize = '12px';
-        tooltip.style.pointerEvents = 'none';
-        tooltip.style.zIndex = 10000;
-        tooltip.style.display = 'none';
-        tooltip.textContent = (daysSince === null) ? 'Never scanned' : `Not scanned for ${daysSince} day${daysSince === 1 ? '' : 's'}`;
-        document.body.appendChild(tooltip);
-
-        markerGroup.addEventListener('mouseenter', (ev) => {
-          tooltip.style.display = 'block';
-          tooltip.style.left = `${ev.clientX + 10}px`;
-          tooltip.style.top = `${ev.clientY + 10}px`;
-        });
-        markerGroup.addEventListener('mousemove', (ev) => {
-          tooltip.style.left = `${ev.clientX + 10}px`;
-          tooltip.style.top = `${ev.clientY + 10}px`;
-        });
-        markerGroup.addEventListener('mouseleave', () => {
-          tooltip.style.display = 'none';
-        });
-
         // Add warning SVG icon above the pin
         const warningGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         warningGroup.setAttribute('transform', 'translate(0, -52)'); // position above the pin
@@ -1223,7 +2183,9 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
         markerGroup.appendChild(warningGroup);
       }
 
-      svgElement.appendChild(markerGroup);
+      // Add marker to the pan-zoom viewport group
+      // This ensures markers transform with the floor plan during pan/zoom
+      viewport.appendChild(markerGroup);
       markersAdded++;
 
       console.log(`✅ Added marker for ${panorama.title} at (${panorama.point_x}, ${panorama.point_y}) with ${panorama.scan_count} scans`);
@@ -1273,6 +2235,15 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
       }
     }
     
+    // Reset pan-zoom for the newly shown floor
+    if (window.panZoomInstances[floorNumber]) {
+      setTimeout(() => {
+        window.panZoomInstances[floorNumber].fit();
+        window.panZoomInstances[floorNumber].center();
+        console.log(`🔄 Reset pan-zoom for floor ${floorNumber}`);
+      }, 100);
+    }
+    
     return false; // Prevent any form submission
   }
 
@@ -1297,7 +2268,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     if (panoramaFilter) {
       panoramaFilter.addEventListener('change', function(event) {
         const filterValue = this.value;
-        console.log(`� Filtering panorama data by: ${filterValue}`);
+        console.log(`  Filtering panorama data by: ${filterValue}`);
         
         // Update markers based on filter
         applyPanoramaTimeFilter(filterValue);
@@ -1553,27 +2524,7 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
           item.style.display = showItem ? 'flex' : 'none';
         });
         
-        // Update counts after filtering
-        updateOfficeQrCounts(filterValue);
       });
-    }
-  }
-  
-  function updateOfficeQrCounts(filterValue) {
-    const visibleItems = document.querySelectorAll('.office-qr-item[style*="display: flex"], .office-qr-item:not([style*="display: none"])');
-    const warningNumber = document.getElementById('office-qr-warning-number');
-    
-    let warningCount = 0;
-    visibleItems.forEach(item => {
-      const isStale = parseInt(item.dataset.days) >= 7;
-      const neverScanned = item.dataset.scanned === 'no';
-      if (isStale || neverScanned) {
-        warningCount++;
-      }
-    });
-    
-    if (warningNumber) {
-      warningNumber.textContent = warningCount;
     }
   }
 
@@ -1593,5 +2544,645 @@ $neverScannedCount = count(array_filter($officeQrMonitoringData, fn($office) => 
     initializeOfficeQrMonitoring();
   });
 </script>
+
+<!-- All Offices Modal -->
+<div id="all-offices-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+  <div style="background: white; border-radius: 16px; width: 90%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+    <!-- Modal Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e5e7eb;">
+      <h3 style="margin: 0; font-size: 20px; font-weight: 600; color: #1a1a1a;">
+        <i class="fa fa-building" style="margin-right: 8px; color: #04aa6d;"></i>
+        All Offices - Visitor Statistics
+      </h3>
+      <button id="close-all-offices-modal" style="background: none; border: none; font-size: 28px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s;">
+        ×
+      </button>
+    </div>
+    
+    <!-- Modal Body -->
+    <div style="padding: 20px 24px; overflow-y: auto; flex: 1;">
+      <div id="all-offices-content">
+        <div style="text-align: center; padding: 40px; color: #9ca3af;">
+          <i class="fa fa-spinner fa-spin" style="font-size: 32px;"></i>
+          <p style="margin-top: 12px;">Loading offices...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // View All Offices functionality
+  document.getElementById('view-all-offices-btn').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const modal = document.getElementById('all-offices-modal');
+    const contentDiv = document.getElementById('all-offices-content');
+    
+    modal.style.display = 'flex';
+    
+    // Get current month and year filters from the form
+    const selectedMonth = document.getElementById('month') ? document.getElementById('month').value : 'all';
+    const selectedYear = document.getElementById('year') ? document.getElementById('year').value : 'all';
+    
+    fetch(`get_all_offices_stats.php?month=${selectedMonth}&year=${selectedYear}`)
+      .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+      })
+      .then(data => {
+        console.log('Received data:', data);
+        if (data.success) {
+          const offices = data.offices;
+          
+          if (offices.length === 0) {
+            contentDiv.innerHTML = `
+              <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                <i class="fa fa-inbox" style="font-size: 48px; color: #d1d5db;"></i>
+                <p style="margin-top: 12px; font-size: 16px;">No office data available</p>
+              </div>
+            `;
+            return;
+          }
+          
+          let html = `
+            <div style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0284c7;">
+              <p style="margin: 0; font-size: 14px; color: #0c4a6e;">
+                <strong>Total Offices:</strong> ${offices.length} | 
+                <strong>Total Scans:</strong> ${offices.reduce((sum, o) => sum + parseInt(o.scan_count), 0).toLocaleString()}
+              </p>
+            </div>
+            <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                  <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                    <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151;">#</th>
+                    <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151;">Office Name</th>
+                    <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151;">Floor</th>
+                    <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151;">Status</th>
+                    <th style="padding: 12px 16px; text-align: right; font-weight: 600; color: #374151;">QR Scans</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          offices.forEach((office, index) => {
+            const floor = office.floor || 'N/A';
+            const status = office.status === 'active' 
+              ? '<span style="padding: 4px 8px; background: #dcfce7; color: #166534; border-radius: 6px; font-size: 12px; font-weight: 500;">Active</span>'
+              : '<span style="padding: 4px 8px; background: #fee2e2; color: #991b1b; border-radius: 6px; font-size: 12px; font-weight: 500;">Inactive</span>';
+            
+            html += `
+              <tr style="border-bottom: 1px solid #f3f4f6; transition: background 0.15s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 16px; color: #6b7280;">${index + 1}</td>
+                <td style="padding: 12px 16px; font-weight: 500; color: #1f2937;">${office.name}</td>
+                <td style="padding: 12px 16px; text-align: center; color: #6b7280;">${floor}F</td>
+                <td style="padding: 12px 16px; text-align: center;">${status}</td>
+                <td style="padding: 12px 16px; text-align: right; font-weight: 600; color: #04aa6d;">${parseInt(office.scan_count).toLocaleString()}</td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          
+          contentDiv.innerHTML = html;
+        } else {
+          contentDiv.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #ef4444;">
+              <i class="fa fa-exclamation-circle" style="font-size: 48px;"></i>
+              <p style="margin-top: 12px;">Error loading data: ${data.error || 'Unknown error'}</p>
+            </div>
+          `;
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching offices:', error);
+        contentDiv.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #ef4444;">
+            <i class="fa fa-exclamation-circle" style="font-size: 48px;"></i>
+            <p style="margin-top: 12px;">Failed to load office data</p>
+          </div>
+        `;
+      });
+  });
+  
+  // Close modal functionality
+  document.getElementById('close-all-offices-modal').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('all-offices-modal').style.display = 'none';
+  });
+  
+  // Close modal when clicking outside
+  document.getElementById('all-offices-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.style.display = 'none';
+    }
+  });
+  
+  // Add hover effect to close button
+  document.getElementById('close-all-offices-modal').addEventListener('mouseenter', function() {
+    this.style.background = '#f3f4f6';
+  });
+  document.getElementById('close-all-offices-modal').addEventListener('mouseleave', function() {
+    this.style.background = 'none';
+  });
+</script>
+
+<!-- Add labelSetup.js for consistent font styling -->
+<script src="./floorjs/labelSetup.js"></script>
+
+<!-- QR Report Modal -->
+<div id="qr-report-modal" class="report-modal">
+  <div class="report-modal-content">
+    <div class="report-modal-header">
+      <h2>QR Scan Reports</h2>
+      <span class="report-modal-close" onclick="closeReportModal()">&times;</span>
+    </div>
+    
+    <div class="report-modal-body">
+      <!-- Report Controls -->
+      <div class="report-controls-compact">
+        <div class="controls-row">
+          <div class="control-group">
+            <label for="modal-report-type">Report Type</label>
+            <select id="modal-report-type" onchange="generateModalReport()">
+              <option value="all">All QR Scans</option>
+              <option value="office">Office QR Only</option>
+              <option value="panorama">Panorama QR Only</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="modal-date-from">From Date</label>
+            <input type="date" id="modal-date-from" onchange="generateModalReport()">
+          </div>
+          <div class="control-group">
+            <label for="modal-date-to">To Date</label>
+            <input type="date" id="modal-date-to" onchange="generateModalReport()">
+          </div>
+          <div class="control-group">
+            <label for="modal-group-by">Group By</label>
+            <select id="modal-group-by" onchange="generateModalReport()">
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+            </select>
+          </div>
+        </div>
+        <div class="button-row">
+          <div class="dropdown-container">
+            <button class="btn btn-secondary dropdown-trigger" onclick="toggleDownloadMenu(event)" type="button">
+              Download ▼
+            </button>
+            <div class="download-dropdown" id="download-dropdown">
+              <a href="#" onclick="exportModalExcel(); return false;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                  <path d="M5.18 10.5a1.04 1.04 0 0 0 .605.969 1.21 1.21 0 0 0 1.228-.093l.29-.196V12h.5v-.82l.29.196a1.21 1.21 0 0 0 1.228.093A1.04 1.04 0 0 0 9.9 10.5v-.5A1.04 1.04 0 0 0 9.295 9.03a1.21 1.21 0 0 0-1.228.093l-.29.196V8.5h-.5v.82l-.29-.196a1.21 1.21 0 0 0-1.228-.093A1.04 1.04 0 0 0 5.1 10v.5z"/>
+                </svg>
+                Download as Excel
+              </a>
+              <a href="#" onclick="exportModalPDF(); return false;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                  <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                </svg>
+                Download as CSV
+              </a>
+            </div>
+          </div>
+          <button class="btn btn-secondary" onclick="printModalReport()">Print</button>
+        </div>
+      </div>
+
+      <!-- Summary Section -->
+      <div class="report-section-modal" id="modal-summary-section">
+        <h3>Summary Statistics</h3>
+        <div class="summary-grid-modal" id="modal-summary-grid"></div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="report-section-modal">
+        <h3>Scan Timeline</h3>
+        <div class="chart-container-modal">
+          <canvas id="modal-timeline-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="report-charts-grid">
+        <div class="report-section-modal">
+          <h3>Hourly Distribution</h3>
+          <div class="chart-container-modal-small">
+            <canvas id="modal-hourly-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="report-section-modal">
+          <h3>Day of Week</h3>
+          <div class="chart-container-modal-small">
+            <canvas id="modal-daily-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Tables -->
+      <div class="report-tables-grid">
+        <div class="report-section-modal" id="modal-offices-section">
+          <h3>Most Visited Offices</h3>
+          <div class="table-scroll">
+            <table id="modal-offices-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Office Name</th>
+                  <th>Title</th>
+                  <th>Scans</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-section-modal" id="modal-panoramas-section">
+          <h3>Most Viewed Panoramas</h3>
+          <div class="table-scroll">
+            <table id="modal-panoramas-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Location</th>
+                  <th>Floor</th>
+                  <th>Views</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="modal-loading" class="modal-loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading report data...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let modalTimelineChart = null;
+  let modalHourlyChart = null;
+  let modalDailyChart = null;
+  let currentModalReportData = null;
+
+  async function generateModalReport() {
+    const reportType = document.getElementById('modal-report-type').value;
+    const dateFrom = document.getElementById('modal-date-from').value;
+    const dateTo = document.getElementById('modal-date-to').value;
+    const groupBy = document.getElementById('modal-group-by').value;
+
+    document.getElementById('modal-loading').style.display = 'flex';
+
+    try {
+      const params = new URLSearchParams({
+        action: 'generate_report',
+        report_type: reportType,
+        group_by: groupBy
+      });
+
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+
+      const response = await fetch(`qr_report_api.php?${params}`);
+      const result = await response.json();
+
+      if (result.success) {
+        currentModalReportData = result.data;
+        renderModalReport(result.data);
+      } else {
+        alert('Error generating report: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to generate report');
+    }
+
+    document.getElementById('modal-loading').style.display = 'none';
+  }
+
+  function renderModalReport(data) {
+    renderModalSummary(data.summary);
+    renderModalTimeline(data.timeline);
+    renderModalHourlyDistribution(data.hourly_distribution);
+    renderModalDailyComparison(data.daily_comparison);
+    renderModalTopOffices(data.top_offices);
+    renderModalTopPanoramas(data.top_panoramas);
+  }
+
+  function renderModalSummary(summary) {
+    const grid = document.getElementById('modal-summary-grid');
+    grid.innerHTML = `
+      <div class="summary-card-modal">
+        <p>Office QR Scans</p>
+        <h4>${summary.office.toLocaleString()}</h4>
+      </div>
+      <div class="summary-card-modal">
+        <p>Panorama QR Scans</p>
+        <h4>${summary.panorama.toLocaleString()}</h4>
+      </div>
+      <div class="summary-card-modal">
+        <p>Total Scans</p>
+        <h4>${summary.total.toLocaleString()}</h4>
+      </div>
+    `;
+  }
+
+  function renderModalTimeline(timeline) {
+    const ctx = document.getElementById('modal-timeline-chart').getContext('2d');
+    
+    if (modalTimelineChart) modalTimelineChart.destroy();
+
+    modalTimelineChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: timeline.map(d => d.period),
+        datasets: [
+          {
+            label: 'Office QR',
+            data: timeline.map(d => d.office),
+            borderColor: '#2e7d32',
+            backgroundColor: 'rgba(46, 125, 50, 0.1)',
+            tension: 0.4
+          },
+          {
+            label: 'Panorama QR',
+            data: timeline.map(d => d.panorama),
+            borderColor: '#1976d2',
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function renderModalHourlyDistribution(hourly) {
+    const ctx = document.getElementById('modal-hourly-chart').getContext('2d');
+    
+    if (modalHourlyChart) modalHourlyChart.destroy();
+
+    modalHourlyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: hourly.map(d => d.hour),
+        datasets: [
+          {
+            label: 'Office QR',
+            data: hourly.map(d => d.office),
+            backgroundColor: '#4CAF50'
+          },
+          {
+            label: 'Panorama QR',
+            data: hourly.map(d => d.panorama),
+            backgroundColor: '#1976D2'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function renderModalDailyComparison(daily) {
+    const ctx = document.getElementById('modal-daily-chart').getContext('2d');
+    
+    if (modalDailyChart) modalDailyChart.destroy();
+
+    modalDailyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: daily.map(d => d.day.substring(0, 3)),
+        datasets: [
+          {
+            label: 'Office',
+            data: daily.map(d => d.office),
+            backgroundColor: '#4CAF50'
+          },
+          {
+            label: 'Panorama',
+            data: daily.map(d => d.panorama),
+            backgroundColor: '#1976D2'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function renderModalTopOffices(offices) {
+    const tbody = document.querySelector('#modal-offices-table tbody');
+    if (offices.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No data available</td></tr>';
+      return;
+    }
+    tbody.innerHTML = offices.map((office, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${office.name}</td>
+        <td>${office.title}</td>
+        <td><strong>${office.scan_count}</strong></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderModalTopPanoramas(panoramas) {
+    const tbody = document.querySelector('#modal-panoramas-table tbody');
+    if (panoramas.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No data available</td></tr>';
+      return;
+    }
+    tbody.innerHTML = panoramas.map((panorama, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${panorama.location_name}</td>
+        <td> ${panorama.floor_number}</td>
+        <td><strong>${panorama.view_count}</strong></td>
+      </tr>
+    `).join('');
+  }
+
+  function toggleDownloadMenu(event) {
+    event.stopPropagation();
+    event.preventDefault();
+    const dropdown = document.getElementById('download-dropdown');
+    if (dropdown) {
+      dropdown.classList.toggle('show');
+      console.log('Download menu toggled:', dropdown.classList.contains('show'));
+    } else {
+      console.error('Download dropdown element not found!');
+    }
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('download-dropdown');
+    if (dropdown && !event.target.closest('.dropdown-container')) {
+      dropdown.classList.remove('show');
+    }
+  });
+
+  function exportModalExcel() {
+    const reportType = document.getElementById('modal-report-type').value;
+    const dateFrom = document.getElementById('modal-date-from').value;
+    const dateTo = document.getElementById('modal-date-to').value;
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'qr_report_api.php?action=export_excel';
+
+    const fields = {
+      csrf_token: window.CSRF_TOKEN,
+      report_type: reportType,
+      date_from: dateFrom,
+      date_to: dateTo
+    };
+
+    for (const [key, value] of Object.entries(fields)) {
+      if (value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    // Close dropdown
+    document.getElementById('download-dropdown').classList.remove('show');
+  }
+
+  function exportModalPDF() {
+    console.log('CSV export clicked');
+    const reportType = document.getElementById('modal-report-type').value;
+    const dateFrom = document.getElementById('modal-date-from').value;
+    const dateTo = document.getElementById('modal-date-to').value;
+
+    // Close dropdown
+    document.getElementById('download-dropdown').classList.remove('show');
+
+    // Submit form to generate CSV
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'qr_report_api.php?action=export_csv';
+    form.style.display = 'none';
+
+    const fields = {
+      csrf_token: window.CSRF_TOKEN,
+      report_type: reportType,
+      date_from: dateFrom || '',
+      date_to: dateTo || ''
+    };
+
+    for (const [key, value] of Object.entries(fields)) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+  }
+
+  function exportModalCSV() {
+    const reportType = document.getElementById('modal-report-type').value;
+    const dateFrom = document.getElementById('modal-date-from').value;
+    const dateTo = document.getElementById('modal-date-to').value;
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'qr_report_api.php?action=export_csv';
+
+    const fields = {
+      csrf_token: window.CSRF_TOKEN,
+      report_type: reportType,
+      date_from: dateFrom,
+      date_to: dateTo
+    };
+
+    for (const [key, value] of Object.entries(fields)) {
+      if (value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+  }
+
+  function printModalReport() {
+    console.log('Print button clicked');
+    
+    if (!currentModalReportData) {
+      alert('Please generate a report first');
+      return;
+    }
+
+    try {
+      // Directly trigger print - browser will handle it
+      window.print();
+      console.log('Print dialog opened');
+    } catch (e) {
+      console.error('Print error:', e);
+      alert('Failed to open print dialog. Please try using Ctrl+P instead.');
+    }
+  }
+</script>
+
 </body>
 </html>

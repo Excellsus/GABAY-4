@@ -25,7 +25,7 @@ body {
 body {
   margin: 0;
   font-family: "Poppins", sans-serif; /* Use Poppins */
-  background-color: #f9f9f9;
+  background-color: #f8f9fa; /* Match SVG container background to prevent visible gaps */
   /* Remove body padding, handle spacing within .content */
   /* padding-bottom: 70px; */
 }
@@ -177,10 +177,11 @@ body {
   bottom: 0; /* No bottom nav - use full height */
   padding: 0;
   margin: 0;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to visible to prevent white background during drawer drag */
   z-index: 1;
   display: flex;
   flex-direction: column;
+  background-color: transparent; /* Transparent to prevent white layer behind drawer */
 }
 
 /* SVG container - now direct child of content */
@@ -208,12 +209,13 @@ body {
     bottom: 0;
     padding: 0;
     margin: 0;
-    overflow: hidden;
+    overflow: visible; /* Changed from hidden to visible */
     z-index: 1;
     display: flex;
     flex-direction: column;
     width: 100vw;
     height: calc(100vh - 60px); /* Subtract only header height */
+    background-color: transparent; /* Prevent white background showing behind drawer */
   }
 
   .svg-container {
@@ -454,10 +456,10 @@ svg path {
   bottom: 0; /* No space needed - no bottom nav */
   left: 0;
   width: 100%;
-  background-color: #ffffff;
+  background-color: transparent; /* Remove white background to prevent negative space */
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: none; /* Remove shadow from container, will be on content instead */
   z-index: 1000;
   height: 50vh;
   max-height: calc(100vh - 60px); /* Account for header only */
@@ -517,6 +519,7 @@ svg path {
   padding: 10px 0;
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15); /* Add shadow to handle */
 }
 
 .drawer-handle::before {
@@ -538,6 +541,8 @@ svg path {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 20px;
+  background-color: #ffffff; /* Add white background to content */
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
 }
 
 /* Content inside the drawer */
@@ -747,7 +752,16 @@ svg path {
 /* Pathfinding and navigation styles */
 .walkable-path {
   pointer-events: none;
-  opacity: 0.8;
+  opacity: 0; /* Hidden but functional */
+  visibility: hidden; /* Completely invisible */
+}
+
+/* Hide all walkable path groups and elements across all floors */
+#walkable-path-group,
+#walkable-path-group *,
+path[id^="walkable-path-"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 .door-point,
@@ -1455,6 +1469,36 @@ input:checked + .slider:before {
   margin: 0;
 }
 
+.office-modal-body .loading-hours {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #667eea;
+  font-size: 0.9em;
+  padding: 10px 0;
+}
+
+.office-modal-body .loading-hours i {
+  font-size: 1.1em;
+}
+
+.office-modal-body .no-weekly-hours,
+.office-modal-body .error-hours {
+  color: #94a3b8;
+  font-size: 0.85em;
+  font-style: italic;
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.office-modal-body .error-hours {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
 /* Mobile responsive adjustments for modal */
 @media (max-width: 768px) {
   .office-details-dialog {
@@ -1565,126 +1609,3 @@ input:checked + .slider:before {
   margin-top: 2px;
 }
 
-.secondary-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.drawer-btn.secondary {
-  flex-direction: column;
-  padding: 12px 8px;
-  background: #f8f9fa;
-  color: #374151;
-  font-size: 12px;
-  border: 1px solid #e5e7eb;
-  aspect-ratio: 1;
-  min-height: 70px;
-}
-
-.drawer-btn.secondary:active {
-  background: #e5e7eb;
-  transform: scale(0.95);
-}
-
-.drawer-btn.secondary i {
-  font-size: 18px;
-  margin-bottom: 4px;
-  color: #04aa6d;
-}
-
-.drawer-btn.secondary span {
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-  line-height: 1.2;
-}
-
-.drawer-btn.secondary.favorited {
-  background: #fef7f7;
-  border-color: #f87171;
-}
-
-.drawer-btn.secondary.favorited i {
-  color: #ef4444;
-}
-
-/* Ripple effect */
-.ripple {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
-  transform: scale(0);
-  animation: ripple-animation 0.6s linear;
-  pointer-events: none;
-}
-
-@keyframes ripple-animation {
-  to {
-    transform: scale(4);
-    opacity: 0;
-  }
-}
-
-.drawer-btn.secondary .ripple {
-  background: rgba(4, 170, 109, 0.3);
-}
-
-/* Mobile Toast Notifications */
-.mobile-toast {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1f2937;
-  color: white;
-  padding: 12px 20px;
-  border-radius: 25px;
-  font-size: 14px;
-  z-index: 10001;
-  max-width: 90%;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  opacity: 0;
-  transform: translateX(-50%) translateY(20px);
-  transition: all 0.3s ease;
-}
-
-.mobile-toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.mobile-toast.success {
-  background: #04aa6d;
-}
-
-.mobile-toast.warning {
-  background: #f59e0b;
-}
-
-.mobile-toast.error {
-  background: #ef4444;
-}
-
-/* Responsive adjustments for small screens */
-@media (max-width: 320px) {
-  .secondary-actions {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-  }
-
-  .drawer-btn.secondary {
-    min-height: 60px;
-    padding: 10px 6px;
-  }
-
-  .drawer-btn.secondary i {
-    font-size: 16px;
-  }
-
-  .drawer-btn.secondary span {
-    font-size: 10px;
-  }
-}

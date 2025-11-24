@@ -1,5 +1,7 @@
 <?php
-session_start();
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 include 'connect_db.php';
 
 // Handle form submission to update coordinates

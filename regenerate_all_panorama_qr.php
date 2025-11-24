@@ -4,6 +4,9 @@
  * This will create new QR code image files and update database URLs
  */
 
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 include 'connect_db.php';
 require_once __DIR__ . '/phpqrcode/qrlib.php';
 
@@ -29,7 +32,7 @@ function getCurrentBaseUrl() {
         }
         
         if (empty($baseUrl)) {
-            $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+            $baseUrl = "https://localhost/gabay/mobileScreen/";
         }
     }
     

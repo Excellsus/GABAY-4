@@ -1,0 +1,28 @@
+/* System font overrides for consistent UI */
+html,
+body,
+.container,
+.main-content,
+.header,
+.sidebar,
+.modal-dialog,
+.modal-body,
+.form-input,
+textarea,
+input,
+button,
+select {
+  font-family: Arial, sans-serif !important;
+}
+
+/* Ensure SVG text fallback uses Arial where applicable */
+svg text,
+svg tspan {
+  font-family: Arial, sans-serif !important;
+}
+
+/* Small utility: apply system font to chart tooltips and canvas text fallbacks */
+.chartjs-tooltip,
+.chartjs-render-monitor {
+  font-family: Arial, sans-serif !important;
+}

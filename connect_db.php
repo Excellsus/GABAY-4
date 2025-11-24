@@ -1,6 +1,7 @@
 <?php
+// InfinityFree Database Configuration
 $db_host = "localhost";
-$db_name = "admin"; // Replace with your actual database name
+$db_name = "admin"; // Replace XXX with your actual database name suffix
 $db_username = "root";
 $db_password = "";
 

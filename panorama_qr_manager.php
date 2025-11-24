@@ -1,4 +1,7 @@
 <?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 // Bulk Panorama QR Code Generator
 include 'connect_db.php';
 
@@ -14,7 +17,7 @@ if ($_POST['action'] ?? '' === 'update_urls_to_ip') {
                 $baseUrl = $protocol . '://' . $_SERVER['HTTP_HOST'] . $scriptDir . '/mobileScreen/';
                 $baseUrl = preg_replace('#([^:])/+#', '$1/', $baseUrl);
             } else {
-                $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+                $baseUrl = "https://localhost/gabay/mobileScreen/";
             }
             return $baseUrl;
         }

@@ -36,7 +36,7 @@
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         user-select: none;
-        background: #1a1a1a;
+        background: #000000 !important; /* Force pure black */
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
 
@@ -45,11 +45,46 @@
         position: fixed;
         width: 100%;
         height: 100%;
+        background: #000000 !important; /* Ensure black background */
+      }
+
+      /* Force black background on all possible containers */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000000;
+        z-index: -1;
+      }
+
+      /* Hide Photo Sphere Viewer overlay elements that clutter the screen */
+      .psv-overlay,
+      .psv--capture-event {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      /* Ensure Photo Sphere Viewer container has black background */
+      .psv-container,
+      .psv-canvas-container {
+        background-color: #000000 !important;
+      }
+
+      /* Force black on Photo Sphere Viewer loader */
+      .psv-loader-container,
+      .psv-loader {
+        background-color: #000000 !important;
       }
 
       #viewer {
         width: 100vw;
         height: 100vh;
+        background: #000000 !important; /* Black background for panorama viewer */
       }
 
       /* Split-screen optimized styles */
@@ -246,13 +281,19 @@
 
       /* Loading indicator */
       .loading-indicator {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        position: fixed; /* Changed from absolute to fixed */
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         color: #04aa6d;
         font-size: 14px;
         z-index: 2000;
+        background: #000000 !important; /* Full screen black background */
       }
 
       .loading-spinner {
@@ -398,6 +439,155 @@
         max-height: 100% !important;
         object-fit: cover !important;
       }
+
+      /* ===== ALWAYS-VISIBLE HOTSPOT LABELS ===== */
+      /* Persistent text label that appears above each hotspot icon */
+      .hotspot-label {
+        position: absolute;
+        bottom: 100%; /* Position above the hotspot icon */
+        left: 50%;
+        transform: translateX(-50%) translateY(-8px); /* Center horizontally, offset vertically */
+        background: linear-gradient(
+          135deg,
+          rgba(0, 0, 0, 0.92),
+          rgba(26, 26, 26, 0.95)
+        );
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap; /* Prevent text wrapping */
+        pointer-events: none; /* Don't interfere with hotspot clicks */
+        z-index: 10; /* Ensure label appears above hotspot */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(4, 170, 109, 0.4);
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        letter-spacing: 0.3px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+        max-width: 200px; /* Prevent excessively long labels */
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Small arrow/pointer at bottom of label connecting to icon */
+      .hotspot-label::after {
+        content: "";
+        position: absolute;
+        top: 100%; /* Position at bottom of label */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid rgba(0, 0, 0, 0.92); /* Arrow pointing down */
+      }
+
+      /* Label style variants for different hotspot types */
+      .split-video-hotspot .hotspot-label {
+        border-color: rgba(4, 170, 109, 0.6);
+        background: linear-gradient(
+          135deg,
+          rgba(4, 170, 109, 0.15),
+          rgba(0, 0, 0, 0.92)
+        );
+      }
+
+      .split-video-hotspot .hotspot-label::after {
+        border-top-color: rgba(4, 170, 109, 0.3);
+      }
+
+      .split-gif-hotspot .hotspot-label {
+        border-color: rgba(255, 107, 107, 0.6);
+        background: linear-gradient(
+          135deg,
+          rgba(255, 107, 107, 0.15),
+          rgba(0, 0, 0, 0.92)
+        );
+      }
+
+      .split-gif-hotspot .hotspot-label::after {
+        border-top-color: rgba(255, 107, 107, 0.3);
+      }
+
+      .split-nav-hotspot .hotspot-label {
+        border-color: rgba(102, 126, 234, 0.6);
+        background: linear-gradient(
+          135deg,
+          rgba(102, 126, 234, 0.15),
+          rgba(0, 0, 0, 0.92)
+        );
+      }
+
+      .split-nav-hotspot .hotspot-label::after {
+        border-top-color: rgba(102, 126, 234, 0.3);
+      }
+
+      /* Hover effect - slightly brighten label on hotspot hover */
+      .split-video-marker:hover + .hotspot-label,
+      .split-gif-marker:hover + .hotspot-label,
+      .split-nav-marker:hover + .hotspot-label {
+        transform: translateX(-50%) translateY(-12px); /* Lift slightly on hover */
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+      }
+
+      /* Label emphasis for navigation hotspots */
+      .split-nav-hotspot.panorama-nav .hotspot-label {
+        border-color: rgba(4, 170, 109, 0.7);
+      }
+
+      .split-nav-hotspot.office-nav .hotspot-label {
+        border-color: rgba(255, 107, 107, 0.7);
+      }
+
+      .split-nav-hotspot.cross-floor .hotspot-label {
+        border-color: rgba(255, 215, 0, 0.7);
+        background: linear-gradient(
+          135deg,
+          rgba(255, 215, 0, 0.15),
+          rgba(0, 0, 0, 0.92)
+        );
+      }
+
+      .split-nav-hotspot.cross-floor .hotspot-label::after {
+        border-top-color: rgba(255, 215, 0, 0.3);
+      }
+
+      /* Responsive label sizing for smaller screens */
+      @media (max-width: 600px) {
+        .hotspot-label {
+          font-size: 10px;
+          padding: 5px 10px;
+          max-width: 150px;
+          transform: translateX(-50%) translateY(-6px);
+        }
+
+        .hotspot-label::after {
+          border-left-width: 4px;
+          border-right-width: 4px;
+          border-top-width: 4px;
+        }
+      }
+
+      /* Ensure labels remain visible during marker animations */
+      .split-video-marker.loading + .hotspot-label,
+      .split-gif-marker.loading + .hotspot-label,
+      .split-nav-marker.loading + .hotspot-label {
+        opacity: 0.7; /* Slightly fade during loading */
+      }
+
+      /* Prevent label flickering during panorama pan/zoom */
+      .hotspot-label {
+        will-change: transform, opacity;
+        backface-visibility: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
     </style>
   </head>
   <body>
@@ -425,6 +615,8 @@
           this.viewer = null;
           this.markersPlugin = null;
           this.hotspots = [];
+          this.activeInfoOverlay = null;
+          this.activeInfoMarkerId = null;
           this.pathId = null;
           this.pointIndex = null;
           this.floorNumber = null;
@@ -539,6 +731,7 @@
               mousemove: true,
               touchmoveTwoFingers: false, // Enable single finger pan
               mousewheelCtrlKey: false, // Allow zoom without Ctrl key
+              canvasBackground: "#000000", // Force black canvas background
               plugins: [
                 [
                   PhotoSphereViewer.MarkersPlugin,
@@ -1071,10 +1264,12 @@
               }
 
               // Video hotspot with better error handling
+              // Include always-visible text label above icon
+              const videoTitle = this.sanitizeHTML(
+                hotspot.title || "Video Hotspot"
+              );
               markerHTML = `
-                            <div class="split-video-marker" title="${
-                              hotspot.title || "Video Hotspot"
-                            }" data-hotspot-id="${hotspot.id}">
+                            <div class="split-video-marker" title="${videoTitle}" data-hotspot-id="${hotspot.id}">
                                 <video autoplay loop muted playsinline preload="auto"
                                        onloadstart="console.log('Video loading:', '${assetUrl}')"
                                        onerror="console.warn('Split-screen video failed to load:', '${assetUrl}')">
@@ -1082,6 +1277,7 @@
                                     <div class="video-fallback">📹</div>
                                 </video>
                             </div>
+                            <div class="hotspot-label" data-label-for="${hotspot.id}">${videoTitle}</div>
                         `;
               markerClass = "split-video-hotspot";
             } else if (hotspot.animated_icon_path) {
@@ -1096,17 +1292,18 @@
               }
 
               // GIF hotspot with enhanced fallback
-              markerHTML = `
-                            <div class="split-gif-marker" title="${
-                              hotspot.title || "Animated Hotspot"
-                            }" data-hotspot-id="${hotspot.id}">
-                                <img src="${assetUrl}" alt="${
+              // Include always-visible text label above icon
+              const gifTitle = this.sanitizeHTML(
                 hotspot.title || "Animated Hotspot"
-              }"
+              );
+              markerHTML = `
+                            <div class="split-gif-marker" title="${gifTitle}" data-hotspot-id="${hotspot.id}">
+                                <img src="${assetUrl}" alt="${gifTitle}"
                                      onload="console.log('GIF loaded:', '${assetUrl}')"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block'; console.warn('Split-screen GIF failed to load:', '${assetUrl}')">
                                 <div class="gif-fallback" style="display:none;">🎬</div>
                             </div>
+                            <div class="hotspot-label" data-label-for="${hotspot.id}">${gifTitle}</div>
                         `;
               markerClass = "split-gif-hotspot";
             } else {
@@ -1133,11 +1330,14 @@
                 }
               }
 
+              // Include always-visible text label above icon
+              const navTitle = this.sanitizeHTML(title);
               markerHTML = `
-                            <div class="split-nav-marker${extraClass}" title="${title}" data-hotspot-id="${hotspot.id}">
+                            <div class="split-nav-marker${extraClass}" title="${navTitle}" data-hotspot-id="${hotspot.id}">
                                 <div class="nav-icon">${icon}</div>
                                 <div class="nav-pulse"></div>
                             </div>
+                            <div class="hotspot-label" data-label-for="${hotspot.id}">${navTitle}</div>
                         `;
               markerClass = "split-nav-hotspot";
             }
@@ -1298,30 +1498,30 @@
         navigateToPanorama(hotspot) {
           // Get target panorama details with robust fallbacks (handle both snake_case and camelCase)
           const targetPath =
-            hotspot.target_path_id ||
-            hotspot.targetPathId ||
-            hotspot.link_path_id ||
-            hotspot.linkPathId ||
+            hotspot.target_path_id ??
+            hotspot.targetPathId ??
+            hotspot.link_path_id ??
+            hotspot.linkPathId ??
             "path1";
           const targetPoint =
-            hotspot.target_point_index ||
-            hotspot.targetPointIndex ||
-            hotspot.link_point_index ||
-            hotspot.linkPointIndex ||
+            hotspot.target_point_index ??
+            hotspot.targetPointIndex ??
+            hotspot.link_point_index ??
+            hotspot.linkPointIndex ??
             1;
           const targetFloor =
-            hotspot.target_floor ||
-            hotspot.targetFloor ||
-            hotspot.link_floor_number ||
-            hotspot.linkFloorNumber ||
-            this.floorNumber ||
+            hotspot.target_floor ??
+            hotspot.targetFloor ??
+            hotspot.link_floor_number ??
+            hotspot.linkFloorNumber ??
+            this.floorNumber ??
             1;
 
-          // Convert to proper types
+          // Convert to proper types - use ?? to preserve 0 values
           const path = targetPath.toString();
-          const point = parseInt(targetPoint) || 1;
-          const floor = parseInt(targetFloor) || 1;
-          const currentFloor = parseInt(this.floorNumber) || 1;
+          const point = parseInt(targetPoint) ?? 1;
+          const floor = parseInt(targetFloor) ?? 1;
+          const currentFloor = parseInt(this.floorNumber) ?? 1;
 
           console.log("🧭 Navigating to panorama:", {
             original_data_snake_case: {
@@ -1346,8 +1546,14 @@
             title: hotspot.title,
           });
 
-          // Validate we have valid data
-          if (!path || point < 1) {
+          // Validate we have valid data - point can be 0, so check for null/undefined/NaN
+          if (
+            !path ||
+            point === null ||
+            point === undefined ||
+            isNaN(point) ||
+            point < 0
+          ) {
             console.error("❌ Invalid navigation data:", {
               path,
               point,
@@ -1773,6 +1979,9 @@
             "Interactive hotspot";
           console.log("ℹ️ Hotspot info:", message);
 
+          // Track which marker is currently active so the close button can clean it up
+          this.activeInfoMarkerId = hotspot && hotspot.id ? hotspot.id : null;
+
           // Show a temporary info overlay with navigation option
           this.showInfoOverlay(message, hotspot.title, hotspot);
         }
@@ -1853,7 +2062,17 @@
         }
 
         showInfoOverlay(message, title, hotspot = null) {
+          // Remove any previously open overlay to prevent stacking
+          if (
+            this.activeInfoOverlay &&
+            document.body.contains(this.activeInfoOverlay)
+          ) {
+            this.activeInfoOverlay.remove();
+            this.activeInfoOverlay = null;
+          }
+
           const overlay = document.createElement("div");
+          overlay.dataset.overlayType = "hotspot-info";
           overlay.style.cssText = `
             position: fixed;
             top: 50%;
@@ -1870,53 +2089,145 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
           `;
 
-          let debugButtons = "";
-          if (hotspot) {
-            debugButtons = `
-              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
-                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px;">Debug Controls:</div>
-                <button onclick="window.splitViewer.forceNavigate('${
-                  hotspot.target_path_id || hotspot.link_path_id || "path2"
-                }', '${
-              hotspot.target_point_index || hotspot.link_point_index || 2
-            }', '${hotspot.target_floor || hotspot.link_floor_number || 1}')" 
-                        style="background: #04aa6d; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin: 2px; cursor: pointer; font-size: 11px;">
-                  🧭 Force Navigate
-                </button>
-                <button onclick="console.log('Hotspot data:', ${JSON.stringify(
-                  hotspot
-                ).replace(/"/g, "&quot;")})" 
-                        style="background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin: 2px; cursor: pointer; font-size: 11px;">
-                  📊 Log Data
-                </button>
-                <button onclick="document.body.removeChild(this.closest('div[style*=\"position: fixed\"]'))" 
-                        style="background: #ff6b6b; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin: 2px; cursor: pointer; font-size: 11px;">
-                  ✖️ Close
-                </button>
-              </div>
-            `;
+          const contentWrapper = document.createElement("div");
+
+          if (!hotspot) {
+            this.activeInfoMarkerId = null;
           }
 
-          overlay.innerHTML = `
-            ${
-              title
-                ? `<div style="font-weight: 600; margin-bottom: 10px;">${title}</div>`
-                : ""
-            }
-            <div style="opacity: 0.9; margin-bottom: 10px;">${message}</div>
-            ${debugButtons}
-          `;
+          if (title) {
+            const titleEl = document.createElement("div");
+            titleEl.style.cssText = "font-weight: 600; margin-bottom: 10px;";
+            titleEl.innerHTML = title;
+            contentWrapper.appendChild(titleEl);
+          }
 
-          document.body.appendChild(overlay);
+          const messageEl = document.createElement("div");
+          messageEl.style.cssText = "opacity: 0.9; margin-bottom: 10px;";
+          messageEl.innerHTML = message;
+          contentWrapper.appendChild(messageEl);
 
-          // Remove after longer time if no debug buttons
-          if (!hotspot) {
-            setTimeout(() => {
-              if (document.body.contains(overlay)) {
-                document.body.removeChild(overlay);
+          let overlayClosed = false;
+          const closeOverlay = (event) => {
+            if (overlayClosed) {
+              if (event) {
+                event.preventDefault();
+                event.stopPropagation();
               }
+              return;
+            }
+            overlayClosed = true;
+
+            if (event) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+
+            if (overlay && overlay.parentNode) {
+              overlay.parentNode.removeChild(overlay);
+            }
+
+            if (this.activeInfoOverlay === overlay) {
+              this.activeInfoOverlay = null;
+            }
+
+            if (this.activeInfoMarkerId) {
+              try {
+                if (
+                  this.markersPlugin &&
+                  typeof this.markersPlugin.unselectMarker === "function"
+                ) {
+                  this.markersPlugin.unselectMarker(this.activeInfoMarkerId);
+                } else if (
+                  this.markersPlugin &&
+                  typeof this.markersPlugin.setActiveMarker === "function"
+                ) {
+                  this.markersPlugin.setActiveMarker(null);
+                }
+
+                const selectorOptions = [
+                  `[data-psv-marker="${this.activeInfoMarkerId}"]`,
+                  `[data-psv-marker-id="${this.activeInfoMarkerId}"]`,
+                  `[data-marker-id="${this.activeInfoMarkerId}"]`,
+                ];
+
+                for (const selector of selectorOptions) {
+                  const markerEl = document.querySelector(selector);
+                  if (markerEl) {
+                    markerEl.classList.remove(
+                      "psv-marker--active",
+                      "psv-marker--hover",
+                      "psv-marker--selected"
+                    );
+                    break;
+                  }
+                }
+              } catch (cleanupError) {
+                console.warn(
+                  "⚠️ Unable to reset hotspot marker state:",
+                  cleanupError
+                );
+              }
+
+              this.activeInfoMarkerId = null;
+            }
+          };
+
+          if (hotspot) {
+            const footer = document.createElement("div");
+            footer.style.cssText =
+              "margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);";
+
+            const closeBtn = document.createElement("button");
+            closeBtn.type = "button";
+            closeBtn.textContent = "✖️ Close";
+            closeBtn.className = "hotspot-info-close-btn";
+            closeBtn.style.cssText =
+              "background: #ff6b6b; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 12px; width: 100%;";
+            closeBtn.setAttribute("aria-label", "Close hotspot information");
+
+            closeBtn.addEventListener("click", closeOverlay, {
+              passive: false,
+            });
+            closeBtn.addEventListener("touchend", closeOverlay, {
+              passive: false,
+            });
+
+            footer.appendChild(closeBtn);
+            contentWrapper.appendChild(footer);
+          } else {
+            setTimeout(() => {
+              closeOverlay();
             }, 3000);
           }
+
+          overlay.appendChild(contentWrapper);
+
+          // Prevent overlay interactions from propagating to the viewer (helps mobile)
+          overlay.addEventListener(
+            "click",
+            (event) => {
+              event.stopPropagation();
+            },
+            { passive: true }
+          );
+          overlay.addEventListener(
+            "touchstart",
+            (event) => {
+              event.stopPropagation();
+            },
+            { passive: true }
+          );
+          overlay.addEventListener(
+            "touchend",
+            (event) => {
+              event.stopPropagation();
+            },
+            { passive: true }
+          );
+
+          document.body.appendChild(overlay);
+          this.activeInfoOverlay = overlay;
         }
 
         // Force navigation method for debugging
@@ -2021,13 +2332,28 @@
           return { yaw, pitch };
         }
 
+        sanitizeHTML(text) {
+          // Prevent XSS attacks by escaping HTML special characters
+          // Uses textContent to safely convert text to HTML entities
+          if (!text) return "";
+
+          const div = document.createElement("div");
+          div.textContent = text;
+          return div.innerHTML;
+        }
+
         showError(message) {
-          document.getElementById("loading").innerHTML = `
-                    <div style="color: #ff6b6b; text-align: center;">
+          const loadingDiv = document.getElementById("loading");
+          if (loadingDiv) {
+            loadingDiv.style.background =
+              "#000000"; /* Black background for errors */
+            loadingDiv.innerHTML = `
+                    <div style="color: #ff6b6b; text-align: center; background: #000000; padding: 20px; border-radius: 8px;">
                         <div style="font-size: 2em; margin-bottom: 10px;">⚠️</div>
                         <div>${message}</div>
                     </div>
                 `;
+          }
         }
       }
 

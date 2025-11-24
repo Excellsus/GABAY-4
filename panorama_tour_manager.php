@@ -1,3 +1,7 @@
+<?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

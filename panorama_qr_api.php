@@ -79,10 +79,10 @@ function getPanoramaQRBaseUrl() {
         }
         
         if (!empty($detectedIP)) {
-            $baseUrl = "http://" . $detectedIP . "/FinalDev/mobileScreen/";
+            $baseUrl = "http://" . $detectedIP . "/gabay/mobileScreen/";
         } else {
-            // Final fallback: localhost
-            $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+            // Final fallback: production domain
+            $baseUrl = "https://localhost/gabay/mobileScreen/";
         }
     }
     

@@ -5930,3 +5930,178 @@ input:checked + .slider {
   fill: #9ca3af !important;
   filter: none !important;
 }
+
+/* --- Entry Point (Door) Marker Styles --- */
+.entry-point-marker {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.entry-point-marker .entry-bg {
+  fill: #F97316; /* Orange background for doors */
+  transition: all 0.3s ease;
+}
+
+.entry-point-marker:hover .entry-bg {
+  fill: #ffa05cff; /* Lighter orange on hover */
+}
+
+.entry-point-marker.inactive {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 1 !important; /* Full opacity - make it visible */
+}
+
+.entry-point-marker.inactive .entry-bg {
+  fill: #9ca3af !important; /* Medium grey background */
+  stroke: #6b7280 !important; /* Darker grey border */
+  opacity: 1 !important; /* Full opacity */
+}
+
+.entry-point-marker.inactive .door-icon {
+  fill: #e5e7eb !important; /* Light grey icon for contrast on grey background */
+  opacity: 1 !important; /* Full opacity */
+}
+
+/* Door controls container styling */
+#door-controls-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
+}
+
+/* Custom scrollbar for door controls */
+#door-controls-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+#door-controls-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+#door-controls-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+#door-controls-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Door control item styling */
+.door-control-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.door-control-item:hover {
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.door-control-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+}
+
+.door-control-label i {
+  color: #F97316;
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.door-control-item:hover .door-control-label i {
+  transform: scale(1.1);
+}
+
+.door-control-item.inactive {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: #e2e8f0;
+  opacity: 0.75;
+}
+
+.door-control-item.inactive .door-control-label {
+  color: #64748b;
+}
+
+.door-control-item.inactive .door-control-label i {
+  color: #94a3b8;
+}
+
+.door-control-item.inactive:hover {
+  opacity: 0.85;
+}
+
+#door-controls-container:empty::before {
+  content: "No entry points configured for this office";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  font-size: 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+/* Swap Rooms Button Styling */
+#swap-rooms-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transition: all 0.3s ease;
+}
+
+#swap-rooms-btn:hover {
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+}
+
+#swap-rooms-btn:active {
+  transform: translateY(0);
+}
+
+/* Modal Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

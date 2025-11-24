@@ -17,6 +17,10 @@
       "enforceTransitions": true
     }
   },
+  "entranceAccessRules": {
+  },
+  "entrances": [
+  ],
   "restrictedAccessRules": {
     "room-4-3": {
       "mandatoryEntryPoint": "stair_east_2-2",
@@ -432,3 +436,4 @@
     "1810,174": ["path_central_exclusive_floor3"]
   }
 }
+

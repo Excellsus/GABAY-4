@@ -73,6 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Feedback - Interactive Map</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="feedback.css">
+    <link rel="stylesheet" href="../assets/css/system-fonts.css" />
     
     <!-- GABAY Geofencing System -->
     <script src="js/geofencing.js"></script>

@@ -4,6 +4,13 @@ include 'connect_db.php';
 
 // Handle different API operations
 $operation = $_POST['operation'] ?? $_GET['operation'] ?? '';
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+// New action-based routing
+if ($action === 'get_door_qr_status') {
+    handleGetDoorQRStatus();
+    exit;
+}
 
 switch ($operation) {
     case 'getQrStatus':
@@ -81,6 +88,40 @@ function handleUpdateQrStatus() {
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to update QR code status or QR code not found']);
         }
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+function handleGetDoorQRStatus() {
+    global $connect;
+    
+    $office_id = $_POST['office_id'] ?? $_GET['office_id'] ?? '';
+    
+    if (empty($office_id)) {
+        echo json_encode(['success' => false, 'message' => 'Office ID required']);
+        return;
+    }
+    
+    try {
+        // Fetch all door QR codes for this office
+        $stmt = $connect->prepare("SELECT door_index, is_active FROM door_qrcodes WHERE office_id = ?");
+        $stmt->execute([$office_id]);
+        $doorQRs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Create a map of door index to QR status
+        $doorQRStatus = [];
+        foreach ($doorQRs as $qr) {
+            $doorQRStatus[$qr['door_index']] = [
+                'exists' => true,
+                'is_active' => (bool)$qr['is_active']
+            ];
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'door_qr_status' => $doorQRStatus
+        ]);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
     }

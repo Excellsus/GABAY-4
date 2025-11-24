@@ -10,11 +10,13 @@ body {
   font-family: Arial, sans-serif;
   background-color: #e8f5e9;
   color: #333;
+  overflow: hidden; /* Prevent body scroll */
 }
 
 .container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* Sidebar */
@@ -24,9 +26,13 @@ body {
   color: white;
   display: flex;
   flex-direction: column;
-  position: relative;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
   box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.05),
     2px 0 4px -1px rgba(0, 0, 0, 0.03);
+  z-index: 1000;
 }
 
 .sidebar-header {
@@ -139,8 +145,31 @@ body {
 /* Main Content */
 .main-content {
   flex: 1;
+  margin-left: 250px;
   padding: 32px;
   background-color: #e8f5e9;
+  height: 100vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar for Main Content */
+.main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: rgba(26, 86, 50, 0.3);
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 86, 50, 0.6);
 }
 
 .header {

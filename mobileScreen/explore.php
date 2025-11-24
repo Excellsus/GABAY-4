@@ -14,6 +14,9 @@ $offices = []; // Initialize as empty array
 $error_message_php = null; // Variable for PHP errors
 
 $highlight_office_id = null; // This will store the office ID from the URL if provided
+$scanned_door_index = null; // This will store the door index if scanning a door QR
+$scan_already_logged = false; // Flag to prevent duplicate scan logging
+
 if (isset($_GET['office_id']) && is_numeric($_GET['office_id'])) {
     $highlight_office_id = (int)$_GET['office_id'];
 }
@@ -39,7 +42,9 @@ if (isset($_GET['scanned_panorama'])) {
 }
 
 // --- Log QR Scan if office_id is present in URL ---
-if ($highlight_office_id !== null && isset($connect) && $connect) {
+// Skip if scan was already logged (e.g., by door QR handler)
+// CRITICAL: Skip if this is a door QR scan (door QR handler will log it instead)
+if ($highlight_office_id !== null && !$scan_already_logged && !isset($_GET['door_qr']) && isset($connect) && $connect) {
     // Create unique session key for this office scan
     $office_scan_key = "office_scanned_" . $highlight_office_id;
     
@@ -64,6 +69,7 @@ if ($highlight_office_id !== null && isset($connect) && $connect) {
                 
                 // Mark this office as scanned in the session to prevent duplicates
                 $_SESSION[$office_scan_key] = true;
+                $scan_already_logged = true; // Prevent door QR handler from logging again
                 
                 error_log("Office QR Scan logged for office_id: $highlight_office_id, qr_code_info_id: $qr_code_info_id");
             } else {
@@ -74,9 +80,89 @@ if ($highlight_office_id !== null && isset($connect) && $connect) {
         }
     } else {
         error_log("Office QR Scan skipped (already logged in session) for office_id: $highlight_office_id");
+        $scan_already_logged = true; // Session already has this scan
     }
 }
 // --- End Log QR Scan ---
+
+// --- Handle Door QR Scan (NEW) ---
+// Door QR scans are treated identically to office QR scans - they mark the room as "You Are Here"
+if (isset($_GET['door_qr']) && isset($_GET['office_id']) && isset($_GET['door_index'])) {
+    $door_office_id = (int)$_GET['office_id'];
+    $door_index = (int)$_GET['door_index'];
+    
+    // ✅ STEP 1: Check if this door QR code EXISTS and is ACTIVE in database
+    $door_qr_exists = false;
+    $door_is_active = false;
+    
+    if (isset($connect) && $connect) {
+        try {
+            $stmt_check_door = $connect->prepare("SELECT is_active FROM door_qrcodes WHERE office_id = ? AND door_index = ?");
+            $stmt_check_door->execute([$door_office_id, $door_index]);
+            $door_qr_record = $stmt_check_door->fetch(PDO::FETCH_ASSOC);
+            
+            if ($door_qr_record) {
+                // Door QR exists in database
+                $door_qr_exists = true;
+                $door_is_active = (bool)$door_qr_record['is_active'];
+                error_log("Door QR validation: office_id=$door_office_id, door_index=$door_index, exists=true, is_active=" . ($door_is_active ? 'true' : 'false'));
+            } else {
+                // Door QR does NOT exist in database (deleted or never created)
+                error_log("🚫 BLOCKED: Door QR does not exist in database: office_id=$door_office_id, door_index=$door_index");
+            }
+        } catch (PDOException $e) {
+            error_log("Error checking door QR status: " . $e->getMessage());
+        }
+    }
+    
+    // 🚫 STEP 2: If door QR doesn't exist OR is inactive, redirect to 404 page (NO SCAN LOGGING)
+    if (!$door_qr_exists || !$door_is_active) {
+        if (!$door_qr_exists) {
+            error_log("🚫 BLOCKED deleted/non-existent door QR scan attempt: office_id=$door_office_id, door_index=$door_index (scan NOT counted)");
+        } else {
+            error_log("🚫 BLOCKED inactive door QR scan attempt: office_id=$door_office_id, door_index=$door_index (scan NOT counted)");
+        }
+        
+        // Redirect to 404 error page
+        header('Location: 404_inactive_door.php');
+        exit;
+    }
+    
+    // ✅ STEP 3: Door is active, NOW we log the scan and proceed
+    // Set highlight_office_id so the room gets highlighted
+    $highlight_office_id = $door_office_id;
+    
+    // Store the scanned door index for JavaScript
+    $scanned_door_index = $door_index;
+    
+    // ONLY log the scan if door is active (moved here from after validation)
+    if (isset($connect) && $connect) {
+        $door_scan_key = "door_scanned_" . $door_office_id . "_" . $door_index;
+        
+        if (!isset($_SESSION[$door_scan_key])) {
+            try {
+                // Log as regular office scan (door scans = office scans for analytics)
+                $stmt_qr_info = $connect->prepare("SELECT id FROM qrcode_info WHERE office_id = ? LIMIT 1");
+                $stmt_qr_info->execute([$door_office_id]);
+                $qr_info_record = $stmt_qr_info->fetch(PDO::FETCH_ASSOC);
+
+                if ($qr_info_record) {
+                    $qr_code_info_id = $qr_info_record['id'];
+                    $stmt_log = $connect->prepare("INSERT INTO qr_scan_logs (office_id, qr_code_id, door_index, check_in_time) VALUES (?, ?, ?, NOW())");
+                    $stmt_log->execute([$door_office_id, $qr_code_info_id, $door_index]);
+                    $_SESSION[$door_scan_key] = true;
+                    $scan_already_logged = true; // Prevent office scan logger from logging again
+                    error_log("✅ Active door QR scan logged: office_id=$door_office_id, door_index=$door_index");
+                }
+            } catch (PDOException $e) {
+                error_log("Error logging door QR scan: " . $e->getMessage());
+            }
+        } else {
+            $scan_already_logged = true; // Session already has this scan
+        }
+    }
+}
+// --- End Door QR Scan ---
 
 // --- Log Panorama QR Scan ---
 if ($scanned_panorama !== null && isset($connect) && $connect) {
@@ -114,6 +200,79 @@ if ($scanned_panorama !== null && isset($connect) && $connect) {
 }
 // --- End Log Panorama QR Scan ---
 
+// --- Handle Entrance QR Scan (NEW) ---
+$scanned_entrance = null;
+$scanned_entrance_floor = null;
+
+if (isset($_GET['entrance_qr']) && isset($_GET['entrance_id']) && isset($_GET['floor'])) {
+    $entrance_id = $_GET['entrance_id'];
+    $entrance_floor = (int)$_GET['floor'];
+    
+    // STEP 1: Validate entrance exists and is active in database
+    $entrance_exists = false;
+    $entrance_is_active = false;
+    $entrance_data = null;
+    
+    if (isset($connect) && $connect) {
+        try {
+            $stmt_check_entrance = $connect->prepare("SELECT * FROM entrance_qrcodes WHERE entrance_id = ? AND is_active = 1");
+            $stmt_check_entrance->execute([$entrance_id]);
+            $entrance_record = $stmt_check_entrance->fetch(PDO::FETCH_ASSOC);
+            
+            if ($entrance_record) {
+                $entrance_exists = true;
+                $entrance_is_active = true;
+                $entrance_data = $entrance_record;
+                error_log("Entrance QR validation: entrance_id=$entrance_id, floor=$entrance_floor, exists=true, is_active=true");
+            } else {
+                error_log("🚫 BLOCKED: Entrance QR does not exist or is inactive: entrance_id=$entrance_id");
+            }
+        } catch (PDOException $e) {
+            error_log("Error checking entrance QR status: " . $e->getMessage());
+        }
+    }
+    
+    // STEP 2: If entrance doesn't exist OR is inactive, redirect to 404 page
+    if (!$entrance_exists || !$entrance_is_active) {
+        error_log("🚫 BLOCKED inactive/non-existent entrance QR scan attempt: entrance_id=$entrance_id (scan NOT counted)");
+        header('Location: 404_inactive_door.php'); // Reuse same 404 page as door QRs
+        exit;
+    }
+    
+    // STEP 3: Entrance is active, log the scan
+    $scanned_entrance = $entrance_data;
+    $scanned_entrance_floor = $entrance_floor;
+    
+    if (isset($connect) && $connect) {
+        $entrance_scan_key = "entrance_scanned_" . $entrance_id;
+        
+        if (!isset($_SESSION[$entrance_scan_key])) {
+            try {
+                // Log to entrance_scan_logs table (separate from office statistics)
+                $stmt_entrance_log = $connect->prepare("
+                    INSERT INTO entrance_scan_logs (entrance_id, entrance_qr_id, check_in_time, session_id, user_agent, ip_address) 
+                    VALUES (?, ?, NOW(), ?, ?, ?)
+                ");
+                $stmt_entrance_log->execute([
+                    $entrance_id,
+                    $entrance_data['id'],
+                    session_id(),
+                    $_SERVER['HTTP_USER_AGENT'] ?? null,
+                    $_SERVER['REMOTE_ADDR'] ?? null
+                ]);
+                
+                $_SESSION[$entrance_scan_key] = true;
+                error_log("✅ Active entrance QR scan logged: entrance_id=$entrance_id, floor=$entrance_floor");
+            } catch (PDOException $e) {
+                error_log("Error logging entrance QR scan: " . $e->getMessage());
+            }
+        } else {
+            error_log("Entrance QR Scan skipped (already logged in session) for entrance_id: $entrance_id");
+        }
+    }
+}
+// --- End Handle Entrance QR Scan ---
+
 try {
     // Check if $connect is a valid PDO object
     if (!isset($connect) || !$connect) {
@@ -137,6 +296,25 @@ try {
 
     // Fetch the data
     $offices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Fetch all entrance data for pathfinding dropdown
+    // NOTE: Database may contain both building entrances AND door QRs with entrance_id format
+    // We'll fetch all and filter client-side to match floor_graph.json entrances only
+    $entrances = [];
+    try {
+        $stmt_entrances = $connect->query("SELECT entrance_id, label, floor, x, y, nearest_path_id 
+            FROM entrance_qrcodes 
+            WHERE is_active = 1 
+            ORDER BY floor ASC, label ASC");
+        
+        if ($stmt_entrances) {
+            $entrances = $stmt_entrances->fetchAll(PDO::FETCH_ASSOC);
+            error_log("✅ Fetched " . count($entrances) . " active entrance QRs from database (includes building entrances + door QRs)");
+        }
+    } catch (Exception $e_entrances) {
+        error_log("⚠️ Error fetching entrance data: " . $e_entrances->getMessage());
+        $entrances = []; // Fallback to empty array
+    }
 
 } catch (Exception $e) { // Catches PDOException and general Exception
     $error_message_php = "Error fetching office data: " . $e->getMessage();
@@ -194,17 +372,48 @@ try {
             <p class="error-message" style="text-align: center; padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; margin: 10px;"><?php echo htmlspecialchars($error_message_php); ?></p>
         <?php endif; ?>
 
-        <!-- Floor Selector Buttons -->
-        <div class="floor-selector">
-          <button class="floor-btn active" data-floor="1">1F</button>
-          <button class="floor-btn" data-floor="2">2F</button>
-          <button class="floor-btn" data-floor="3">3F</button>
+        <!-- Floor Controls Container - Groups Search and Floor Selector -->
+        <div class="floor-controls-container">
+          <!-- Search Bar (Left Side) -->
+          <div class="search-container">
+            <div class="search-input-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input 
+                type="text" 
+                id="office-search" 
+                class="search-input" 
+                placeholder="Search rooms or services..."
+                autocomplete="off"
+              />
+              <button id="clear-search" class="clear-search-btn" style="display:none;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <!-- Search Results Dropdown -->
+            <div id="search-results" class="search-results" style="display:none;">
+              <div class="search-results-content">
+                <!-- Results will be populated here dynamically -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Floor Selector Buttons (Right Side) -->
+          <div class="floor-selector">
+            <button class="floor-btn active" data-floor="1">1F</button>
+            <button class="floor-btn" data-floor="2">2F</button>
+            <button class="floor-btn" data-floor="3">3F</button>
+          </div>
         </div>
         
-        <!-- Placeholder: Switch to 3D View -->
-        <div style="position: absolute; top: 80px; right: 10px; z-index: 1001;">
-          <button id="switch-3d-view-btn" style="padding: 8px 12px; background: #ff8c00; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-            Switch to 3D View
+        <!-- Legend Button -->
+        <div class="legend-button-container">
+          <button id="legend-btn" class="legend-button" aria-label="Map Legend">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+              <path d="M10 10C10 10.5523 10.4477 11 11 11V17C10.4477 17 10 17.4477 10 18C10 18.5523 10.4477 19 11 19H13C13.5523 19 14 18.5523 14 18C14 17.4477 13.5523 17 13 17V9H11C10.4477 9 10 9.44772 10 10Z" fill="currentColor"/>
+              <path d="M12 8C12.8284 8 13.5 7.32843 13.5 6.5C13.5 5.67157 12.8284 5 12 5C11.1716 5 10.5 5.67157 10.5 6.5C10.5 7.32843 11.1716 8 12 8Z" fill="currentColor"/>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M23 4C23 2.34315 21.6569 1 20 1H4C2.34315 1 1 2.34315 1 4V20C1 21.6569 2.34315 23 4 23H20C21.6569 23 23 21.6569 23 20V4ZM21 4C21 3.44772 20.5523 3 20 3H4C3.44772 3 3 3.44772 3 4V20C3 20.5523 3.44772 21 4 21H20C20.5523 21 21 20.5523 21 20V4Z" fill="currentColor"/>
+            </svg>
           </button>
         </div>
 
@@ -215,22 +424,49 @@ try {
     </main>
 
     <style>
-      /* Floor selector styles */
-      .floor-selector {
+      /* Floor controls container - parent wrapper for search and floor selector */
+      .floor-controls-container {
         position: absolute;
         top: 5px;
+        left: 10px;
         right: 10px;
         z-index: 1000;
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 5%; /* 5% horizontal gap between children */
+        /* Shared control sizing defaults */
+        --control-vpad: 4px;   /* vertical padding */
+        --control-hpad: 12px;  /* horizontal padding for search */
+        --control-radius: 20px;
+        --control-min-height: 40px;
+      }
+      
+      /* Search container - left side, takes remaining space */
+      .search-container {
+        flex: 1;
+        max-width: 400px;
+        position: relative;
+      }
+      
+      /* Floor selector - right side, fixed width */
+      .floor-selector {
+        display: flex;
         gap: 4px;
-        background: rgba(255, 255, 255, 0.8);
-        padding: 4px;
-        border-radius: 20px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        /* Use shared control variables for consistent sizing */
+        padding: var(--control-vpad, 4px);
+        border-radius: var(--control-radius, 20px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        min-height: var(--control-min-height, 40px);
+        align-items: center;
+        box-sizing: border-box;
+        flex-shrink: 0; /* Prevent shrinking */
       }
 
       .floor-btn {
-        padding: 4px 8px;
+        /* Use shared vertical padding so buttons align with search & selector */
+        padding: calc(var(--control-vpad, 4px)) 8px;
         border: 1px solid #04aa6d;
         background: white;
         color: #04aa6d;
@@ -251,6 +487,448 @@ try {
         background: #04aa6d;
         color: white;
       }
+      
+      .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.95);
+        /* Use shared control variables for consistent sizing */
+        padding: var(--control-vpad, 4px) var(--control-hpad, 12px);
+        border-radius: var(--control-radius, 20px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        min-height: var(--control-min-height, 40px);
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+      }
+      
+      .search-input-wrapper:focus-within {
+        box-shadow: 0 4px 12px rgba(4, 170, 109, 0.3);
+        background: #ffffff;
+      }
+      
+      .search-icon {
+        color: #64748b;
+        font-size: 14px;
+        margin-right: 8px;
+        pointer-events: none;
+      }
+      
+      .search-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        /* Let the wrapper control vertical spacing; keep input horizontal padding minimal */
+        padding: 0 4px;
+        font-size: 14px;
+        color: #1e293b;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .search-input::placeholder {
+        color: #94a3b8;
+      }
+      
+      .clear-search-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+      }
+      
+      .clear-search-btn:hover {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      
+      .clear-search-btn i {
+        font-size: 12px;
+      }
+      
+      /* Search results dropdown */
+      .search-results {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1001;
+        animation: slideDown 0.2s ease;
+      }
+      
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      .search-results-content {
+        padding: 8px;
+      }
+      
+      .search-result-item {
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        margin-bottom: 4px;
+      }
+      
+      .search-result-item:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+      }
+      
+      .search-result-item:active {
+        background: #f1f5f9;
+      }
+      
+      .search-result-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      
+      .search-result-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      
+      .search-result-icon.room {
+        background: #dbeafe;
+        color: #2563eb;
+      }
+      
+      .search-result-icon.service {
+        background: #fef3c7;
+        color: #d97706;
+      }
+      
+      .search-result-icon.entrance {
+        background: #d1fae5;
+        color: #10B981;
+      }
+      
+      .search-result-icon i {
+        font-size: 12px;
+      }
+      
+      .search-result-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #1e293b;
+        flex: 1;
+      }
+      
+      .search-result-floor {
+        font-size: 11px;
+        color: #64748b;
+        background: #f1f5f9;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 500;
+      }
+      
+      .search-result-details {
+        font-size: 12px;
+        color: #64748b;
+        margin-left: 32px;
+        line-height: 1.5;
+      }
+      
+      .search-result-services {
+        font-size: 11px;
+        color: #64748b;
+        margin-left: 32px;
+        margin-top: 4px;
+        font-style: italic;
+      }
+      
+      .search-no-results {
+        padding: 24px;
+        text-align: center;
+        color: #64748b;
+      }
+      
+      .search-no-results i {
+        font-size: 32px;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+      }
+      
+      .search-no-results p {
+        font-size: 14px;
+        margin: 8px 0 0 0;
+      }
+      
+      /* Highlight matched keywords */
+      .highlight {
+        background: #fef08a;
+        color: #854d0e;
+        padding: 1px 2px;
+        border-radius: 2px;
+        font-weight: 600;
+      }
+      
+      /* Mobile responsive adjustments */
+      /* Large tablets and small desktops (1024px - 1200px) */
+      @media (max-width: 1200px) {
+        .floor-controls-container {
+          gap: 4%;
+        }
+      }
+      
+      /* Tablets and medium devices (768px - 1024px) */
+      @media (max-width: 1024px) {
+        .floor-controls-container {
+          top: 4px;
+          left: 8px;
+          right: 8px;
+          gap: 3%;
+        }
+      }
+      
+      /* Small tablets and large phones (600px - 768px) */
+      @media (max-width: 768px) {
+        .floor-controls-container {
+          top: 4px;
+          left: 8px;
+          right: 8px;
+          gap: 8px; /* Fixed gap for smaller screens */
+          /* Shared control sizing for this breakpoint */
+          --control-vpad: 3px;
+          --control-hpad: 9px;
+          --control-radius: 18px;
+          --control-min-height: 36px;
+        }
+        
+        .floor-selector {
+          gap: 3px;
+        }
+        
+        .floor-btn {
+          padding: calc(var(--control-vpad, 3px)) 7px;
+          font-size: 11px;
+          min-width: 28px;
+        }
+        
+        .search-container {
+          max-width: none;
+          flex: 1;
+        }
+        
+        .search-input-wrapper {
+          /* sizing comes from --control-* variables on .floor-controls-container */
+        }
+        
+        .search-input {
+          font-size: 14px;
+          padding: 0 4px;
+        }
+        
+        .search-results {
+          max-height: 300px;
+        }
+        
+        .search-result-title {
+          font-size: 13px;
+        }
+        
+        .search-result-details {
+          font-size: 11px;
+        }
+      }
+      
+      /* Standard phones (480px - 600px) */
+      @media (max-width: 600px) {
+        .floor-controls-container {
+          gap: 6px;
+        }
+        
+        .search-container {
+          max-width: none;
+        }
+      }
+      
+      /* Small phones (375px - 480px) */
+      @media (max-width: 480px) {
+        .floor-controls-container {
+          top: 3px;
+          left: 6px;
+          right: 6px;
+          gap: 6px;
+          flex-wrap: nowrap; /* Keep on same line */
+          /* Shared control sizing for this breakpoint */
+          --control-vpad: 2px;
+          --control-hpad: 6px;
+          --control-radius: 16px;
+          --control-min-height: 32px;
+        }
+        
+        .floor-selector {
+          gap: 2px;
+        }
+        
+        .floor-btn {
+          padding: calc(var(--control-vpad, 2px)) 6px;
+          font-size: 10px;
+          min-width: 26px;
+        }
+        
+        .search-input-wrapper {
+          /* sizing comes from --control-* variables on .floor-controls-container */
+        }
+        
+        .search-icon {
+          font-size: 12px;
+          margin-right: 6px;
+        }
+        
+        .search-input {
+          font-size: 13px;
+          padding: 0 3px;
+        }
+        
+        .search-input::placeholder {
+          font-size: 12px;
+        }
+        
+        .clear-search-btn i {
+          font-size: 11px;
+        }
+        
+        .search-results {
+          max-height: 250px;
+        }
+        
+        .search-result-item {
+          padding: 10px;
+        }
+        
+        .search-result-icon {
+          width: 20px;
+          height: 20px;
+        }
+        
+        .search-result-icon i {
+          font-size: 10px;
+        }
+        
+        .search-result-title {
+          font-size: 12px;
+        }
+        
+        .search-result-floor {
+          font-size: 10px;
+        }
+        
+        .search-result-details {
+          font-size: 11px;
+          margin-left: 28px;
+        }
+        
+        .search-result-services {
+          font-size: 10px;
+          margin-left: 28px;
+        }
+      }
+      
+      /* Very small phones (320px - 375px) */
+      @media (max-width: 375px) {
+        .floor-controls-container {
+          top: 3px;
+          left: 5px;
+          right: 5px;
+          gap: 5px;
+        }
+        
+        .search-input {
+          font-size: 12px;
+        }
+        
+        .search-input::placeholder {
+          font-size: 11px;
+        }
+        
+        .search-result-title {
+          font-size: 11px;
+        }
+        
+        .search-result-details,
+        .search-result-services {
+          font-size: 10px;
+        }
+      }
+      
+      /* Extra small phones (<320px) - Stack vertically */
+      @media (max-width: 320px) {
+        .floor-controls-container {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 5px;
+          /* Shared control sizing for extra-small screens */
+          --control-vpad: 2px;
+          --control-hpad: 5px;
+          --control-radius: 14px;
+          --control-min-height: 28px;
+        }
+        
+        .search-container {
+          max-width: none;
+          width: 100%;
+        }
+        
+        .floor-selector {
+          align-self: flex-end; /* Align to right when stacked */
+        }
+        
+        .search-input-wrapper {
+          /* sizing comes from --control-* variables on .floor-controls-container */
+        }
+        
+        .search-icon {
+          font-size: 11px;
+        }
+        
+        .search-input {
+          font-size: 11px;
+          padding: 0 3px;
+        }
+      }
+      
+      /* Landscape orientation adjustments */
+      @media (max-height: 500px) and (orientation: landscape) {
+        .floor-controls-container {
+          top: 3px;
+        }
+        
+        .search-results {
+          max-height: 200px;
+        }
+      }
 
       /* SVG styles - ensure full coverage */
       svg { 
@@ -260,7 +938,7 @@ try {
         max-height: none !important;
         display: block !important;
         position: absolute;
-        top: 0;
+        
         left: 0;
         /* Allow pinch gestures while preventing unwanted touch behaviors */
         touch-action: pan-x pan-y pinch-zoom !important;
@@ -293,15 +971,6 @@ try {
       
       /* Mobile-specific SVG adjustments */
       @media (max-width: 768px) {
-        svg {
-          width: 100vw !important;
-          height: 100% !important;
-          min-height: calc(100vh - 120px) !important;
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-        }
-        
         .svg-container {
           width: 100vw !important;
           height: 100% !important;
@@ -317,20 +986,22 @@ try {
         
         /* Adjust floor selector for mobile */
         .floor-selector {
-          position: absolute;
+          /* position: absolute; */
           top: 10px;
           right: 10px;
           z-index: 1000;
           display: flex;
           gap: 4px;
           background: rgba(255, 255, 255, 0.9);
-          padding: 6px;
-          border-radius: 20px;
+          /* Use shared control variables so these match the rest of the UI */
+          padding: var(--control-vpad, 4px);
+          border-radius: var(--control-radius, 20px);
+          min-height: var(--control-min-height, 40px);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
         
         .floor-btn {
-          padding: 6px 12px;
+          padding: calc(var(--control-vpad, 4px)) 12px;
           font-size: 14px;
           min-width: 36px;
         }
@@ -402,7 +1073,8 @@ try {
         stroke-width: 2px;
       }
       .room-inactive {
-        opacity: 0.5;
+        filter: grayscale(100%);
+        opacity: 0.6;
       }
       .text-label-inactive {
         opacity: 0.5;
@@ -480,6 +1152,12 @@ try {
         transition: all 0.3s ease;
       }
       
+      /* Mobile-specific panorama icon styling */
+      .panorama-marker .panorama-icon {
+        pointer-events: none;
+        transition: transform 0.2s ease;
+      }
+      
       /* Stair marker styling */
       .stair-marker {
         transition: transform 0.2s ease;
@@ -521,6 +1199,55 @@ try {
         .panorama-marker {
           /* Markers will be slightly larger on mobile for easier touch interaction */
           touch-action: manipulation;
+        }
+      }
+      
+      /* Door/Entry Point Marker Styles */
+      .entry-point-marker {
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      /* Inactive door marker state - grey background instead of orange */
+      .entry-point-marker.inactive {
+        pointer-events: none;
+        cursor: not-allowed;
+        opacity: 1 !important; /* Full opacity - make it visible */
+      }
+      
+      .entry-point-marker.inactive .entry-bg {
+        fill: #9ca3af !important; /* Medium grey background */
+        stroke: #6b7280 !important; /* Darker grey border */
+        opacity: 1 !important; /* Full opacity */
+      }
+      
+      .entry-point-marker.inactive .door-icon {
+        fill: #e5e7eb !important; /* Light grey icon for contrast on grey background */
+        opacity: 1 !important; /* Full opacity */
+      }
+      
+      /* Entrance Marker Styles (Green building entrance icons) */
+      .entrance-marker {
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      .entrance-marker:hover .entrance-bg {
+        fill: #059669; /* Darker green on hover */
+      }
+      
+      .entrance-marker .entrance-bg {
+        transition: fill 0.3s ease;
+      }
+      
+      .entrance-marker .entrance-icon {
+        pointer-events: none; /* Prevent icon from blocking clicks */
+      }
+      
+      /* Touch-friendly sizing for mobile entrance markers */
+      @media (max-width: 768px) {
+        .entrance-marker .entrance-bg {
+          r: 22; /* Slightly larger for easier tapping on mobile */
         }
       }
     </style>
@@ -578,20 +1305,6 @@ try {
                 </div>
               </button>
             </div>
-            <div class="secondary-actions">
-              <button class="drawer-btn secondary" id="call-btn" style="display: none;">
-                <i class="fas fa-phone"></i>
-                <span>Call</span>
-              </button>
-              <button class="drawer-btn secondary" id="share-btn">
-                <i class="fas fa-share"></i>
-                <span>Share</span>
-              </button>
-              <button class="drawer-btn secondary" id="favorite-btn">
-                <i class="far fa-heart"></i>
-                <span>Save</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -646,17 +1359,400 @@ try {
       #directions-btn:hover {
         background: #0d3018;
       }
+
+      /* Legend Button Styles */
+      .legend-button-container {
+        position: absolute;
+        top: 80px;
+        right: 10px;
+        z-index: 998;
+      }
+
+      .legend-button {
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        box-sizing: border-box;
+        background: #1a5632;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        line-height: 1;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .legend-button.active {
+        background: #ff6b35;
+      }
+
+      .legend-button svg {
+        width: 72%;
+        height: 72%;
+        display: block;
+        pointer-events: none;
+      }
+
+      /* Mobile responsive adjustments for legend button */
+      @media (max-width: 768px) {
+        .legend-button-container {
+          top: 70px;
+          right: 8px;
+        }
+
+        .legend-button {
+          width: 36px;
+          height: 36px;
+          font-size: 20px;
+        }
+      }
+
+      /* Extra small devices */
+      @media (max-width: 480px) {
+        .legend-button-container {
+          top: 65px;
+          right: 6px;
+        }
+
+        .legend-button {
+          width: 32px;
+          height: 32px;
+          font-size: 18px;
+        }
+      }
     </style>
 
 
 
-    <!-- 3D Demo Modal -->
-    <div id="three-demo-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:4000; align-items:center; justify-content:center;">
-      <div style="position:relative; width:95vw; max-width:1100px; height:90vh; background:#000; border-radius:12px; box-shadow:0 8px 40px rgba(0,0,0,0.6); overflow:hidden;">
-        <button id="close-three-demo" aria-label="Close 3D demo" style="position:absolute; top:12px; right:12px; font-size:28px; background:rgba(255,255,255,0.08); color:#fff; border:none; width:44px; height:44px; border-radius:8px; cursor:pointer; z-index:12;">&times;</button>
-        <iframe id="three-demo-frame" src="../3d_demo/three_demo.html" style="width:100%; height:100%; border:none; background:#000;" allowfullscreen></iframe>
+    <!-- Legend Dialog Box -->
+    <div id="legend-dialog" class="legend-dialog-overlay" style="display:none;">
+      <div class="legend-dialog-content">
+        <div class="legend-dialog-header">
+          <h3>Map Legend</h3>
+          <button id="close-legend" class="legend-close-btn" aria-label="Close legend">&times;</button>
+        </div>
+        <div class="legend-dialog-body">
+          <!-- Panorama Marker Legend Item -->
+          <div class="legend-item legend-pano">
+            <div class="legend-icon">
+              <img src="../assets/3d/panorama-svgrepo-com.svg" alt="Panorama Icon" class="legend-inline legend-svg-icon">
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">360° Panorama Point</div>
+              <div class="legend-description">Click to view immersive panoramic photos of this location</div>
+            </div>
+          </div>
+          
+          <!-- Stair Marker Legend Item -->
+          <div class="legend-item legend-stairs">
+            <div class="legend-icon">
+              <img src="../assets/3d/stairs-floor-svgrepo-com.svg" alt="Stairs Icon" class="legend-inline legend-svg-icon">
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">Stairway</div>
+              <div class="legend-description">Use stairs to navigate between floors of the building</div>
+            </div>
+          </div>
+          
+          <!-- Path Line Legend Item -->
+          <div class="legend-item legend-path">
+            <div class="legend-icon legend-path-icon">
+              <svg viewBox="0 0 60 20" class="path-line-svg">
+                <line x1="5" y1="10" x2="55" y2="10" stroke="#971812" stroke-width="3" stroke-dasharray="5,3" />
+              </svg>
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">Navigation Path</div>
+              <div class="legend-description">Follow the dashed line for turn-by-turn directions</div>
+            </div>
+          </div>
+          
+          <!-- Door Entry Point Legend Item -->
+          <div class="legend-item legend-door">
+            <div class="legend-icon">
+              <img src="../assets/3d/door-open-svgrepo-com.svg" alt="Door Icon" class="legend-inline legend-svg-icon">
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">Room Entry Point</div>
+              <div class="legend-description">Entrance and exit locations for offices and rooms</div>
+            </div>
+          </div>
+          
+          <!-- Inactive Door Legend Item -->
+          <div class="legend-item legend-door-inactive">
+            <div class="legend-icon" style="background: #9ca3af;">
+              <img src="../assets/3d/door-open-svgrepo-com.svg" alt="Inactive Door Icon" class="legend-inline legend-svg-icon" style="opacity: 0.6;">
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">Inactive Entry Point</div>
+              <div class="legend-description">Door temporarily disabled - pathfinding will use alternate entrances</div>
+            </div>
+          </div>
+          
+          <!-- Building Entrance Legend Item -->
+          <div class="legend-item legend-entrance">
+            <div class="legend-icon" style="background: #10B981;">
+              <img src="../assets/3d/entrance-14-svgrepo-com.svg" alt="Entrance Icon" class="legend-inline legend-svg-icon" style="filter: brightness(0) invert(1);">
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">Building Entrance</div>
+              <div class="legend-description">Main entry points to access the building from outside</div>
+            </div>
+          </div>
+          
+          <!-- Inactive Room Legend Item -->
+          <div class="legend-item legend-room-inactive">
+            <div class="legend-icon" style="background: #d1d5db;">
+              <svg viewBox="0 0 24 24" class="legend-svg-icon" style="width: 20px; height: 20px;">
+                <circle cx="12" cy="12" r="10" fill="#9ca3af" />
+              </svg>
+            </div>
+            <div class="legend-text">
+              <div class="legend-title">Inactive Rooms</div>
+              <div class="legend-description">Rooms that are not in use or under maintenance</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+
+    <style>
+      /* Legend Dialog Overlay - Full screen transparent background */
+      .legend-dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 4000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+
+      .legend-dialog-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      /* Legend Dialog Content Box */
+      .legend-dialog-content {
+        position: relative;
+        width: 90vw;
+        max-width: 400px;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+      }
+
+      .legend-dialog-overlay.active .legend-dialog-content {
+        transform: scale(1);
+      }
+
+      /* Legend Dialog Header */
+      .legend-dialog-header {
+        padding: 20px;
+        background: linear-gradient(135deg, #1a5632 0%, #247d47 100%);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .legend-dialog-header h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
+      .legend-close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 32px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: background 0.2s ease;
+      }
+
+      .legend-close-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .legend-close-btn:active {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      /* Legend Dialog Body */
+      .legend-dialog-body {
+        padding: 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      /* Legend Item - Icon + Text Row */
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #f8f9fa;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .legend-item:hover {
+        background: #e9ecef;
+        transform: translateX(4px);
+      }
+
+      /* Legend Icon Container - Circular blue background matching pathfinding markers */
+      .legend-icon {
+        flex-shrink: 0;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #3b82f6; /* Blue background like pathfinding markers */
+        border-radius: 50%; /* Circular shape */
+        border: 2px solid #ffffff; /* White border like pathfinding markers */
+        padding: 10px;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        position: relative;
+      }
+      
+      /* Path line legend icon - different styling */
+      .legend-path-icon {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 5px;
+        border-radius: 8px;
+      }
+      
+      .path-line-svg {
+        width: 100%;
+        height: 100%;
+      }
+      
+      .legend-svg-icon {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        color: white;
+      }
+
+      /* Legend Text Container */
+      .legend-text {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .legend-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1a1a1a;
+        line-height: 1.2;
+      }
+
+      .legend-description {
+        font-size: 13px;
+        color: #666;
+        line-height: 1.4;
+      }
+
+      /* Mobile Responsive Adjustments */
+      @media (max-width: 480px) {
+        .legend-dialog-content {
+          width: 95vw;
+          max-width: none;
+        }
+
+        .legend-dialog-header {
+          padding: 16px;
+        }
+
+        .legend-dialog-header h3 {
+          font-size: 18px;
+        }
+
+        .legend-dialog-body {
+          padding: 20px 16px;
+          gap: 16px;
+        }
+
+        .legend-item {
+          padding: 10px;
+          gap: 12px;
+        }
+
+        .legend-icon {
+          width: 45px;
+          height: 45px;
+          padding: 8px;
+          border-width: 1.5px;
+        }
+
+        .legend-title {
+          font-size: 15px;
+        }
+
+        .legend-description {
+          font-size: 12px;
+        }
+      }
+
+      /* Accessibility: Focus styles */
+      .legend-close-btn:focus {
+        outline: 2px solid white;
+        outline-offset: 2px;
+      }
+
+      /* Prevent body scroll when dialog is open */
+      body.legend-open {
+        overflow: hidden;
+      }
+
+      /* Inlined SVG styling - force white color */
+      .legend-icon .inlined-svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Make all SVG shapes white */
+      .legend-icon .inlined-svg path,
+      .legend-icon .inlined-svg circle,
+      .legend-icon .inlined-svg rect,
+      .legend-icon .inlined-svg polygon {
+        fill: white !important;
+        stroke: white !important;
+      }
+    </style>
 
     <!-- Pathfinding Modal for Directions -->
     <div id="pathfinding-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:3000; align-items:center; justify-content:center;">
@@ -703,13 +1799,10 @@ try {
                     <!-- Office image will be injected here -->
                 </div>
 
-                <!-- Status and Location Section -->
+                <!-- Status Section -->
                 <div class="status-location-row">
                     <div id="modal-status-badge" class="status-badge">
                         <!-- Status will be injected here -->
-                    </div>
-                    <div id="modal-floor-indicator" class="floor-indicator-modal">
-                        <!-- Floor indicator will be injected here -->
                     </div>
                 </div>
 
@@ -754,7 +1847,7 @@ try {
         <div class="panorama-panel">
             <div class="panorama-header">
                 <button id="close-panorama" class="close-panorama-btn">
-                    <i class="fas fa-times"></i>
+                    <i class="fas fa-arrow-left"></i>
                 </button>
                 <div class="panorama-title">
                     <h3 id="panorama-location-title">Panorama View</h3>
@@ -835,16 +1928,36 @@ try {
       // Initialize critical flags early to prevent stability check issues
       window.isFloorTransitioning = false;
       
+      // Flag to track if drawer has been manually closed by user
+      window.drawerManuallyClosed = false;
+      
+      // Flag to track if initial QR scan highlight has been completed
+      window.initialQRHighlightCompleted = false;
+      
       // Make PHP-derived data available globally first
       const officesData = <?php echo json_encode($offices); ?>;
+      const entrancesData = <?php echo json_encode($entrances); ?>;
       const highlightOfficeIdFromPHP = <?php echo json_encode($highlight_office_id); ?>;
+      const scannedDoorIndexFromPHP = <?php echo json_encode($scanned_door_index); ?>;
       const scannedPanoramaFromPHP = <?php echo json_encode($scanned_panorama); ?>;
+      const scannedEntranceFromPHP = <?php echo json_encode($scanned_entrance); ?>;
+      const scannedEntranceFloorFromPHP = <?php echo json_encode($scanned_entrance_floor); ?>;
       console.log("Offices Data Loaded (explore.php - global init):", officesData ? officesData.length : 0, "offices");
+      console.log("🚪 Entrances Data RAW from database (explore.php - global init):", entrancesData ? entrancesData.length : 0, "entrance QRs (includes building entrances + door QRs)");
       console.log("Office to highlight from QR (ID - global init):", highlightOfficeIdFromPHP);
+      console.log("🚪 Scanned Door Index from QR (global init):", scannedDoorIndexFromPHP);
       console.log("🎯 Scanned Panorama from QR (global init):", scannedPanoramaFromPHP);
+      console.log("🚪 Scanned Entrance from QR (global init):", scannedEntranceFromPHP);
 
-      // Ensure the variable is available globally
+      // Ensure the variables are available globally
+      window.officesData = officesData; // Make globally accessible
+      // CRITICAL: Store ALL entrance QRs from database for validation, but filter for dropdown
+      window.entrancesDataRaw = entrancesData; // Raw database data (building entrances + door QRs)
+      window.entrancesData = []; // Will be populated with building entrances only after floor graphs load
       window.highlightOfficeIdFromPHP = highlightOfficeIdFromPHP;
+      window.scannedDoorIndexFromPHP = scannedDoorIndexFromPHP;
+      window.scannedEntranceFromPHP = scannedEntranceFromPHP;
+      window.scannedEntranceFloorFromPHP = scannedEntranceFloorFromPHP;
 
       // Global variables for pathfinding.js compatibility
       window.floorGraph = {};
@@ -853,6 +1966,51 @@ try {
       
       // CRITICAL: Disable desktop pathfinding room click handlers
       window.MOBILE_MODE = true; // Flag to prevent desktop pathfinding initialization
+      
+      // Store the scanned office as the permanent default start location
+      window.scannedStartOffice = null; // Will be set when QR code is scanned
+      
+      // Store the scanned entrance as the permanent default start location
+      window.scannedStartEntrance = null; // Will be set when entrance QR is scanned
+      
+      // Store active pathfinding entrance to persist highlighting across floor switches
+      window.activePathfindingEntrance = null; // Will be set during pathfinding
+      
+      // Store entrance that has "YOU ARE HERE" marker to prevent label text from re-appearing
+      window.entranceWithYouAreHere = null; // Will be set when entrance is highlighted
+      
+      // Store entrance that has "YOU ARE HERE" marker to prevent label text from re-appearing
+      window.entranceWithYouAreHere = null; // Will be set when entrance is highlighted
+      
+      // Store entrance that has "YOU ARE HERE" marker to prevent label text from re-appearing
+      window.entranceWithYouAreHere = null; // Will be set when entrance is highlighted
+      
+      // Function to collect entrances from loaded floor graphs (not database)
+      // This ensures dropdown only shows entrances that exist in floor_graph.json files
+      window.collectEntrancesFromFloorGraphs = function() {
+        const collectedEntrances = [];
+        
+        // Check all loaded floor graphs
+        if (window.floorGraphCache) {
+          for (const [floor, graph] of Object.entries(window.floorGraphCache)) {
+            if (graph && graph.entrances && Array.isArray(graph.entrances)) {
+              graph.entrances.forEach(entrance => {
+                collectedEntrances.push({
+                  entrance_id: entrance.id,
+                  label: entrance.label,
+                  floor: entrance.floor,
+                  x: entrance.x,
+                  y: entrance.y,
+                  nearest_path_id: entrance.nearestPathId
+                });
+              });
+            }
+          }
+        }
+        
+        console.log(`🚪 Collected ${collectedEntrances.length} entrances from floor graphs:`, collectedEntrances.map(e => e.entrance_id));
+        return collectedEntrances;
+      };
 
       // ==== PAN / ZOOM CONFIG (Mobile) ====
       // You can tweak these at runtime from the console or set new defaults here.
@@ -1101,7 +2259,7 @@ try {
           requestAnimationFrame(() => {
             // Ensure containers are properly sized for mobile
             const svgContainer = document.getElementById('svg-container');
-            const svg = document.querySelector('svg');
+            const svg = document.querySelector('#capitol-map-svg');
             
             if (svgContainer) {
               // For mobile, use viewport dimensions
@@ -1261,7 +2419,6 @@ try {
         const modalServices = document.getElementById('modal-office-services');
         const modalContact = document.getElementById('modal-office-contact');
         const modalHours = document.getElementById('modal-office-hours');
-        const modalFloorIndicator = document.getElementById('modal-floor-indicator');
 
         if (!modal) {
           console.error('Office details modal not found');
@@ -1320,31 +2477,6 @@ try {
           modalStatusBadge.innerHTML = `<i class="fas fa-circle"></i> ${statusContent}`;
         }
 
-        // Set floor indicator
-        if (modalFloorIndicator) {
-          let floorNumber = 'N/A';
-          if (office.location) {
-            // Try to extract floor number from room ID patterns
-            const roomMatch = office.location.match(/room-(\d)(\d{2})-/);
-            if (roomMatch) {
-              floorNumber = roomMatch[1];
-            } else {
-              // Alternative: if location contains direct floor info
-              const floorMatch = office.location.match(/(\d+)(st|nd|rd|th)?\s*floor/i);
-              if (floorMatch) {
-                floorNumber = floorMatch[1];
-              } else {
-                // If room number starts with floor digit
-                const numberMatch = office.location.match(/\b([1-9])0\d\b/);
-                if (numberMatch) {
-                  floorNumber = numberMatch[1];
-                }
-              }
-            }
-          }
-          modalFloorIndicator.innerHTML = `<i class="fas fa-layer-group"></i> <span>Floor ${floorNumber}</span>`;
-        }
-
         // Set description
         if (modalDescription) {
           if (office.details && office.details.trim()) {
@@ -1396,56 +2528,112 @@ try {
           }
         }
 
-        // Set hours information
+        // Set hours information - Fetch all weekly hours from database
         if (modalHours) {
-          if (office.open_time && office.close_time) {
-            const formatTime = (timeStr) => {
-              const [hours, minutes] = timeStr.split(':');
-              const hour = parseInt(hours);
-              const ampm = hour >= 12 ? 'PM' : 'AM';
-              const hour12 = hour % 12 || 12;
-              return `${hour12}:${minutes} ${ampm}`;
-            };
-            
-            const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-            modalHours.innerHTML = `
-              <div class="today-hours">
-                <span class="day-label">Today:</span> ${formatTime(office.open_time)} - ${formatTime(office.close_time)}
-              </div>
-              <div class="weekly-hours">
-                <div class="hours-row ${currentDay === 'Monday' ? 'today' : ''}">
-                  <span class="day-name">Monday</span>
-                  <span class="hours">${formatTime(office.open_time)} - ${formatTime(office.close_time)}</span>
-                </div>
-                <div class="hours-row ${currentDay === 'Tuesday' ? 'today' : ''}">
-                  <span class="day-name">Tuesday</span>
-                  <span class="hours">${formatTime(office.open_time)} - ${formatTime(office.close_time)}</span>
-                </div>
-                <div class="hours-row ${currentDay === 'Wednesday' ? 'today' : ''}">
-                  <span class="day-name">Wednesday</span>
-                  <span class="hours">${formatTime(office.open_time)} - ${formatTime(office.close_time)}</span>
-                </div>
-                <div class="hours-row ${currentDay === 'Thursday' ? 'today' : ''}">
-                  <span class="day-name">Thursday</span>
-                  <span class="hours">${formatTime(office.open_time)} - ${formatTime(office.close_time)}</span>
-                </div>
-                <div class="hours-row ${currentDay === 'Friday' ? 'today' : ''}">
-                  <span class="day-name">Friday</span>
-                  <span class="hours">${formatTime(office.open_time)} - ${formatTime(office.close_time)}</span>
-                </div>
-                <div class="hours-row ${currentDay === 'Saturday' ? 'today' : ''}">
-                  <span class="day-name">Saturday</span>
-                  <span class="hours">Closed</span>
-                </div>
-                <div class="hours-row ${currentDay === 'Sunday' ? 'today' : ''}">
-                  <span class="day-name">Sunday</span>
-                  <span class="hours">Closed</span>
-                </div>
-              </div>
-            `;
-          } else {
-            modalHours.innerHTML = '<div class="no-hours">No hours information available.</div>';
-          }
+          // Show loading state
+          modalHours.innerHTML = '<div class="loading-hours"><i class="fas fa-spinner fa-spin"></i> Loading hours...</div>';
+          
+          // Fetch complete office hours for all days
+          fetch(`get_office_hours.php?office_id=${office.id}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.success && data.hours) {
+                const formatTime = (timeStr) => {
+                  if (!timeStr) return 'Closed';
+                  const [hours, minutes] = timeStr.split(':');
+                  const hour = parseInt(hours);
+                  const ampm = hour >= 12 ? 'PM' : 'AM';
+                  const hour12 = hour % 12 || 12;
+                  return `${hour12}:${minutes} ${ampm}`;
+                };
+                
+                const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                
+                // Build today's hours display
+                let todayHoursHtml = '';
+                if (data.hours[currentDay]) {
+                  const todayOpen = formatTime(data.hours[currentDay].open_time);
+                  const todayClose = formatTime(data.hours[currentDay].close_time);
+                  todayHoursHtml = `
+                    <div class="today-hours">
+                      <span class="day-label">Today:</span> ${todayOpen} - ${todayClose}
+                    </div>
+                  `;
+                } else {
+                  todayHoursHtml = `
+                    <div class="today-hours">
+                      <span class="day-label">Today:</span> Closed
+                    </div>
+                  `;
+                }
+                
+                // Build weekly hours display
+                let weeklyHoursHtml = '<div class="weekly-hours">';
+                days.forEach(day => {
+                  const isToday = day === currentDay;
+                  const dayHours = data.hours[day];
+                  
+                  let hoursText = 'Closed';
+                  if (dayHours && dayHours.open_time && dayHours.close_time) {
+                    hoursText = `${formatTime(dayHours.open_time)} - ${formatTime(dayHours.close_time)}`;
+                  }
+                  
+                  weeklyHoursHtml += `
+                    <div class="hours-row ${isToday ? 'today' : ''}">
+                      <span class="day-name">${day}</span>
+                      <span class="hours">${hoursText}</span>
+                    </div>
+                  `;
+                });
+                weeklyHoursHtml += '</div>';
+                
+                modalHours.innerHTML = todayHoursHtml + weeklyHoursHtml;
+              } else {
+                // Fallback: show basic hours if available from office object
+                if (office.open_time && office.close_time) {
+                  const formatTime = (timeStr) => {
+                    const [hours, minutes] = timeStr.split(':');
+                    const hour = parseInt(hours);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const hour12 = hour % 12 || 12;
+                    return `${hour12}:${minutes} ${ampm}`;
+                  };
+                  
+                  const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                  modalHours.innerHTML = `
+                    <div class="today-hours">
+                      <span class="day-label">Today:</span> ${formatTime(office.open_time)} - ${formatTime(office.close_time)}
+                    </div>
+                    <div class="no-weekly-hours">Complete weekly hours not available</div>
+                  `;
+                } else {
+                  modalHours.innerHTML = '<div class="no-hours">No hours information available.</div>';
+                }
+              }
+            })
+            .catch(error => {
+              console.error('Error fetching office hours:', error);
+              // Fallback to showing basic hours if fetch fails
+              if (office.open_time && office.close_time) {
+                const formatTime = (timeStr) => {
+                  const [hours, minutes] = timeStr.split(':');
+                  const hour = parseInt(hours);
+                  const ampm = hour >= 12 ? 'PM' : 'AM';
+                  const hour12 = hour % 12 || 12;
+                  return `${hour12}:${minutes} ${ampm}`;
+                };
+                
+                modalHours.innerHTML = `
+                  <div class="today-hours">
+                    <span class="day-label">Today:</span> ${formatTime(office.open_time)} - ${formatTime(office.close_time)}
+                  </div>
+                  <div class="error-hours">Unable to load complete weekly hours</div>
+                `;
+              } else {
+                modalHours.innerHTML = '<div class="no-hours">No hours information available.</div>';
+              }
+            });
         }
 
         // Show the modal
@@ -1459,175 +2647,6 @@ try {
         }
       }
 
-      // Enhanced Drawer Functions
-      function setupEnhancedDrawerListeners() {
-        // Share functionality
-        const shareBtn = document.getElementById('share-btn');
-        if (shareBtn) {
-          shareBtn.addEventListener('click', () => {
-            if (window.currentSelectedOffice) {
-              shareOffice(window.currentSelectedOffice.id);
-            }
-          });
-        }
-        
-        // Favorite functionality
-        const favoriteBtn = document.getElementById('favorite-btn');
-        if (favoriteBtn) {
-          favoriteBtn.addEventListener('click', () => {
-            if (window.currentSelectedOffice) {
-              toggleFavorite(window.currentSelectedOffice.id);
-            }
-          });
-        }
-        
-        // Call functionality
-        const callBtn = document.getElementById('call-btn');
-        if (callBtn) {
-          callBtn.addEventListener('click', () => {
-            if (window.currentSelectedOffice && window.currentSelectedOffice.contact) {
-              const phone = extractPhoneNumber(window.currentSelectedOffice.contact);
-              if (phone) {
-                window.location.href = `tel:${phone}`;
-              }
-            }
-          });
-        }
-        
-        // Add ripple effect to all drawer buttons
-        document.querySelectorAll('.drawer-btn').forEach(button => {
-          button.addEventListener('click', createRippleEffect);
-        });
-      }
-
-      function shareOffice(officeId) {
-        const office = officesData.find(o => o.id == officeId);
-        if (!office) return;
-        
-        const shareData = {
-          title: office.name,
-          text: `Check out ${office.name} in GABAY Office Directory`,
-          url: `${window.location.origin}${window.location.pathname}?office_id=${officeId}`
-        };
-        
-        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-          navigator.share(shareData).catch(err => {
-            console.log('Error sharing:', err);
-            fallbackShare(shareData.url);
-          });
-        } else {
-          fallbackShare(shareData.url);
-        }
-      }
-
-      function fallbackShare(url) {
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(() => {
-            showMobileToast('Link copied to clipboard!', 'success');
-          }).catch(() => {
-            legacyCopyToClipboard(url);
-          });
-        } else {
-          legacyCopyToClipboard(url);
-        }
-      }
-
-      function legacyCopyToClipboard(text) {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          document.execCommand('copy');
-          showMobileToast('Link copied to clipboard!', 'success');
-        } catch (err) {
-          showMobileToast('Could not copy link', 'error');
-        }
-        
-        document.body.removeChild(textArea);
-      }
-
-      function toggleFavorite(officeId) {
-        let favorites = JSON.parse(localStorage.getItem('gabay_favorites') || '[]');
-        const index = favorites.indexOf(officeId);
-        const favoriteBtn = document.getElementById('favorite-btn');
-        const icon = favoriteBtn.querySelector('i');
-        
-        if (index > -1) {
-          favorites.splice(index, 1);
-          icon.className = 'far fa-heart';
-          favoriteBtn.classList.remove('favorited');
-          showMobileToast('Removed from favorites', 'success');
-        } else {
-          favorites.push(officeId);
-          icon.className = 'fas fa-heart';
-          favoriteBtn.classList.add('favorited');
-          showMobileToast('Added to favorites', 'success');
-        }
-        
-        localStorage.setItem('gabay_favorites', JSON.stringify(favorites));
-      }
-
-      function updateFavoriteButton(officeId) {
-        const favorites = JSON.parse(localStorage.getItem('gabay_favorites') || '[]');
-        const favoriteBtn = document.getElementById('favorite-btn');
-        const icon = favoriteBtn.querySelector('i');
-        
-        if (favorites.includes(officeId)) {
-          icon.className = 'fas fa-heart';
-          favoriteBtn.classList.add('favorited');
-        } else {
-          icon.className = 'far fa-heart';
-          favoriteBtn.classList.remove('favorited');
-        }
-      }
-
-      function extractPhoneNumber(contact) {
-        if (!contact) return null;
-        const phoneRegex = /[\+]?[1-9]?[\d\s\-\(\)]{7,}/;
-        const match = contact.match(phoneRegex);
-        return match ? match[0].replace(/\s/g, '') : null;
-      }
-
-      function createRippleEffect(event) {
-        const button = event.currentTarget;
-        const rect = button.getBoundingClientRect();
-        const ripple = document.createElement('span');
-        const size = Math.max(rect.width, rect.height);
-        const x = event.clientX - rect.left - size / 2;
-        const y = event.clientY - rect.top - size / 2;
-        
-        ripple.style.width = ripple.style.height = size + 'px';
-        ripple.style.left = x + 'px';
-        ripple.style.top = y + 'px';
-        ripple.classList.add('ripple');
-        
-        button.appendChild(ripple);
-        
-        setTimeout(() => {
-          ripple.remove();
-        }, 600);
-      }
-
-      function showMobileToast(message, type = 'success', duration = 3000) {
-        const toast = document.createElement('div');
-        toast.className = `mobile-toast ${type}`;
-        toast.textContent = message;
-        
-        document.body.appendChild(toast);
-        
-        setTimeout(() => toast.classList.add('show'), 100);
-        
-        setTimeout(() => {
-          toast.classList.remove('show');
-          setTimeout(() => toast.remove(), 300);
-        }, duration);
-      }
-      
       // Function to fetch panorama data from API
       async function fetchPanoramaData(pathId, pointIndex, floorNumber) {
         try {
@@ -1699,44 +2718,163 @@ try {
           }
         });
 
-        // 3D demo modal wiring
-        const switch3dBtn = document.getElementById('switch-3d-view-btn');
-        const threeDemoModal = document.getElementById('three-demo-modal');
-        const closeThreeDemoBtn = document.getElementById('close-three-demo');
-        const threeDemoFrame = document.getElementById('three-demo-frame');
+        // Legend Dialog Box Event Handlers
+        const legendBtn = document.getElementById('legend-btn');
+        const legendDialog = document.getElementById('legend-dialog');
+        const closeLegendBtn = document.getElementById('close-legend');
 
-        if (switch3dBtn && threeDemoModal) {
-          switch3dBtn.addEventListener('click', (ev) => {
+        // Function to open legend dialog
+        function openLegendDialog() {
+          if (!legendDialog) return;
+          
+          try {
+            // Add active class for smooth animation
+            legendDialog.classList.add('active');
+            legendDialog.style.display = 'flex';
+            
+            // Add active state to button
+            if (legendBtn) {
+              legendBtn.classList.add('active');
+            }
+            
+            // Prevent body scroll when dialog is open
+            document.body.classList.add('legend-open');
+            
+            // Set focus to close button for accessibility
+            if (closeLegendBtn) {
+              setTimeout(() => closeLegendBtn.focus(), 100);
+            }
+            
+            console.log('Legend dialog opened successfully');
+          } catch (error) {
+            console.error('Error opening legend dialog:', error);
+          }
+        }
+
+        // Function to close legend dialog
+        function closeLegendDialog() {
+          if (!legendDialog) return;
+          
+          try {
+            // Remove active class for smooth fade-out animation
+            legendDialog.classList.remove('active');
+            
+            // Wait for animation to complete before hiding
+            setTimeout(() => {
+              legendDialog.style.display = 'none';
+            }, 300);
+            
+            // Remove active state from button
+            if (legendBtn) {
+              legendBtn.classList.remove('active');
+            }
+            
+            // Re-enable body scroll
+            document.body.classList.remove('legend-open');
+            
+            // Return focus to legend button for accessibility
+            if (legendBtn) {
+              legendBtn.focus();
+            }
+            
+            console.log('Legend dialog closed successfully');
+          } catch (error) {
+            console.error('Error closing legend dialog:', error);
+          }
+        }
+
+        // Event: Open legend dialog when button is clicked
+        if (legendBtn && legendDialog) {
+          legendBtn.addEventListener('click', (ev) => {
             ev.preventDefault();
-            // Show modal
-            threeDemoModal.style.display = 'flex';
-            // Optional: reload iframe to ensure fresh state
-            try {
-              threeDemoFrame.contentWindow.location.reload();
-            } catch (e) {
-              // ignore cross-origin or not yet loaded
+            ev.stopPropagation();
+            openLegendDialog();
+          });
+        }
+
+        // Event: Close legend dialog when close button is clicked
+        if (closeLegendBtn && legendDialog) {
+          closeLegendBtn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            closeLegendDialog();
+          });
+        }
+
+        // Event: Close legend dialog when clicking outside the dialog content
+        if (legendDialog) {
+          legendDialog.addEventListener('click', (e) => {
+            // Only close if clicking the overlay background (not the dialog content)
+            if (e.target === legendDialog) {
+              closeLegendDialog();
             }
           });
         }
 
-        if (closeThreeDemoBtn && threeDemoModal) {
-          closeThreeDemoBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            threeDemoModal.style.display = 'none';
-            // stop any audio/animation by resetting iframe src (lightweight)
-            try { threeDemoFrame.src = threeDemoFrame.src; } catch (e) {}
-          });
+        // Event: Close legend dialog with Escape key
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && legendDialog && legendDialog.classList.contains('active')) {
+            closeLegendDialog();
+          }
+        });
+
+        // Make functions globally available for testing/debugging
+        window.openLegendDialog = openLegendDialog;
+        window.closeLegendDialog = closeLegendDialog;
+
+        // ===== LEGEND SVG INLINING & RECOLOR =====
+        // Function to inline legend SVGs and make them white
+        function inlineLegendSvg(imgEl) {
+          const src = imgEl.getAttribute('src');
+          if (!src) return;
+          
+          fetch(src)
+            .then(resp => {
+              if (!resp.ok) throw new Error('SVG fetch failed: ' + resp.status);
+              return resp.text();
+            })
+            .then(svgText => {
+              // Parse SVG text into DOM
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(svgText, 'image/svg+xml');
+              const svg = doc.querySelector('svg');
+              
+              if (!svg) throw new Error('No svg found in ' + src);
+              
+              // Add class for CSS targeting
+              svg.classList.add('inlined-svg');
+              
+              // Remove inline fill attributes so CSS can override
+              svg.querySelectorAll('[fill]').forEach(el => {
+                if (el.getAttribute('fill') !== 'none') {
+                  el.removeAttribute('fill');
+                }
+              });
+              
+              // Remove inline stroke attributes
+              svg.querySelectorAll('[stroke]').forEach(el => {
+                if (el.getAttribute('stroke') !== 'none') {
+                  el.removeAttribute('stroke');
+                }
+              });
+              
+              // Replace image with inline svg
+              imgEl.replaceWith(svg);
+              
+              console.log('Legend SVG inlined and prepared for recolor:', src);
+            })
+            .catch(err => {
+              console.error('inlineLegendSvg error:', err);
+              // Keep original img if fetch fails
+            });
         }
 
-        // Close modal when clicking outside the content
-        if (threeDemoModal) {
-          threeDemoModal.addEventListener('click', (e) => {
-            if (e.target === threeDemoModal) {
-              threeDemoModal.style.display = 'none';
-              try { threeDemoFrame.src = threeDemoFrame.src; } catch (e) {}
-            }
-          });
-        }
+        // Inline all legend SVGs on page load
+        document.addEventListener('DOMContentLoaded', () => {
+          const legendImages = document.querySelectorAll('img.legend-inline');
+          console.log(`Found ${legendImages.length} legend SVGs to inline`);
+          legendImages.forEach(inlineLegendSvg);
+        });
 
         // Office Details Modal Event Handlers
         const closeDetailsModalBtn = document.getElementById('close-details-modal');
@@ -1769,7 +2907,7 @@ try {
       // Safe function to draw paths and doors only when everything is ready
       function drawPathsAndDoorsWhenReady() {
         console.log('Attempting to draw paths and doors...');
-        const svg = document.querySelector('svg');
+        const svg = document.querySelector('#capitol-map-svg');
         const panZoomViewport = svg ? svg.querySelector('.svg-pan-zoom_viewport') : null;
 
         // Ensure the pan-zoom viewport is ready before drawing
@@ -1816,11 +2954,65 @@ try {
           console.log('Drawing entry points for', Object.keys(window.floorGraph.rooms).length, 'rooms');
           drawEntryPoints(window.floorGraph.rooms);
         }
+        
+        // Draw entrance icons if available (green icons at building entrances)
+        if (window.floorGraph.entrances && Array.isArray(window.floorGraph.entrances)) {
+          console.log('Drawing entrance icons for', window.floorGraph.entrances.length, 'entrances');
+          drawEntranceIcons(window.floorGraph.entrances, window.currentFloorNumber);
+        }
+        
+        // Clean up any corrupt transform attributes in SVG groups to prevent pathfinding errors
+        try {
+          const svg = document.querySelector('#capitol-map-svg');
+          if (svg) {
+            const groups = svg.querySelectorAll('g[id*="path"], g[id*="highlight"], g[id*="marker"]');
+            groups.forEach(group => {
+              if (group.hasAttribute('transform')) {
+                const transform = group.getAttribute('transform');
+                // Check for incomplete or malformed transform values
+                if (!transform || transform.includes('NaN') || transform.includes('undefined') || 
+                    (transform.includes('matrix') && !transform.includes(')')) ||
+                    transform.match(/,\s*$/)) {
+                  console.warn('🔧 Removing corrupt transform from:', group.id, transform);
+                  group.removeAttribute('transform');
+                }
+              }
+            });
+            console.log('✅ SVG transform validation completed');
+          }
+        } catch (cleanupError) {
+          console.warn('⚠️ Error during transform cleanup:', cleanupError);
+        }
 
         // Initialize pathfinding room selection now that graph data is loaded
         if (typeof window.initRoomSelection === 'function') {
           console.log('Initializing pathfinding room selection handlers');
           window.initRoomSelection();
+        }
+        
+        // Re-highlight entrance ONLY if user is NOT in active pathfinding mode
+        // During pathfinding, the start marker from pathfinding.js shows the location
+        // "YOU ARE HERE" should only appear when QR is scanned but pathfinding hasn't started yet
+        
+        // Check if we're in active pathfinding mode
+        const isActivePathfinding = window.activeRoute && window.activeRoute.segments && window.activeRoute.segments.length > 0;
+        
+        if (!isActivePathfinding) {
+          // Not in pathfinding mode - safe to show "YOU ARE HERE" for scanned entrance
+          if (window.scannedStartEntrance && window.scannedStartEntrance.floor === window.currentFloorNumber) {
+            if (window.floorGraph?.entrances) {
+              const jsonEntrance = window.floorGraph.entrances.find(e => e.id === window.scannedStartEntrance.entrance_id);
+              if (jsonEntrance && typeof window.showYouAreHereEntrance === 'function') {
+                console.log('🔄 Re-highlighting SCANNED entrance after floor switch (no active pathfinding):', jsonEntrance.label);
+                // Small delay to ensure SVG is ready
+                setTimeout(() => {
+                  window.showYouAreHereEntrance(jsonEntrance);
+                }, 100);
+              }
+            }
+          }
+        } else {
+          console.log('🔄 Active pathfinding detected - skipping YOU ARE HERE re-highlight to prevent overlap with start marker');
         }
 
         // Re-render any active path for the currently loaded floor
@@ -1842,13 +3034,170 @@ try {
         }
 
         // Handle office highlighting for QR scan
-        if (window.highlightOfficeIdFromPHP) {
+        // FIXED: Only open drawer on first scan, not on every floor switch
+        if (window.highlightOfficeIdFromPHP && !window.initialQRHighlightCompleted) {
           const targetOffice = officesData.find(office => office.id == window.highlightOfficeIdFromPHP);
           if (targetOffice && targetOffice.location) {
-            console.log('Highlighting office from QR scan:', targetOffice.name, 'at location:', targetOffice.location);
+            console.log('📍 QR scan detected - Highlighting office:', targetOffice.name, 'at location:', targetOffice.location);
+            
+            // CRITICAL: Store scanned office as the permanent default start location for pathfinding
+            window.scannedStartOffice = targetOffice;
+            
+            // NEW: If a door QR was scanned, get the specific door point from the floor graph
+            if (window.scannedDoorIndexFromPHP !== null && window.floorGraph && window.floorGraph.rooms) {
+              console.log('🚪 MOBILE: Door QR detected. DoorIndex:', window.scannedDoorIndexFromPHP, 'Room:', targetOffice.location);
+              
+              const roomData = window.floorGraph.rooms[targetOffice.location];
+              console.log('🚪 MOBILE: Room data from floor graph:', roomData);
+              
+              if (roomData && roomData.doorPoints && roomData.doorPoints[window.scannedDoorIndexFromPHP]) {
+                const scannedDoorPoint = roomData.doorPoints[window.scannedDoorIndexFromPHP];
+                console.log('🚪 MOBILE: Door QR scanned during floor load! Using door point:', scannedDoorPoint);
+                
+                // Store the scanned door point for pathfinding
+                window.scannedStartDoorPoint = {
+                  office: targetOffice,
+                  doorIndex: window.scannedDoorIndexFromPHP,
+                  point: scannedDoorPoint
+                };
+                
+                console.log('🚪 MOBILE: Stored window.scannedStartDoorPoint:', JSON.stringify(window.scannedStartDoorPoint));
+                console.log('🚪 MOBILE: Office location in scannedStartDoorPoint:', window.scannedStartDoorPoint.office.location);
+              } else {
+                console.warn('⚠️ MOBILE: Could not find door point. RoomData exists?', !!roomData, 'DoorPoints:', roomData?.doorPoints, 'Index:', window.scannedDoorIndexFromPHP);
+              }
+            }
+            
+            console.log('✅ Scanned office set as default start location for pathfinding:', targetOffice.name);
+            
+            // Mark that initial QR highlight has been completed
+            window.initialQRHighlightCompleted = true;
+            
             setTimeout(() => {
-              window.showYouAreHere(targetOffice.location);
+              // Pass the door point if available
+              const doorPoint = window.scannedStartDoorPoint ? window.scannedStartDoorPoint.point : null;
+              window.showYouAreHere(targetOffice.location, doorPoint);
               handleRoomClick(targetOffice);
+              
+              // CRITICAL FIX: Re-fit and center SVG after drawer opens to account for reduced viewport
+              setTimeout(() => {
+                const svgContainer = document.getElementById('svg-container');
+                const svg = document.querySelector('#capitol-map-svg');
+                if (svgContainer && svg) {
+                  console.log('Re-fitting SVG after drawer open. Container height:', svgContainer.offsetHeight);
+                  
+                  // Force visibility
+                  svg.style.display = 'block';
+                  svg.style.visibility = 'visible';
+                  svg.style.opacity = '1';
+                  
+                  // Re-fit and center SVG to account for the drawer taking up space
+                  if (window.svgPanZoomInstance) {
+                    try {
+                      // Update viewport dimensions first
+                      window.svgPanZoomInstance.resize();
+                      window.svgPanZoomInstance.updateBBox();
+                      
+                      // CRITICAL: Re-fit and center to the NEW viewport size (with drawer open)
+                      window.svgPanZoomInstance.fit();
+                      window.svgPanZoomInstance.center();
+                      
+                      console.log('✅ SVG re-fitted and centered after drawer open - now properly visible');
+                    } catch (e) {
+                      console.error('Error re-fitting SVG after drawer open:', e);
+                    }
+                  }
+                }
+              }, 350); // Wait for drawer animation to complete (250ms + 100ms buffer)
+            }, 500);
+          }
+        }
+        
+        // Handle entrance QR scan highlighting and floor switching
+        if (window.scannedEntranceFromPHP && !window.initialQRHighlightCompleted) {
+          const dbEntranceData = window.scannedEntranceFromPHP;
+          const entranceFloor = window.scannedEntranceFloorFromPHP;
+          
+          console.log('🚪 Entrance QR scan detected:', dbEntranceData.label, 'on floor', entranceFloor);
+          
+          // CRITICAL: Load entrance coordinates from floor_graph.json (NOT database)
+          // Database coordinates are outdated, JSON is the source of truth
+          const jsonEntrance = window.floorGraph?.entrances?.find(e => e.id === dbEntranceData.entrance_id);
+          
+          if (!jsonEntrance) {
+            console.error('❌ Entrance not found in floor_graph.json:', dbEntranceData.entrance_id);
+            console.warn('Falling back to database coordinates (may be outdated)');
+          }
+          
+          // Use JSON coordinates if available, otherwise fall back to database
+          const entranceData = jsonEntrance ? {
+            entrance_id: jsonEntrance.id,
+            label: jsonEntrance.label,
+            floor: jsonEntrance.floor,
+            x: jsonEntrance.x,  // From floor_graph.json
+            y: jsonEntrance.y,  // From floor_graph.json
+            nearest_path_id: jsonEntrance.nearestPathId
+          } : dbEntranceData; // Fallback to database only if JSON not found
+          
+          console.log('📍 Using entrance coordinates:', 
+            jsonEntrance ? 'from floor_graph.json' : 'from database (fallback)',
+            `(${entranceData.x}, ${entranceData.y})`);
+          
+          // Store entrance as the permanent default start location for pathfinding
+          window.scannedStartEntrance = {
+            id: entranceData.entrance_id,
+            entrance_id: entranceData.entrance_id,
+            label: entranceData.label,
+            floor: parseInt(entranceData.floor),
+            x: parseFloat(entranceData.x),
+            y: parseFloat(entranceData.y),
+            nearestPathId: entranceData.nearest_path_id,
+            // Use entrance_id directly as roomId (e.g., entrance_west_1)
+            roomId: entranceData.entrance_id,
+            type: 'entrance',
+            // Store full entrance data for later use (needed for floor 2+ highlighting)
+            fullData: entranceData
+          };
+          
+          console.log('✅ Scanned entrance set as default start location for pathfinding:', entranceData.label);
+          console.log('   Entrance will act as starting point (roomId:', window.scannedStartEntrance.roomId, ') at coordinates:', window.scannedStartEntrance.x, window.scannedStartEntrance.y);
+          
+          // Mark that initial QR highlight has been completed
+          window.initialQRHighlightCompleted = true;
+          
+          // ALWAYS call showYouAreHereEntrance regardless of floor switch
+          // This ensures highlighting works on all floors including floor 2
+          
+          // Switch to entrance floor if not already there
+          if (window.currentFloorNumber !== entranceFloor) {
+            console.log(`🔄 Switching from floor ${window.currentFloorNumber} to floor ${entranceFloor} for entrance`);
+            
+            // Set up listener for when floor switch completes
+            const originalSwitchFloor = window.switchFloor;
+            window.switchFloor = function(floorNum) {
+              const result = originalSwitchFloor ? originalSwitchFloor(floorNum) : switchFloor(floorNum);
+              
+              // After floor loads, highlight the entrance
+              if (floorNum === entranceFloor && window.scannedStartEntrance) {
+                setTimeout(() => {
+                  console.log(`📍 Floor ${floorNum} loaded - highlighting entrance:`, window.scannedStartEntrance.label);
+                  window.showYouAreHereEntrance(window.scannedStartEntrance.fullData);
+                  // Restore original function
+                  window.switchFloor = originalSwitchFloor;
+                }, 500);
+              }
+              
+              return result;
+            };
+            
+            setTimeout(() => {
+              switchFloor(entranceFloor);
+            }, 100);
+          } else {
+            // Already on correct floor, highlight entrance after SVG is fully stable
+            console.log(`📍 Already on floor ${entranceFloor} - highlighting entrance:`, entranceData.label);
+            setTimeout(() => {
+              window.showYouAreHereEntrance(entranceData);
             }, 500);
           }
         }
@@ -1924,6 +3273,14 @@ try {
           console.log('Setting up click handlers for', markers.length, 'panorama markers');
           
           markers.forEach((marker, index) => {
+            // Skip door points and entry points - they should NOT open panoramas
+            if (marker.classList.contains('door-point') || 
+                marker.classList.contains('entry-point-marker') || 
+                marker.classList.contains('entry-point')) {
+              console.log('Skipping door/entry point marker', index);
+              return;
+            }
+            
             console.log('Setting up marker', index, 'with classes:', marker.className);
             
             // Remove existing event listeners by cloning the element
@@ -2004,18 +3361,6 @@ try {
           };
         }
 
-        // Initialize enhanced drawer features
-        setupEnhancedDrawerListeners();
-        updateFavoriteButton(office.id);
-        
-        // Show call button if contact has phone number
-        const callBtn = document.getElementById('call-btn');
-        if (callBtn && office.contact && extractPhoneNumber(office.contact)) {
-          callBtn.style.display = 'flex';
-        } else if (callBtn) {
-          callBtn.style.display = 'none';
-        }
-
         const imageContainer = document.getElementById("drawer-office-image-container");
         if (imageContainer) {
           imageContainer.innerHTML = '';
@@ -2066,7 +3411,8 @@ try {
 
         if (window.openDrawer) {
           console.log("Calling window.openDrawer() from populateAndShowDrawerWithData.");
-          window.openDrawer();
+          // Force open drawer - this is an explicit user action (clicked room or QR scan initial highlight)
+          window.openDrawer(true);
         } else {
           console.error("window.openDrawer is not available. Cannot open drawer for QR office.");
         }
@@ -2079,6 +3425,10 @@ try {
         // Store selected office globally for pathfinding
         window.currentSelectedOffice = office;
         
+        // Reset manual close flag - user explicitly wants to see this office's details
+        window.drawerManuallyClosed = false;
+        console.log('User clicked room - drawer auto-reopen re-enabled');
+        
         populateAndShowDrawerWithData(office);
         setTimeout(refreshSvgContainer, 250);
       }
@@ -2088,7 +3438,7 @@ try {
   // NOTE: selectedRooms & pathResult are already declared near the top for compatibility.
   // Avoid re-declaring here to prevent accidental state resets.
 
-      // Mobile room click handler - only shows office details, no pathfinding
+      // Mobile room click handler - shows office details OR opens pathfinding modal
       function mobileRoomClickHandler(event) {
         // Stop event propagation to prevent desktop pathfinding handlers
         event.stopPropagation();
@@ -2097,16 +3447,157 @@ try {
         const roomId = this.id;
         console.log('Mobile room clicked:', roomId);
 
-        // Always handle as normal office selection (no pathfinding)
         const office = officesData.find(o => o.location === roomId);
+        
         if (office) {
+          // Always show office details when room is clicked
+          // Pathfinding modal only opens when directions button is clicked
+          console.log('📍 Showing office details for:', office.name);
           handleRoomClick(office);
         } else {
           console.log('No office found for room:', roomId);
         }
         
-        // Explicitly prevent any pathfinding behavior
         return false;
+      }
+      
+      // Function to open pathfinding modal with pre-filled destination
+      function openPathfindingModalWithDestination(destinationOffice) {
+        console.log('Opening pathfinding modal with destination:', destinationOffice.name);
+        
+        // Populate dropdowns
+        const startLocationSelect = document.getElementById('start-location');
+        const endLocationSelect = document.getElementById('end-location');
+        
+        // Clear existing options
+        startLocationSelect.innerHTML = '<option value="">Select starting point...</option>';
+        endLocationSelect.innerHTML = '<option value="">Select destination...</option>';
+        
+        // Determine current floor from destination or active floor
+        const currentFloor = destinationOffice?.location ? getFloorFromLocation(destinationOffice.location) : window.currentFloor || 1;
+        
+        // Add scanned office as default start (pre-selected)
+        if (window.scannedStartOffice) {
+          const defaultStart = document.createElement('option');
+          defaultStart.value = window.scannedStartOffice.location;
+          defaultStart.textContent = window.scannedStartOffice.name + ' (YOU ARE HERE)';
+          defaultStart.selected = true;
+          startLocationSelect.appendChild(defaultStart);
+        }
+        // Add scanned entrance as default start (pre-selected) - NOT else if, can coexist with scanned office
+        if (window.scannedStartEntrance) {
+          const entrance = window.scannedStartEntrance;
+          const entranceFloor = entrance.floor || parseFloorFromRoomId(entrance.roomId);
+          
+          const defaultStart = document.createElement('option');
+          defaultStart.value = entrance.roomId; // Use the roomId for pathfinding
+          
+          // Show floor info if entrance is on different floor than destination
+          if (entranceFloor !== currentFloor) {
+            defaultStart.textContent = entrance.label + ` 🚪 (YOU ARE HERE - Floor ${entranceFloor})`;
+            console.log(`🚪 Entrance ${entrance.label} (Floor ${entranceFloor}) available for cross-floor routing to Floor ${currentFloor}`);
+          } else {
+            defaultStart.textContent = entrance.label + ' 🚪 (YOU ARE HERE)';
+            console.log('🚪 Pathfinding modal: Pre-selected entrance as start:', entrance.label, 'on floor', entranceFloor);
+          }
+          
+          defaultStart.selected = true;
+          startLocationSelect.appendChild(defaultStart);
+        }
+        
+        // Collect all available entrances from floor graphs (NOT database)
+        // This ensures we only show entrances that exist in floor_graph.json files
+        const allEntrances = window.collectEntrancesFromFloorGraphs ? window.collectEntrancesFromFloorGraphs() : [];
+        const entranceOptions = allEntrances
+          .map(entrance => {
+            // Skip the scanned entrance (already added at top)
+            if (window.scannedStartEntrance && entrance.entrance_id === window.scannedStartEntrance.id) {
+              return null;
+            }
+            
+            // Use entrance ID directly from graph (e.g., entrance_west_1)
+            const entranceRoomId = entrance.entrance_id;
+            return {
+              value: entranceRoomId,
+              label: `${entrance.label} 🚪 (Floor ${entrance.floor})`,
+              floor: parseInt(entrance.floor),
+              isEntrance: true
+            };
+          })
+          .filter(option => option !== null); // Remove null entries (scanned entrance)
+        
+        console.log('🚪 Found', entranceOptions.length, 'entrance options for dropdown (from floor graphs)');
+        
+        // Add all available offices to both dropdowns
+        const officeOptions = (window.officesData || officesData || [])
+          .filter(office => office.location)
+          .map(office => {
+            const floorNumber = getFloorFromLocation(office.location);
+            return {
+              value: office.location,
+              label: `${office.name}${floorNumber ? ` (Floor ${floorNumber})` : ''}`,
+              floor: floorNumber
+            };
+          })
+          .sort((a, b) => {
+            if (a.floor == null && b.floor != null) return 1;
+            if (b.floor == null && a.floor != null) return -1;
+            if (a.floor !== b.floor) return (a.floor || 0) - (b.floor || 0);
+            return a.label.localeCompare(b.label);
+          });
+
+        // Combine office options with entrance options
+        const allLocationOptions = [...entranceOptions, ...officeOptions];
+        
+        console.log('📍 Total location options:', allLocationOptions.length, '(', entranceOptions.length, 'entrances +', officeOptions.length, 'offices)');
+        console.log('✅ Entrances can now be used as BOTH start AND destination points');
+
+        allLocationOptions.forEach(option => {
+          // Add to start location dropdown (except the scanned start location which is already added)
+          // Skip if this is the scanned office OR if this matches the scanned entrance's roomId
+          const isScannedOffice = option.value === window.scannedStartOffice?.location;
+          const isScannedEntrance = window.scannedStartEntrance && option.value === window.scannedStartEntrance.roomId;
+          
+          if (!isScannedOffice && !isScannedEntrance) {
+            const startOption = document.createElement('option');
+            startOption.value = option.value;
+            startOption.textContent = option.label;
+            startOption.dataset.floorNumber = option.floor || '';
+            if (option.isEntrance) {
+              startOption.dataset.isEntrance = 'true';
+            }
+            startLocationSelect.appendChild(startOption);
+          }
+
+          // Add to destination dropdown (NOW INCLUDING ENTRANCES - user requested this)
+          // Previously entrances were excluded, now they're included for exit navigation
+          const endOption = document.createElement('option');
+          endOption.value = option.value;
+          endOption.textContent = option.label;
+          endOption.dataset.floorNumber = option.floor || '';
+          if (option.isEntrance) {
+            endOption.dataset.isEntrance = 'true';
+          }
+          
+          // Pre-select the clicked destination
+          if (option.value === destinationOffice.location) {
+            endOption.selected = true;
+          }
+          
+          endLocationSelect.appendChild(endOption);
+        });
+
+        // Show the modal
+        document.getElementById('pathfinding-modal-overlay').style.display = 'flex';
+        
+        // Log which start point is being used
+        if (window.scannedStartEntrance) {
+          console.log('✅ Pathfinding modal opened with entrance start:', window.scannedStartEntrance.label, 'and destination:', destinationOffice.name);
+        } else if (window.scannedStartOffice) {
+          console.log('✅ Pathfinding modal opened with office start:', window.scannedStartOffice.name, 'and destination:', destinationOffice.name);
+        } else {
+          console.log('✅ Pathfinding modal opened with destination:', destinationOffice.name);
+        }
       }
 
       // Use desktop pathfinding system (already defined by pathfinding.js)
@@ -2269,7 +3760,7 @@ try {
 
       // Enhanced text accessibility and readability with consistent font enforcement
       function enhanceSVGTextAccessibility() {
-        const textElements = document.querySelectorAll('svg text, svg tspan');
+        const textElements = document.querySelectorAll('#capitol-map-svg text, #capitol-map-svg tspan');
         
         textElements.forEach(textEl => {
           // Apply consistent CSS class
@@ -2303,7 +3794,7 @@ try {
         
         try {
           const currentZoom = window.svgPanZoomInstance.getZoom();
-          const textElements = document.querySelectorAll('svg text, svg tspan');
+          const textElements = document.querySelectorAll('#capitol-map-svg text, #capitol-map-svg tspan');
           
           textElements.forEach(textEl => {
             // Adjust stroke width based on zoom level for optimal readability
@@ -2319,7 +3810,7 @@ try {
       // Function to draw walkable paths on the SVG (simplified version)
       function drawWalkablePath(path) {
         console.log('Drawing walkable path:', path.id);
-        const svg = document.querySelector('svg');
+        const svg = document.querySelector('#capitol-map-svg');
         if (!svg || !path.pathPoints || path.pathPoints.length === 0) {
           console.warn('Cannot draw path - missing SVG or path points');
           return;
@@ -2338,6 +3829,8 @@ try {
         if (!pathGroup) {
           pathGroup = document.createElementNS(svgNS, 'g');
           pathGroup.id = 'walkable-path-group';
+          pathGroup.style.opacity = '0'; // Hide the entire group
+          pathGroup.style.visibility = 'hidden';
           mainGroup.appendChild(pathGroup);
           console.log('Created walkable path group in:', mainGroup.classList || mainGroup.tagName);
         }
@@ -2356,7 +3849,8 @@ try {
         pathElement.setAttribute('fill', 'none');
         pathElement.setAttribute('stroke', path.style?.color || '#4CAF50');
         pathElement.setAttribute('stroke-width', path.style?.width || 3);
-        pathElement.setAttribute('opacity', path.style?.opacity || 0.8);
+        pathElement.setAttribute('opacity', '0'); // Hidden but functional
+        pathElement.setAttribute('visibility', 'hidden'); // Completely invisible
         pathElement.setAttribute('vector-effect', 'non-scaling-stroke');
         pathElement.classList.add('walkable-path');
         
@@ -2397,16 +3891,34 @@ try {
               bgCircle.setAttribute('stroke-width', '2');
               bgCircle.setAttribute('class', 'camera-bg');
               
-              // Create camera icon
-              const cameraIcon = document.createElementNS(svgNS, 'path');
-              cameraIcon.setAttribute('id', iconId);
-              cameraIcon.setAttribute('d', 'M14 4h-1l-2-2h-2l-2 2h-1c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-8c0-1.1-.9-2-2-2zm-4 7c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z');
-              cameraIcon.setAttribute('fill', '#ffffff');
-              cameraIcon.setAttribute('transform', `translate(${point.x - 8}, ${point.y - 8}) scale(0.8)`);
-              cameraIcon.setAttribute('class', 'camera-icon');
+              // Create panorama icon (mobile-specific)
+              const panoramaIcon = document.createElementNS(svgNS, 'g');
+              panoramaIcon.setAttribute('id', iconId);
+              panoramaIcon.setAttribute('class', 'panorama-icon');
+              panoramaIcon.setAttribute('transform', `translate(${point.x}, ${point.y}) scale(0.55)`);
+              
+              // Circle decoration from the panorama SVG
+              const iconCircle = document.createElementNS(svgNS, 'path');
+              iconCircle.setAttribute('d', 'M19.2093 12.8396C19.2093 13.618 18.5846 14.2489 17.814 14.2489C17.0433 14.2489 16.4186 13.618 16.4186 12.8396C16.4186 12.0613 17.0433 11.4304 17.814 11.4304C18.5846 11.4304 19.2093 12.0613 19.2093 12.8396Z');
+              iconCircle.setAttribute('fill', '#ffffff');
+              iconCircle.setAttribute('transform', 'translate(-12, -12)');
+              
+              // Main panorama path
+              const iconPath = document.createElementNS(svgNS, 'path');
+              iconPath.setAttribute('fill-rule', 'evenodd');
+              iconPath.setAttribute('clip-rule', 'evenodd');
+              iconPath.setAttribute('d', 'M18.4475 3.07312C17.3881 2.74149 16.4186 3.58696 16.4186 4.62005V8.24569C15.1217 8.49768 13.614 8.64346 12 8.64346C10.386 8.64346 8.87826 8.49768 7.5814 8.24569V4.62005C7.5814 3.58696 6.61193 2.74149 5.55252 3.07312C4.57111 3.38033 3.7219 3.77027 3.10283 4.24246C2.49454 4.70643 2 5.33865 2 6.13148V18.0787C2 18.294 2.03738 18.4996 2.10405 18.6934C2.16388 18.8674 2.24729 19.0319 2.34845 19.1856C2.67187 19.677 3.18915 20.0798 3.7886 20.409C4.3967 20.7431 5.13903 21.0285 5.97267 21.2614C7.64058 21.7273 9.73668 22 12 22C13.9009 22 15.6816 21.8076 17.1889 21.4712C18.6818 21.138 19.9619 20.6512 20.8188 20.0262C21.0272 19.8742 21.2239 19.7036 21.3949 19.5146C21.7545 19.1171 22 18.638 22 18.0787V6.13148C22 5.33865 21.5055 4.70643 20.8972 4.24246C20.2781 3.77027 19.4289 3.38033 18.4475 3.07312ZM20.6047 8.22659C20.5778 8.24416 20.5507 8.26148 20.5235 8.27855C19.7014 8.7951 18.5721 9.20856 17.27 9.50563C15.7455 9.85343 13.9349 10.0527 12 10.0527C10.0651 10.0527 8.25452 9.85343 6.73 9.50563C5.4279 9.20856 4.29864 8.7951 3.47645 8.27855C3.44929 8.26148 3.42224 8.24416 3.39535 8.22659V17.3892L6.22606 14.7138L7.50233 13.6349C8.42995 12.8507 9.81971 12.8937 10.6944 13.7388L13.7838 16.7236C14.0393 16.9704 14.4553 17.0087 14.759 16.8025L14.9737 16.6567C16.0566 15.9214 17.5173 16.0043 18.5058 16.8637L20.4069 18.5168C20.5626 18.3291 20.6047 18.1795 20.6047 18.0787V8.22659Z');
+              iconPath.setAttribute('fill', '#ffffff');
+              iconPath.setAttribute('transform', 'translate(-12, -12)');
+              
+              panoramaIcon.appendChild(iconCircle);
+              panoramaIcon.appendChild(iconPath);
+              
+              panoramaIcon.appendChild(iconCircle);
+              panoramaIcon.appendChild(iconPath);
               
               marker.appendChild(bgCircle);
-              marker.appendChild(cameraIcon);
+              marker.appendChild(panoramaIcon);
               
               // Add data attributes for panorama identification
               marker.setAttribute('data-path-id', path.id);
@@ -2533,10 +4045,136 @@ try {
 
       // "YOU ARE HERE" functionality
 
+      // Function to draw entrance icons (green building entrance markers)
+      function drawEntranceIcons(entrances, currentFloor) {
+        console.log('drawEntranceIcons called with', entrances.length, 'entrances for floor', currentFloor);
+        
+        const svg = document.querySelector('#capitol-map-svg');
+        if (!svg) {
+          console.error('SVG not found for entrance icons');
+          return;
+        }
+
+        let mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g');
+        if (!mainGroup) {
+          console.error('Main group not found for entrance icons');
+          return;
+        }
+
+        // Create or get the entrance icons group
+        let entranceGroup = mainGroup.querySelector('#entrance-icons-group');
+        if (!entranceGroup) {
+          entranceGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          entranceGroup.id = 'entrance-icons-group';
+          mainGroup.appendChild(entranceGroup);
+        }
+
+        // Clear previous entrance icons
+        entranceGroup.innerHTML = '';
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        
+        // Entrance icon SVG path (from entrance-14-svgrepo-com.svg)
+        const ENTRANCE_ICON_PATH = 'm 4,0 0,4 2,0 0,-2 6,0 0,10 -6,0 0,-2 -2,0 0,4 10,0 0,-14 z m 3,3.5 0,2.25 -6,0 0,2.5 6,0 0,2.25 4,-3.5 z';
+        
+        // Draw only entrances for the current floor
+        entrances.forEach(entrance => {
+          if (entrance.floor !== currentFloor) {
+            console.log('Skipping entrance', entrance.label, '- wrong floor (entrance floor:', entrance.floor, ', current floor:', currentFloor, ')');
+            return;
+          }
+          
+          console.log('Drawing entrance icon:', entrance.label, 'at', entrance.x, entrance.y);
+          
+          // Create entrance marker group
+          const markerGroup = document.createElementNS(svgNS, 'g');
+          markerGroup.classList.add('entrance-marker');
+          markerGroup.setAttribute('data-entrance-id', entrance.id);
+          markerGroup.style.cursor = 'pointer';
+          
+          // Background circle (green)
+          const bgCircle = document.createElementNS(svgNS, 'circle');
+          bgCircle.setAttribute('cx', entrance.x);
+          bgCircle.setAttribute('cy', entrance.y);
+          bgCircle.setAttribute('r', '20');
+          bgCircle.setAttribute('fill', '#10B981'); // Green color for entrances
+          bgCircle.classList.add('entrance-bg');
+          markerGroup.appendChild(bgCircle);
+          
+          // Entrance icon (white)
+          const iconPath = document.createElementNS(svgNS, 'path');
+          iconPath.setAttribute('d', ENTRANCE_ICON_PATH);
+          iconPath.setAttribute('fill', 'white');
+          iconPath.setAttribute('transform', `translate(${entrance.x - 7}, ${entrance.y - 7}) scale(1)`);
+          iconPath.classList.add('entrance-icon');
+          markerGroup.appendChild(iconPath);
+          
+          // Add permanent entrance label text above icon (e.g., "West Entrance")
+          // SKIP if this entrance has "YOU ARE HERE" marker to prevent label overlap
+          console.log('🔍 Checking entrance:', entrance.id, 'against suppressed entrance:', window.entranceWithYouAreHere);
+          if (window.entranceWithYouAreHere !== entrance.id) {
+            const entranceLabel = document.createElementNS(svgNS, 'text');
+            entranceLabel.setAttribute('class', 'entrance-label-text');
+            entranceLabel.setAttribute('data-entrance-id', entrance.id);
+            entranceLabel.setAttribute('x', entrance.x);
+            entranceLabel.setAttribute('y', entrance.y - 30);
+            entranceLabel.setAttribute('text-anchor', 'middle');
+            entranceLabel.setAttribute('fill', '#10B981');
+            entranceLabel.setAttribute('font-weight', 'bold');
+            entranceLabel.setAttribute('font-size', '14');
+            entranceLabel.setAttribute('vector-effect', 'non-scaling-stroke');
+            entranceLabel.textContent = entrance.label;
+            markerGroup.appendChild(entranceLabel);
+          } else {
+            console.log('⏭️ Skipped entrance label for', entrance.label, '(has YOU ARE HERE marker)');
+          }
+          
+          // Make entrance clickable like rooms - opens pathfinding modal
+          markerGroup.style.pointerEvents = 'auto'; // Enable pointer events
+          
+          // Add click handler to open pathfinding modal
+          markerGroup.addEventListener('click', function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            
+            console.log('🚪 Entrance clicked:', entrance.label);
+            
+            // Create a mock "office" object for the entrance to reuse handleRoomClick logic
+            const entranceAsDestination = {
+              id: entrance.id,
+              name: entrance.label,
+              location: entrance.id, // Use entrance ID as location
+              details: 'Building entrance',
+              services: 'Entry/Exit point',
+              contact: 'N/A',
+              isEntrance: true, // Flag to identify as entrance
+              floor: entrance.floor,
+              x: entrance.x,
+              y: entrance.y
+            };
+            
+            // Open pathfinding modal with this entrance as destination
+            openPathfindingModalWithDestination(entranceAsDestination);
+            
+            console.log('✅ Pathfinding modal opened with entrance destination:', entrance.label);
+          });
+          
+          // Add tooltip
+          const title = document.createElementNS(svgNS, 'title');
+          title.textContent = entrance.label + ' (Click for directions)';
+          markerGroup.appendChild(title);
+          
+          entranceGroup.appendChild(markerGroup);
+          console.log('Successfully added clickable entrance icon for', entrance.label);
+        });
+        
+        console.log('Finished drawing entrance icons');
+      }
+      
       // Function to draw entry points
       function drawEntryPoints(rooms) {
         console.log('Drawing entry points for rooms:', Object.keys(rooms).length);
-        const svg = document.querySelector('svg');
+        const svg = document.querySelector('#capitol-map-svg');
         if (!svg) {
           console.warn('Cannot draw entry points - no SVG found');
           return;
@@ -2678,20 +4316,57 @@ try {
 
               entryGroup.appendChild(marker);
             } else {
-              // Regular entry point (non-stair) - keep as circle
-              const circle = document.createElementNS(svgNS, 'circle');
-              circle.id = `entry-${roomId}-${index}`;
-              circle.setAttribute('cx', entryPoint.x);
-              circle.setAttribute('cy', entryPoint.y);
-              circle.setAttribute('r', radius);
-              circle.setAttribute('fill', baseColor);
-              circle.setAttribute('stroke', strokeColor);
-              circle.setAttribute('stroke-width', strokeWidth);
-              circle.setAttribute('vector-effect', 'non-scaling-stroke');
+              // Regular entry point (non-stair) - use door icon (matching panorama marker style)
+              const marker = document.createElementNS(svgNS, 'g');
+              marker.id = `entry-point-${roomId}-${index}`;
+              marker.classList.add('entry-point-marker', 'entry-point', 'door-point');
+              
+              // Check if this door is inactive
+              const isDoorActive = typeof window.isDoorActive === 'function' 
+                ? window.isDoorActive(roomId, index)
+                : true; // Default to active if function not available
+              
+              if (!isDoorActive) {
+                marker.classList.add('inactive');
+                console.log(`🚫 Door marker ${roomId}-door-${index} marked as inactive`);
+              }
 
-              circle.classList.add('entry-point', 'door-point');
+              // Create background circle (blue like panorama markers)
+              const bgCircle = document.createElementNS(svgNS, 'circle');
+              bgCircle.setAttribute('cx', entryPoint.x);
+              bgCircle.setAttribute('cy', entryPoint.y);
+              bgCircle.setAttribute('r', '12'); // Match panorama marker radius
+              bgCircle.setAttribute('fill', '#F97316'); // Orange background
+              bgCircle.setAttribute('stroke', '#ffffff');
+              bgCircle.setAttribute('stroke-width', '1.5');
+              bgCircle.setAttribute('class', 'entry-bg');
+              bgCircle.setAttribute('vector-effect', 'non-scaling-stroke');
 
-              entryGroup.appendChild(circle);
+              // Create door icon using the SVG path
+              const doorIcon = document.createElementNS(svgNS, 'path');
+              doorIcon.setAttribute('d', 'M9 0L3 2V14H1V16H15V14H13V2H11V14H9V0ZM6.75 9C7.16421 9 7.5 8.55229 7.5 8C7.5 7.44772 7.16421 7 6.75 7C6.33579 7 6 7.44772 6 8C6 8.55229 6.33579 9 6.75 9Z');
+              doorIcon.setAttribute('fill', '#ffffff');
+              doorIcon.setAttribute('transform', `translate(${entryPoint.x - 8}, ${entryPoint.y - 8}) scale(1)`);
+              doorIcon.setAttribute('class', 'door-icon');
+              doorIcon.style.pointerEvents = 'none';
+
+              marker.appendChild(bgCircle);
+              marker.appendChild(doorIcon);
+
+              // Only add hover effects if door is active
+              if (isDoorActive) {
+                marker.addEventListener('mouseenter', () => {
+                  bgCircle.setAttribute('fill', '#F97316');
+                  bgCircle.setAttribute('r', '14');
+                });
+
+                marker.addEventListener('mouseleave', () => {
+                  bgCircle.setAttribute('fill', '#F97316');
+                  bgCircle.setAttribute('r', '12');
+                });
+              }
+
+              entryGroup.appendChild(marker);
             }
           });
 
@@ -2711,7 +4386,7 @@ try {
         });
 
         // Clear path lines and labels from the entire SVG
-        const svg = document.querySelector('svg');
+        const svg = document.querySelector('#capitol-map-svg');
         if (svg) {
           const pathLines = svg.querySelectorAll('.path-line');
           pathLines.forEach(line => line.remove());
@@ -2760,7 +4435,7 @@ try {
               label.setAttribute("vector-effect", "non-scaling-stroke");
               label.textContent = index + 1;
               
-              const svg = document.querySelector('svg');
+              const svg = document.querySelector('#capitol-map-svg');
               if (svg) {
                 // Add to the viewport group so it transforms with pan/zoom
                 const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
@@ -2772,7 +4447,7 @@ try {
 
         // Draw connecting lines between path points
         if (window.floorGraph && window.floorGraph.rooms) {
-          const svg = document.querySelector('svg');
+          const svg = document.querySelector('#capitol-map-svg');
           if (svg) {
             for (let i = 0; i < path.length - 1; i++) {
               const currentRoom = window.floorGraph.rooms[path[i]];
@@ -2813,9 +4488,32 @@ try {
         }
       };
 
+      // Simple highlight function for search results - just red highlight, no label
+      window.highlightRoomOnly = function(officeLocation) {
+        console.log('Highlighting room only (no YOU ARE HERE label):', officeLocation);
+        
+        // Clear existing "you-are-here" highlights
+        document.querySelectorAll('.you-are-here').forEach(el => {
+          el.classList.remove('you-are-here');
+        });
+        
+        // Clear any existing "YOU ARE HERE" labels
+        const svg = document.querySelector('#capitol-map-svg');
+        if (svg) {
+          svg.querySelectorAll('.you-are-here-label').forEach(label => label.remove());
+        }
+        
+        // Find and highlight the room in red
+        const roomElement = document.getElementById(officeLocation);
+        if (roomElement) {
+          roomElement.classList.add('you-are-here');
+          console.log('Room highlighted in red:', officeLocation);
+        }
+      };
+      
       // "YOU ARE HERE" functionality
-      window.showYouAreHere = function(officeLocation) {
-        console.log('Showing YOU ARE HERE for:', officeLocation);
+      window.showYouAreHere = function(officeLocation, doorPoint = null) {
+        console.log('Showing YOU ARE HERE for:', officeLocation, doorPoint ? `at door point (${doorPoint.x}, ${doorPoint.y})` : '(center)');
         
         // Clear existing highlights
         document.querySelectorAll('.you-are-here').forEach(el => {
@@ -2828,7 +4526,7 @@ try {
           roomElement.classList.add('you-are-here');
           
           // Add "YOU ARE HERE" label to the proper viewport group
-          const svg = document.querySelector('svg');
+          const svg = document.querySelector('#capitol-map-svg');
           if (svg) {
             // Find the main group that gets transformed during pan/zoom
             const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
@@ -2836,12 +4534,27 @@ try {
             // Remove existing "you are here" labels from the entire SVG
             svg.querySelectorAll('.you-are-here-label').forEach(label => label.remove());
             
+            // Determine label position
+            let labelX, labelY;
+            
+            if (doorPoint) {
+              // Use the specific door point coordinates
+              labelX = doorPoint.x;
+              labelY = doorPoint.y - 15; // Slightly above the door point
+              console.log('Positioning YOU ARE HERE at door point:', doorPoint);
+            } else {
+              // Use room bounding box center (default behavior)
+              const bbox = roomElement.getBBox();
+              labelX = bbox.x + bbox.width / 2;
+              labelY = bbox.y - 10;
+              console.log('Positioning YOU ARE HERE at room center');
+            }
+            
             // Create new label
-            const bbox = roomElement.getBBox();
             const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
             label.setAttribute("class", "you-are-here-label");
-            label.setAttribute("x", bbox.x + bbox.width / 2);
-            label.setAttribute("y", bbox.y - 10);
+            label.setAttribute("x", labelX);
+            label.setAttribute("y", labelY);
             label.setAttribute("text-anchor", "middle");
             label.setAttribute("fill", "#ff4444");
             label.setAttribute("font-weight", "bold");
@@ -2852,7 +4565,100 @@ try {
             // Add the label to the same group as the rooms so it transforms with them
             mainGroup.appendChild(label);
             
-            console.log('YOU ARE HERE label added to viewport group:', mainGroup);
+            console.log('YOU ARE HERE label added at:', {x: labelX, y: labelY});
+          }
+        }
+      };
+      
+      // "YOU ARE HERE" functionality for entrances
+      window.showYouAreHereEntrance = function(entranceData) {
+        if (!entranceData || !entranceData.x || !entranceData.y) {
+          console.error('Invalid entrance data for YOU ARE HERE:', entranceData);
+          return;
+        }
+        
+        console.log('Showing YOU ARE HERE for entrance:', entranceData.label, `at (${entranceData.x}, ${entranceData.y})`);
+        
+        // CRITICAL: Store entrance ID to prevent label text from re-appearing during floor switches
+        window.entranceWithYouAreHere = entranceData.id || entranceData.entrance_id;
+        console.log('🔒 Locked entrance label suppression for:', window.entranceWithYouAreHere);
+        console.log('📋 Full entrance data:', JSON.stringify(entranceData));
+        
+        // Clear existing highlights
+        document.querySelectorAll('.you-are-here').forEach(el => {
+          el.classList.remove('you-are-here');
+        });
+        
+        // Add "YOU ARE HERE" label for entrance
+        const svg = document.querySelector('#capitol-map-svg');
+        if (svg) {
+          // Find the main group that gets transformed during pan/zoom
+          const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g') || svg;
+          
+          // Remove existing "you are here" labels from the entire SVG
+          svg.querySelectorAll('.you-are-here-label, .you-are-here-entrance-marker').forEach(label => label.remove());
+          
+          // Remove the entrance label text for the scanned entrance (e.g., "West Entrance")
+          // Keep the icon, only remove the label text
+          const entranceLabelToRemove = svg.querySelector(`.entrance-label-text[data-entrance-id="${entranceData.entrance_id}"]`);
+          if (entranceLabelToRemove) {
+            entranceLabelToRemove.remove();
+            console.log('🗑️ Removed entrance label text for:', entranceData.label);
+          }
+          
+          // Create entrance marker circle (larger and distinct)
+          const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          marker.setAttribute("class", "you-are-here-entrance-marker");
+          marker.setAttribute("cx", entranceData.x);
+          marker.setAttribute("cy", entranceData.y);
+          marker.setAttribute("r", "20");
+          marker.setAttribute("fill", "#00ff00");
+          marker.setAttribute("fill-opacity", "0.3");
+          marker.setAttribute("stroke", "#00ff00");
+          marker.setAttribute("stroke-width", "3");
+          marker.setAttribute("vector-effect", "non-scaling-stroke");
+          mainGroup.appendChild(marker);
+          
+          // Create pulsing animation
+          const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+          animate.setAttribute("attributeName", "r");
+          animate.setAttribute("values", "20;25;20");
+          animate.setAttribute("dur", "2s");
+          animate.setAttribute("repeatCount", "indefinite");
+          marker.appendChild(animate);
+          
+          // Create "YOU ARE HERE" label ONLY (entrance name label was removed above)
+          const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          label.setAttribute("class", "you-are-here-label");
+          label.setAttribute("x", entranceData.x);
+          label.setAttribute("y", entranceData.y - 30);
+          label.setAttribute("text-anchor", "middle");
+          label.setAttribute("fill", "#00ff00");
+          label.setAttribute("font-weight", "bold");
+          label.setAttribute("font-size", "16");
+          label.setAttribute("vector-effect", "non-scaling-stroke");
+          label.textContent = "🚪 YOU ARE HERE";
+          mainGroup.appendChild(label);
+          
+          console.log('YOU ARE HERE entrance marker and labels added at:', {x: entranceData.x, y: entranceData.y});
+          
+          // Reset SVG view to show entire map (like door QR scans)
+          // Simple fit/center is better than complex pan calculations for mobile
+          if (window.svgPanZoomInstance) {
+            try {
+              console.log('🔄 Resetting SVG view for entrance (fit/center)...');
+              
+              // Simple reset sequence - same as door QR scans
+              window.svgPanZoomInstance.resize();
+              window.svgPanZoomInstance.fit();
+              window.svgPanZoomInstance.center();
+              
+              console.log('✅ SVG reset complete - entrance visible on map');
+            } catch (e) {
+              console.error('❌ Error resetting SVG view for entrance:', e);
+            }
+          } else {
+            console.warn('⚠️ svgPanZoomInstance not available for SVG reset');
           }
         }
       };
@@ -2931,7 +4737,7 @@ try {
 
         const roomNumber = roomMatch[1];
         const floorNumber = roomMatch[2] || '';
-        const svgRoot = roomElement.ownerSVGElement || group.ownerSVGElement || document.querySelector('svg');
+        const svgRoot = roomElement.ownerSVGElement || group.ownerSVGElement || document.querySelector('#capitol-map-svg');
 
         group.dataset.room = 'true';
         group.dataset.roomNumber = roomNumber;
@@ -3078,18 +4884,140 @@ try {
 
       const getFloorFromLocation = (location) => {
         if (!location || typeof location !== 'string') return null;
+        
+        // Handle entrance IDs (e.g., entrance_west_1, entrance_main_2)
+        if (location.startsWith('entrance_')) {
+          // Check if entrance exists in entrancesData or floorGraphCache
+          if (window.entrancesData) {
+            const entrance = window.entrancesData.find(e => e.entrance_id === location);
+            if (entrance) {
+              return parseInt(entrance.floor, 10);
+            }
+          }
+          
+          // Fallback: Try to find entrance in cached floor graphs
+          if (window.floorGraphCache) {
+            for (const [floor, graph] of Object.entries(window.floorGraphCache)) {
+              if (graph.entrances) {
+                const entrance = graph.entrances.find(e => e.id === location);
+                if (entrance) {
+                  return parseInt(floor, 10);
+                }
+              }
+            }
+          }
+          
+          // Last resort: Parse floor number from entrance ID suffix
+          const parts = location.split('_');
+          const lastPart = parts[parts.length - 1];
+          const parsed = parseInt(lastPart, 10);
+          if (!Number.isNaN(parsed)) {
+            return parsed;
+          }
+        }
+        
+        // Handle room IDs (e.g., room-12-1, stair_west_1-1)
         const parts = location.split('-');
         const possibleFloor = parseInt(parts[parts.length - 1], 10);
         return Number.isNaN(possibleFloor) ? null : possibleFloor;
       };
       
+      // Fetch entrance positions from database (overrides JSON file positions)
+      async function fetchEntrancePositionsFromDB(floorNumber) {
+        try {
+          const response = await fetch(`../entrance_qr_api.php?action=get_by_floor&floor=${floorNumber}`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          if (data.success && Array.isArray(data.entrances)) {
+            return data.entrances;
+          }
+          return [];
+        } catch (error) {
+          console.error('Error fetching entrance positions:', error);
+          return [];
+        }
+      }
+      
       // Track current floor
       let currentFloor = 1;
+      
+      // CRITICAL: Preload all floor graphs on page load so entrance dropdown has access to all floors
+      async function preloadAllFloorGraphs() {
+        console.log('🔄 Preloading all floor graphs for entrance dropdown...');
+        
+        if (!window.floorGraphCache) {
+          window.floorGraphCache = {};
+        }
+        
+        const preloadPromises = [];
+        
+        for (let floor = 1; floor <= 3; floor++) {
+          // Skip if already cached
+          if (window.floorGraphCache[floor]) {
+            console.log(`✅ Floor ${floor} already cached`);
+            continue;
+          }
+          
+          // Add cache-buster to force fresh load from server
+          const cacheBuster = '?v=' + Date.now();
+          const promise = fetch(floorGraphs[floor] + cacheBuster)
+            .then(response => {
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              return response.json();
+            })
+            .then(graphData => {
+              window.floorGraphCache[floor] = graphData;
+              console.log(`✅ Preloaded floor ${floor} graph (${graphData.entrances?.length || 0} entrances)`);
+            })
+            .catch(error => {
+              console.warn(`⚠️ Could not preload floor ${floor} graph:`, error.message);
+            });
+          
+          preloadPromises.push(promise);
+        }
+        
+        await Promise.all(preloadPromises);
+        console.log('✅ All floor graphs preloaded, cache ready:', window.floorGraphCache);
+        
+        // Filter entrancesData to ONLY include building entrances from floor graphs (exclude door QRs)
+        const validEntranceIds = new Set();
+        Object.values(window.floorGraphCache).forEach(graph => {
+          if (graph.entrances && Array.isArray(graph.entrances)) {
+            graph.entrances.forEach(entrance => validEntranceIds.add(entrance.id));
+          }
+        });
+        
+        window.entrancesData = (window.entrancesDataRaw || []).filter(entrance => 
+          validEntranceIds.has(entrance.entrance_id)
+        );
+        
+        console.log('🚪 Filtered entrancesData to building entrances only:', window.entrancesData.length, 'entrances');
+        console.log('   Valid entrance IDs from floor graphs:', Array.from(validEntranceIds).join(', '));
+        console.log('   Excluded entries (door QRs):', (window.entrancesDataRaw?.length || 0) - window.entrancesData.length);
+      }
 
       // Function to load SVG for a specific floor
       function loadFloorMap(floorNumber) {
-        console.log(`Loading floor ${floorNumber} map...`);
+        console.log(`🗺️ Loading floor ${floorNumber} map...`);
+        console.log(`Floor ${floorNumber} SVG path:`, floorMaps[floorNumber]);
+        console.log(`Floor ${floorNumber} graph path:`, floorGraphs[floorNumber]);
+        
         currentFloor = floorNumber; // Track the current floor
+        
+        // Validate floor number
+        if (!floorMaps[floorNumber]) {
+          console.error(`❌ Invalid floor number: ${floorNumber}`);
+          document.getElementById('svg-container').innerHTML = `<p style="color:red;">Invalid floor number: ${floorNumber}</p>`;
+          return Promise.reject(new Error(`Invalid floor number: ${floorNumber}`));
+        }
+        
+        // CRITICAL: Clear the floor graph cache BEFORE fetching to ensure fresh data
+        if (typeof window.clearFloorGraphCache === 'function') {
+          window.clearFloorGraphCache(floorNumber);
+          console.log(`✅ Cleared floor graph cache for floor ${floorNumber} - will fetch fresh entrance data`);
+        }
         
         // Load both SVG and floor graph for pathfinding
         return Promise.all([
@@ -3102,7 +5030,7 @@ try {
                 console.warn(`Floor graph for floor ${floorNumber} not available:`, error.message);
                 return null;
               })
-            : fetch(floorGraphs[floorNumber]).then(response => {
+            : fetch(floorGraphs[floorNumber] + '?v=' + Date.now()).then(response => {
                 if (!response.ok) throw new Error(`Floor graph fetch failed: ${response.status}`);
                 return response.json();
               }).catch(error => {
@@ -3113,12 +5041,28 @@ try {
         ])
         .then(([svgText, graphData]) => {
           // Load SVG
-          document.getElementById('svg-container').innerHTML = svgText;
-          const svg = document.querySelector('svg');
+          const svgContainer = document.getElementById('svg-container');
+          if (!svgContainer) {
+            throw new Error('SVG container element not found');
+          }
+          
+          // CRITICAL FIX: Ensure container is visible before inserting SVG
+          svgContainer.style.display = 'flex';
+          svgContainer.style.visibility = 'visible';
+          svgContainer.style.opacity = '1';
+          
+          svgContainer.innerHTML = svgText;
+          const svg = document.querySelector('#svg-container svg');
+          
+          if (!svg) {
+            throw new Error('SVG element not found after loading');
+          }
+          
+          console.log(`✅ SVG loaded for floor ${floorNumber}, dimensions:`, svg.getBoundingClientRect());
           
           // Ensure SVG has proper attributes matching floorPlan.php
           if (svg) {
-            svg.setAttribute('id', 'svg1'); // Ensure consistent ID
+            svg.setAttribute('id', 'capitol-map-svg'); // Unique ID for Capitol floor plan
             svg.setAttribute('width', '100%');
             svg.setAttribute('height', '100%');
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -3148,12 +5092,25 @@ try {
           // Load floor graph for pathfinding
           if (graphData) {
             window.floorGraph = graphData;
-            console.log(`Floor ${floorNumber} navigation graph loaded:`, graphData);
+            
+            // CRITICAL FIX: Store floor graph in cache so entrance dropdown can access it
+            if (!window.floorGraphCache) {
+              window.floorGraphCache = {};
+            }
+            window.floorGraphCache[floorNumber] = graphData;
+            console.log(`✅ Floor ${floorNumber} navigation graph loaded and cached:`, graphData);
+            
             console.log(`Available rooms in floor ${floorNumber}:`, Object.keys(graphData.rooms || {}));
             console.log('Sample room data:', Object.keys(graphData.rooms || {}).slice(0, 3).map(roomId => ({ 
               id: roomId, 
               data: graphData.rooms[roomId] 
             })));
+            
+            // NOTE: Entrance positions are now managed ONLY in floor_graph.json files
+            // Database coordinates are NOT used to override JSON positions
+            // If you need to update entrance positions, edit the floor_graph.json files directly
+            console.log(`Using entrance positions from floor_graph.json (not database)`);
+            
           } else {
             window.floorGraph = null;
             console.log(`Floor ${floorNumber} loaded without navigation graph (pathfinding disabled)`);
@@ -3191,8 +5148,18 @@ try {
           console.log(`Floor ${floorNumber} map and navigation graph loaded successfully`);
         })
         .catch(error => {
-          console.error(`Error loading floor ${floorNumber} data:`, error);
-          document.getElementById('svg-container').innerHTML = `<p style="color:red;">Floor ${floorNumber} map not found.</p>`;
+          console.error(`❌ Error loading floor ${floorNumber} data:`, error);
+          console.error('Error stack:', error.stack);
+          const svgContainer = document.getElementById('svg-container');
+          if (svgContainer) {
+            svgContainer.innerHTML = `
+              <div style="color:red; padding:20px; text-align:center;">
+                <h3>Error Loading Floor ${floorNumber}</h3>
+                <p>${error.message}</p>
+                <p style="font-size:12px; color:#666;">Check console for details</p>
+              </div>
+            `;
+          }
         });
       }
 
@@ -3647,19 +5614,21 @@ try {
 
           // Create resize handler that matches floorPlan.php behavior
           window.panZoomResizeHandler = () => {
+            // CRITICAL FIX: Skip resize during drawer interactions to prevent SVG reset
+            if (window.isDrawerInteracting) {
+              console.log('Skipping SVG resize during drawer interaction to preserve transform');
+              return;
+            }
+            
             if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.resize === 'function') {
               try {
                 // Use requestAnimationFrame for smooth resize handling
                 requestAnimationFrame(() => {
                   if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.resize === 'function') {
+                    // FIXED: Only call resize() - preserve user's zoom and pan
+                    // fit() and center() reset the view, which is jarring during normal use
                     window.svgPanZoomInstance.resize();
-                    // Add small delay before fit and center to ensure resize has taken effect
-                    setTimeout(() => {
-                      if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.fit === 'function') {
-                        window.svgPanZoomInstance.fit();
-                        window.svgPanZoomInstance.center();
-                      }
-                    }, 10);
+                    console.log('SVG resized on window resize - zoom/pan preserved');
                   }
                 });
               } catch (e) {
@@ -3882,8 +5851,89 @@ try {
         console.log("Custom zoom controls created and added to document body");
       }
 
+      // Global door status map (key: doorId, value: boolean active status)
+      window.doorStatusMap = {};
+      
+      // Function to load all door statuses from API
+      function loadAllDoorStatuses() {
+        // Use public API endpoint that doesn't require authentication (for mobile visitors)
+        return fetch('../public_door_status_api.php?action=get_all')
+          .then(response => {
+            // Check if response is OK and actually JSON
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              console.warn('⚠️ Door status API returned non-JSON response (likely auth redirect). Skipping door status loading for mobile.');
+              // Return empty object - mobile visitors don't need door filtering
+              return { success: true, doors: {} };
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data.success && data.doors) {
+              console.log('✅ Loaded door statuses from PUBLIC API:', data.doors);
+              console.log('📱 Public API Access:', data.public_access ? 'Confirmed' : 'Not confirmed');
+              console.log('📊 Total offices with doors:', data.total_offices);
+              console.log('📊 Total doors:', data.total_doors);
+              
+              // Flatten the nested structure into a simple doorId -> isActive map
+              window.doorStatusMap = {};
+              let activeCount = 0;
+              let inactiveCount = 0;
+              
+              for (const officeId in data.doors) {
+                const officeDoors = data.doors[officeId];
+                for (const doorId in officeDoors) {
+                  const isActive = officeDoors[doorId];
+                  window.doorStatusMap[doorId] = isActive;
+                  
+                  if (isActive) {
+                    activeCount++;
+                  } else {
+                    inactiveCount++;
+                    console.log(`🚫 Inactive door found: ${doorId}`);
+                  }
+                }
+              }
+              
+              console.log('📊 Door status map created:', window.doorStatusMap);
+              console.log(`✅ Active doors: ${activeCount}, 🚫 Inactive doors: ${inactiveCount}`);
+              return window.doorStatusMap;
+            } else {
+              console.warn('⚠️ Failed to load door statuses or empty response - using default (all doors active)');
+              return {};
+            }
+          })
+          .catch(error => {
+            console.warn('⚠️ Door status API unavailable (mobile mode) - all doors will be shown as active:', error.message);
+            // Return empty map - isDoorActive will default to true
+            return {};
+          });
+      }
+      
+      // Function to check if a door is active
+      window.isDoorActive = function(roomId, doorIndex) {
+        const doorId = `${roomId}-door-${doorIndex}`;
+        // If door status not found, default to active (true)
+        return window.doorStatusMap[doorId] !== false;
+      };
+      
       // Initialize floor buttons on document load
       document.addEventListener("DOMContentLoaded", function() {
+        // Load door statuses first, then continue with initialization
+        loadAllDoorStatuses().then(() => {
+          console.log('🚪 Door statuses loaded, continuing initialization...');
+        });
+        
+        // CRITICAL: Preload all floor graphs so entrance dropdown has access to all floors
+        preloadAllFloorGraphs().then(() => {
+          console.log('✅ All floor graphs preloaded and cached for entrance dropdown');
+        }).catch(err => {
+          console.warn('⚠️ Error preloading floor graphs:', err);
+        });
+        
         // Initialize text accessibility enhancements
         setTimeout(() => {
           enhanceSVGTextAccessibility();
@@ -3892,12 +5942,16 @@ try {
         
         // Listen for zoom changes to optimize text
         setTimeout(() => {
-          if (window.svgPanZoomInstance && typeof window.svgPanZoomInstance.setOnZoom === 'function') {
+          if (window.svgPanZoomInstance && 
+              typeof window.svgPanZoomInstance.setOnZoom === 'function' &&
+              window.svgPanZoomInstance.options) {
             const originalOnZoom = window.svgPanZoomInstance.options.onZoom || (() => {});
             window.svgPanZoomInstance.setOnZoom(() => {
               originalOnZoom();
               optimizeTextForZoom();
             });
+          } else {
+            console.warn('⚠️ svgPanZoomInstance not ready for onZoom binding');
           }
         }, 1500);
         
@@ -3918,7 +5972,7 @@ try {
         // It will be triggered every time panZoomReady is dispatched.
         document.addEventListener('panZoomReady', drawPathsAndDoorsWhenReady);
 
-        // Determine initial floor to load - check for scanned panorama first
+        // Determine initial floor to load - check for scanned panorama first, then office QR
         let initialFloor = 1; // Default to floor 1
         if (scannedPanoramaFromPHP && scannedPanoramaFromPHP.floor) {
           initialFloor = scannedPanoramaFromPHP.floor;
@@ -3934,9 +5988,55 @@ try {
               }
             });
           }, 100);
+        } else if (highlightOfficeIdFromPHP) {
+          // Check if office QR code was scanned - determine floor from office location
+          const highlightedOffice = officesData.find(o => o.id == highlightOfficeIdFromPHP);
+          if (highlightedOffice && highlightedOffice.location) {
+            const officeFloor = getFloorFromLocation(highlightedOffice.location);
+            if (officeFloor) {
+              initialFloor = officeFloor;
+              console.log(`🏢 Office QR scan detected (ID: ${highlightOfficeIdFromPHP}, Location: ${highlightedOffice.location}), loading floor ${initialFloor}`);
+              
+              // Update the active floor button to match the office floor
+              setTimeout(() => {
+                const floorButtons = document.querySelectorAll('.floor-btn');
+                floorButtons.forEach(btn => {
+                  btn.classList.remove('active');
+                  if (parseInt(btn.getAttribute('data-floor')) === initialFloor) {
+                    btn.classList.add('active');
+                  }
+                });
+              }, 100);
+            } else {
+              console.warn(`⚠️ Office ${highlightOfficeIdFromPHP} location "${highlightedOffice.location}" doesn't contain valid floor number, defaulting to floor 1`);
+            }
+          } else {
+            console.warn(`⚠️ Office ${highlightOfficeIdFromPHP} not found in offices data or has no location, defaulting to floor 1`);
+          }
         }
         
         // Load the determined initial floor
+        console.log(`📍 Initial floor determined: ${initialFloor}, initiating load...`);
+        
+        // CRITICAL FIX: Ensure SVG container is visible before loading
+        const svgContainer = document.getElementById('svg-container');
+        if (svgContainer) {
+          svgContainer.style.display = 'flex';
+          svgContainer.style.visibility = 'visible';
+          svgContainer.style.opacity = '1';
+          console.log('SVG container visibility ensured before floor load');
+        }
+        
+        // CRITICAL FIX: Ensure main content has proper initial height
+        const mainContent = document.querySelector('main.content');
+        if (mainContent) {
+          // Set explicit height to prevent collapse
+          const headerHeight = 60; // Header is 60px
+          const initialHeight = window.innerHeight - headerHeight;
+          mainContent.style.height = `${initialHeight}px`;
+          console.log(`Main content initial height set to ${initialHeight}px`);
+        }
+        
         loadFloorMap(initialFloor);
         
         // Verify zoom controls are created after a delay
@@ -3960,7 +6060,7 @@ try {
           // Force mobile layout after DOM load
           setTimeout(() => {
             const svgContainer = document.getElementById('svg-container');
-            const svg = document.querySelector('svg');
+            const svg = document.querySelector('#capitol-map-svg');
             
             if (svgContainer) {
               svgContainer.style.width = '100vw';
@@ -3981,7 +6081,21 @@ try {
 
         // ===== GEOFENCING ENFORCEMENT =====
         // This will block the UI until the user's location is verified as inside an allowed zone.
-        (function setupGeofenceEnforcement(){
+        (async function setupGeofenceEnforcement(){
+          // First, check if geofencing is enabled
+          try {
+            const statusResp = await fetch('../check_geofence_status.php');
+            const statusData = await statusResp.json();
+            
+            if (statusData.success && !statusData.enabled) {
+              console.log('Geofencing is disabled by admin - skipping enforcement');
+              return; // Exit without showing overlay
+            }
+          } catch (err) {
+            console.warn('Could not check geofence status, proceeding with enforcement as safety measure', err);
+            // Continue with geofencing if check fails (fail-safe)
+          }
+
           // Create overlay element
           const overlay = document.createElement('div');
           overlay.id = 'geofence-overlay';
@@ -4011,9 +6125,8 @@ try {
           function denyAccess(msg){
             showMessage(msg + '\n\nYou will not be able to use this app outside the allowed area.');
             const actions = document.getElementById('geofence-actions');
-            actions.innerHTML = `<button id="geofence-retry" style="padding:10px 16px;margin-right:8px;border-radius:8px;background:#fff;color:#111;border:none;">Retry</button><button id="geofence-info" style="padding:10px 16px;border-radius:8px;background:#667eea;color:#fff;border:none;">Contact Admin</button>`;
+            actions.innerHTML = `<button id="geofence-retry" style="padding:10px 16px;border-radius:8px;background:#fff;color:#111;border:none;cursor:pointer;font-weight:bold;">Retry</button>`;
             document.getElementById('geofence-retry').addEventListener('click', ()=>{ startCheck(); });
-            document.getElementById('geofence-info').addEventListener('click', ()=>{ window.location.href = '/FinalDev/geofence_admin_dashboard.php'; });
           }
 
           async function startCheck(){
@@ -4066,7 +6179,7 @@ try {
         // Get references to elements
         const detailsDrawer = document.getElementById("details-drawer");
         const drawerHandle = document.getElementById("drawer-handle");
-        const mainContent = document.querySelector("main.content"); // Get the main content element
+        // mainContent already declared above for initial height setup
 
         // --- Basic Checks ---
         if (!detailsDrawer || !drawerHandle || !mainContent) {
@@ -4079,6 +6192,9 @@ try {
         let isDragging = false;
         let startY = 0;
         let startTranslate = 0;
+        
+        // CRITICAL: Flag to prevent resize handler from resetting SVG during drawer interactions
+        window.isDrawerInteracting = false;
 
         // Calculate initial drawer state and dimensions
         const drawerHeight = detailsDrawer.offsetHeight;
@@ -4099,22 +6215,67 @@ try {
             // Calculate the new height for the main content area
             // Viewport height - header height - nav height - occupied drawer height
             const headerHeight = 80; // Assuming header is 80px
-            const newMainHeight = `calc(100vh - ${headerHeight}px - ${navHeight}px - ${occupiedDrawerHeight}px - -85px)`; // <<< Added 20px gap
-            mainContent.style.height = newMainHeight;
-            // console.log(`Adjusting main content height. Drawer Occupied: ${occupiedDrawerHeight}px, New Height: ${newMainHeight}`); // Optional debug log
+            const calculatedHeight = window.innerHeight - headerHeight - navHeight - occupiedDrawerHeight;
+            
+            // CRITICAL FIX: Ensure minimum height to prevent SVG container from disappearing
+            // When drawer is open, still maintain at least 40% of viewport for map visibility
+            const minContentHeight = window.innerHeight * 0.4;
+            const finalHeight = Math.max(calculatedHeight, minContentHeight);
+            
+            mainContent.style.height = `${finalHeight}px`;
+            
+            // Also ensure SVG container maintains proper height
+            const svgContainer = document.getElementById('svg-container');
+            if (svgContainer) {
+              svgContainer.style.minHeight = `${finalHeight}px`;
+              svgContainer.style.height = '100%';
+            }
+            
+            console.log(`Adjusting main content height. Drawer translateY: ${translateY}px, Occupied: ${occupiedDrawerHeight}px, Final Height: ${finalHeight}px`);
           }
         }
 
         // Function to open the drawer fully (callable from other scripts)
-        window.openDrawer = function() {
+        window.openDrawer = function(forceOpen = false) {
+          // Check if user manually closed drawer - don't auto-reopen unless forced
+          if (window.drawerManuallyClosed && !forceOpen) {
+            console.log('Drawer auto-open skipped - user closed it manually');
+            return;
+          }
+          
+          window.isDrawerInteracting = true; // Prevent resize during programmatic open
+          
           detailsDrawer.style.transition = "transform 0.2s ease";
           detailsDrawer.style.transform = `translateY(${minTranslate}px)`;
           currentTranslate = minTranslate;
+          
+          // CRITICAL FIX: Update height after transition completes to prevent SVG disappearing
+          // Only call resize() to update dimensions, NOT fit()/center() which reset user's view
+          setTimeout(() => {
+            adjustMainContentHeight(currentTranslate);
+            // Force SVG container refresh to ensure visibility
+            if (window.svgPanZoomInstance) {
+              try {
+                // FIXED: Only resize - preserve user's current zoom/pan position
+                window.svgPanZoomInstance.resize();
+                console.log('SVG resized after drawer open - zoom/pan preserved');
+              } catch (e) {
+                console.error('Error refreshing SVG after drawer open:', e);
+              }
+            }
+            
+            // Clear interaction flag after resize completes
+            setTimeout(() => {
+              window.isDrawerInteracting = false;
+              console.log('Drawer open complete - resize handler re-enabled');
+            }, 50);
+          }, 250); // Wait for drawer animation to complete
         }
 
         // Handle starting a drag
         function handleDragStart(e) {
           isDragging = true;
+          window.isDrawerInteracting = true; // Prevent resize handler from interfering
           startY = getClientY(e); // Get initial touch/mouse position
           startTranslate = calculateTranslateY(detailsDrawer); // Get current drawer position
           detailsDrawer.classList.add("dragging"); // Add class to disable transitions
@@ -4165,21 +6326,53 @@ try {
           currentTranslate = snappedPosition;
           adjustMainContentHeight(currentTranslate); // Update height after snap
 
+          // Track if user manually closed the drawer (prevent auto-reopen on floor switch)
+          if (snappedPosition === maxTranslate) {
+            window.drawerManuallyClosed = true;
+            console.log('Drawer manually closed by user - auto-reopen disabled');
+          } else {
+            window.drawerManuallyClosed = false;
+            console.log('Drawer opened by user - auto-reopen allowed');
+          }
+
           // Remove move and end event listeners
           document.removeEventListener("mousemove", handleDragMove);
           document.removeEventListener("mouseup", handleDragEnd);
           document.removeEventListener("touchmove", handleDragMove);
           document.removeEventListener("touchend", handleDragEnd);
+          
+          // Clear drawer interaction flag after animation completes
+          setTimeout(() => {
+            window.isDrawerInteracting = false;
+            console.log('Drawer interaction complete - resize handler re-enabled');
+          }, 300); // Wait for transition + small buffer
         }
 
         // Handle click on the handle to toggle drawer
         function handleClick() {
+          window.isDrawerInteracting = true; // Prevent resize during toggle
+          
           // Toggle between open (minTranslate) and closed (maxTranslate) positions
           const newPosition = (currentTranslate === minTranslate) ? maxTranslate : minTranslate;
           detailsDrawer.style.transition = "transform 0.2s ease";
           detailsDrawer.style.transform = `translateY(${newPosition}px)`;
           currentTranslate = newPosition;
           adjustMainContentHeight(currentTranslate); // Update height on click toggle
+          
+          // Track if user manually closed the drawer (prevent auto-reopen on floor switch)
+          if (newPosition === maxTranslate) {
+            window.drawerManuallyClosed = true;
+            console.log('Drawer manually closed by handle click - auto-reopen disabled');
+          } else {
+            window.drawerManuallyClosed = false;
+            console.log('Drawer opened by handle click - auto-reopen allowed');
+          }
+          
+          // Clear interaction flag after animation
+          setTimeout(() => {
+            window.isDrawerInteracting = false;
+            console.log('Drawer toggle complete - resize handler re-enabled');
+          }, 300);
         }
 
         // Helper function to get clientY from mouse or touch events
@@ -4247,27 +6440,55 @@ try {
                 // Store as current selected office for pathfinding
                 window.currentSelectedOffice = officeToHighlight;
                 
+                // NEW: Get the specific door point if a door QR was scanned
+                let scannedDoorPoint = null;
+                if (window.scannedDoorIndexFromPHP !== null && window.floorGraph && window.floorGraph.rooms) {
+                    const roomData = window.floorGraph.rooms[officeToHighlight.location];
+                    if (roomData && roomData.doorPoints && roomData.doorPoints[window.scannedDoorIndexFromPHP]) {
+                        scannedDoorPoint = roomData.doorPoints[window.scannedDoorIndexFromPHP];
+                        console.log('🚪 Door QR scanned! Using door point:', scannedDoorPoint);
+                        
+                        // Store the scanned door point for pathfinding
+                        window.scannedStartDoorPoint = {
+                            office: officeToHighlight,
+                            doorIndex: window.scannedDoorIndexFromPHP,
+                            point: scannedDoorPoint
+                        };
+                    }
+                }
+                
                 setTimeout(() => {
                     console.log("QR Code: setTimeout triggered. Calling populateAndShowDrawerWithData and showYouAreHere.");
                     populateAndShowDrawerWithData(officeToHighlight);
                     
                     // Show "YOU ARE HERE" indicator
                     if (officeToHighlight.location && window.showYouAreHere) {
-                        window.showYouAreHere(officeToHighlight.location);
+                        // Pass the specific door point if available
+                        window.showYouAreHere(officeToHighlight.location, scannedDoorPoint);
                     }
                     
-                    // Auto-center on the highlighted office
+                    // Auto-center on the highlighted office or specific door
                     setTimeout(() => {
                         const roomElement = document.getElementById(officeToHighlight.location);
                         if (roomElement && window.svgPanZoomInstance) {
-                            const bbox = roomElement.getBBox();
-                            const svg = document.querySelector('svg');
+                            let centerX, centerY;
+                            
+                            if (scannedDoorPoint) {
+                                // Center on the specific door point
+                                centerX = scannedDoorPoint.x;
+                                centerY = scannedDoorPoint.y;
+                                console.log('Centering on door point:', {x: centerX, y: centerY});
+                            } else {
+                                // Center on room bbox (default behavior)
+                                const bbox = roomElement.getBBox();
+                                centerX = bbox.x + bbox.width / 2;
+                                centerY = bbox.y + bbox.height / 2;
+                                console.log('Centering on room center');
+                            }
+                            
+                            const svg = document.querySelector('#capitol-map-svg');
                             if (svg) {
-                                const svgRect = svg.getBoundingClientRect();
-                                const centerX = bbox.x + bbox.width / 2;
-                                const centerY = bbox.y + bbox.height / 2;
-                                
-                                // Pan to the room location
+                                // Pan to the location
                                 window.svgPanZoomInstance.pan({x: centerX, y: centerY});
                                 window.svgPanZoomInstance.zoom(1.5); // Zoom in a bit
                             }
@@ -4282,10 +6503,347 @@ try {
             console.warn("QR Code: officesData is not defined, empty, or highlightOfficeIdFromPHP is null. Cannot highlight office from QR.");
         }
 
+        // ===== SEARCH FUNCTIONALITY =====
+        // Initialize search functionality for rooms and services
+        const searchInput = document.getElementById('office-search');
+        const searchResults = document.getElementById('search-results');
+        const searchResultsContent = document.querySelector('.search-results-content');
+        const clearSearchBtn = document.getElementById('clear-search');
+        
+        // Function to highlight keywords in text
+        function highlightKeywords(text, keywords) {
+          if (!text || !keywords || keywords.trim() === '') return text;
+          
+          const keywordArray = keywords.trim().split(/\s+/).filter(k => k.length > 0);
+          let result = text;
+          
+          // Sort keywords by length (longest first) to avoid partial matches overriding longer ones
+          keywordArray.sort((a, b) => b.length - a.length);
+          
+          keywordArray.forEach(keyword => {
+            const regex = new RegExp(`(${keyword})`, 'gi');
+            result = result.replace(regex, '<span class="highlight">$1</span>');
+          });
+          
+          return result;
+        }
+        
+        // Function to perform search and display results
+        function performSearch(query) {
+          const trimmedQuery = query.trim().toLowerCase();
+          
+          if (trimmedQuery === '') {
+            searchResults.style.display = 'none';
+            clearSearchBtn.style.display = 'none';
+            return;
+          }
+          
+          clearSearchBtn.style.display = 'flex';
+          
+          // Search through offices data AND entrances
+          const results = [];
+          
+          // Search offices
+          officesData.forEach(office => {
+            if (!office.location) return; // Skip offices without location
+            
+            const nameMatch = office.name && office.name.toLowerCase().includes(trimmedQuery);
+            const detailsMatch = office.details && office.details.toLowerCase().includes(trimmedQuery);
+            const servicesMatch = office.services && office.services.toLowerCase().includes(trimmedQuery);
+            const contactMatch = office.contact && office.contact.toLowerCase().includes(trimmedQuery);
+            
+            if (nameMatch || detailsMatch || servicesMatch || contactMatch) {
+              const floorNumber = getFloorFromLocation(office.location);
+              
+              results.push({
+                type: nameMatch ? 'room' : 'service',
+                office: office,
+                floor: floorNumber,
+                matchType: nameMatch ? 'name' : (servicesMatch ? 'service' : (detailsMatch ? 'details' : 'contact')),
+                isEntrance: false
+              });
+            }
+          });
+          
+          // Search entrances (building entrances)
+          if (window.entrancesData && Array.isArray(window.entrancesData)) {
+            window.entrancesData.forEach(entrance => {
+              const labelMatch = entrance.label && entrance.label.toLowerCase().includes(trimmedQuery);
+              const entranceKeyword = 'entrance'.includes(trimmedQuery) || 'entry'.includes(trimmedQuery) || 'door'.includes(trimmedQuery);
+              
+              if (labelMatch || entranceKeyword) {
+                results.push({
+                  type: 'entrance',
+                  entrance: entrance,
+                  floor: parseInt(entrance.floor),
+                  matchType: 'entrance',
+                  isEntrance: true
+                });
+              }
+            });
+          }
+          
+          // Display results
+          if (results.length === 0) {
+            searchResultsContent.innerHTML = `
+              <div class="search-no-results">
+                <i class="fas fa-search"></i>
+                <p>No results found for "${query}"</p>
+                <p style="font-size:12px; margin-top:4px;">Try different keywords</p>
+              </div>
+            `;
+          } else {
+            let html = '';
+            
+            results.forEach(result => {
+              if (result.isEntrance) {
+                // Display entrance result
+                const entrance = result.entrance;
+                const highlightedLabel = highlightKeywords(entrance.label || 'Entrance', query);
+                
+                html += `
+                  <div class="search-result-item" data-entrance-id="${entrance.entrance_id}" data-entrance-floor="${entrance.floor}" data-is-entrance="true">
+                    <div class="search-result-header">
+                      <div class="search-result-icon entrance" style="background-color:#10B981;">
+                        <i class="fas fa-door-open"></i>
+                      </div>
+                      <div class="search-result-title">${highlightedLabel}</div>
+                      ${result.floor ? `<div class="search-result-floor">Floor ${result.floor}</div>` : ''}
+                    </div>
+                    <div class="search-result-details" style="color:#10B981;">Building Entrance</div>
+                  </div>
+                `;
+              } else {
+                // Display office result
+                const office = result.office;
+                const iconClass = result.type === 'room' ? 'fa-door-open' : 'fa-concierge-bell';
+                const iconType = result.type;
+                
+                const highlightedName = highlightKeywords(office.name || 'N/A', query);
+                const highlightedDetails = office.details ? highlightKeywords(office.details, query) : '';
+                const highlightedServices = office.services ? highlightKeywords(office.services, query) : '';
+                
+                html += `
+                  <div class="search-result-item" data-office-id="${office.id}" data-office-location="${office.location}">
+                    <div class="search-result-header">
+                      <div class="search-result-icon ${iconType}">
+                        <i class="fas ${iconClass}"></i>
+                      </div>
+                      <div class="search-result-title">${highlightedName}</div>
+                      ${result.floor ? `<div class="search-result-floor">Floor ${result.floor}</div>` : ''}
+                    </div>
+                    ${highlightedDetails ? `<div class="search-result-details">${highlightedDetails}</div>` : ''}
+                    ${highlightedServices ? `<div class="search-result-services">Services: ${highlightedServices}</div>` : ''}
+                  </div>
+                `;
+              }
+            });
+            
+            searchResultsContent.innerHTML = html;
+            
+            // Add click handlers to results
+            document.querySelectorAll('.search-result-item').forEach(item => {
+              item.addEventListener('click', function() {
+                const isEntrance = this.getAttribute('data-is-entrance') === 'true';
+                
+                if (isEntrance) {
+                  // Handle entrance result click
+                  const entranceId = this.getAttribute('data-entrance-id');
+                  const entranceFloor = parseInt(this.getAttribute('data-entrance-floor'));
+                  
+                  console.log('🚪 Search: Entrance clicked:', entranceId);
+                  
+                  // Find the entrance data
+                  const entrance = window.entrancesData.find(e => e.entrance_id === entranceId);
+                  if (!entrance) {
+                    console.error('Entrance not found:', entranceId);
+                    return;
+                  }
+                  
+                  // Switch to entrance floor if needed
+                  if (entranceFloor && entranceFloor !== currentFloor) {
+                    console.log(`Switching to floor ${entranceFloor} for entrance search result`);
+                    switchToFloor(entranceFloor);
+                    
+                    // Wait for floor to load, then open pathfinding modal with entrance as destination
+                    setTimeout(() => {
+                      // Create entrance as destination object
+                      const entranceAsDestination = {
+                        id: entrance.entrance_id,
+                        name: entrance.label,
+                        location: entrance.entrance_id,
+                        details: 'Building entrance',
+                        services: 'Entry/Exit point',
+                        contact: 'N/A',
+                        isEntrance: true,
+                        floor: entrance.floor,
+                        x: entrance.x,
+                        y: entrance.y
+                      };
+                      
+                      console.log('🚪 Opening pathfinding modal with entrance destination:', entrance.label);
+                      openPathfindingModalWithDestination(entranceAsDestination);
+                      
+                      // Reset view to fit and center
+                      setTimeout(() => {
+                        if (window.svgPanZoomInstance) {
+                          window.svgPanZoomInstance.fit();
+                          window.svgPanZoomInstance.center();
+                        }
+                      }, 300);
+                    }, 1000);
+                  } else {
+                    // Same floor, just open pathfinding modal
+                    const entranceAsDestination = {
+                      id: entrance.entrance_id,
+                      name: entrance.label,
+                      location: entrance.entrance_id,
+                      details: 'Building entrance',
+                      services: 'Entry/Exit point',
+                      contact: 'N/A',
+                      isEntrance: true,
+                      floor: entrance.floor,
+                      x: entrance.x,
+                      y: entrance.y
+                    };
+                    
+                    console.log('🚪 Opening pathfinding modal with entrance destination:', entrance.label);
+                    openPathfindingModalWithDestination(entranceAsDestination);
+                    
+                    // Reset view to fit and center
+                    setTimeout(() => {
+                      if (window.svgPanZoomInstance) {
+                        window.svgPanZoomInstance.fit();
+                        window.svgPanZoomInstance.center();
+                      }
+                    }, 300);
+                  }
+                  
+                  // Clear search
+                  searchInput.value = '';
+                  searchResults.style.display = 'none';
+                  clearSearchBtn.style.display = 'none';
+                } else {
+                  // Handle office result click (existing logic)
+                  const officeId = parseInt(this.getAttribute('data-office-id'));
+                  const officeLocation = this.getAttribute('data-office-location');
+                  
+                  // Find the office
+                  const office = officesData.find(o => o.id === officeId);
+                  if (!office) {
+                    console.error('Office not found:', officeId);
+                    return;
+                  }
+                  
+                  // Get floor number and switch if needed
+                  const targetFloor = getFloorFromLocation(officeLocation);
+                  if (targetFloor && targetFloor !== currentFloor) {
+                    console.log(`Switching to floor ${targetFloor} for search result`);
+                    switchToFloor(targetFloor);
+                    
+                    // Wait for floor to load, then highlight the office
+                    setTimeout(() => {
+                      window.highlightRoomOnly(officeLocation);
+                      
+                      // Check if we should auto-open pathfinding modal (if entrance or office was scanned)
+                      if (window.scannedStartEntrance || window.scannedStartOffice) {
+                        console.log('🔍 Search result clicked with scanned start point - opening pathfinding modal');
+                        openPathfindingModalWithDestination(office);
+                      } else {
+                        handleRoomClick(office);
+                      }
+                      
+                      // Reset view to fit and center the entire floor
+                      setTimeout(() => {
+                        if (window.svgPanZoomInstance) {
+                          window.svgPanZoomInstance.fit();
+                          window.svgPanZoomInstance.center();
+                          console.log('View reset (fit + center) after search');
+                        }
+                      }, 300);
+                    }, 1000);
+                  } else {
+                    // Same floor, just highlight and show
+                    window.highlightRoomOnly(officeLocation);
+                    
+                    // Check if we should auto-open pathfinding modal (if entrance or office was scanned)
+                    if (window.scannedStartEntrance || window.scannedStartOffice) {
+                      console.log('🔍 Search result clicked with scanned start point - opening pathfinding modal');
+                      openPathfindingModalWithDestination(office);
+                    } else {
+                      handleRoomClick(office);
+                    }
+                    
+                    // Reset view to fit and center the entire floor
+                    setTimeout(() => {
+                      if (window.svgPanZoomInstance) {
+                        window.svgPanZoomInstance.fit();
+                        window.svgPanZoomInstance.center();
+                        console.log('View reset (fit + center) after search');
+                      }
+                    }, 300);
+                  }
+                  
+                  // Clear search
+                  searchInput.value = '';
+                  searchResults.style.display = 'none';
+                  clearSearchBtn.style.display = 'none';
+                }
+              });
+            });
+          }
+          
+          searchResults.style.display = 'block';
+        }
+        
+        // Search input event listener with debouncing
+        let searchTimeout;
+        searchInput.addEventListener('input', function(e) {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => {
+            performSearch(e.target.value);
+          }, 300); // 300ms debounce
+        });
+        
+        // Clear search button
+        clearSearchBtn.addEventListener('click', function() {
+          searchInput.value = '';
+          searchResults.style.display = 'none';
+          clearSearchBtn.style.display = 'none';
+          searchInput.focus();
+        });
+        
+        // Close search results when clicking outside
+        document.addEventListener('click', function(e) {
+          if (!searchInput.contains(e.target) && 
+              !searchResults.contains(e.target) && 
+              !clearSearchBtn.contains(e.target)) {
+            searchResults.style.display = 'none';
+          }
+        });
+        
+        // Prevent search results from closing when clicking inside
+        searchResults.addEventListener('click', function(e) {
+          e.stopPropagation();
+        });
+        
+        // Handle Enter key in search
+        searchInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            const firstResult = searchResultsContent.querySelector('.search-result-item');
+            if (firstResult) {
+              firstResult.click();
+            }
+          }
+        });
+        
+        console.log('✅ Search functionality initialized');
+        // ===== END SEARCH FUNCTIONALITY =====
+
         // --- SVG Room Click Handler (Enhanced with Desktop-style Pathfinding) ---
         function setupRoomClickHandlers() {
           // Wait for SVG to be loaded
-          const svg = document.getElementById('svg1');
+          const svg = document.getElementById('capitol-map-svg');
           if (!svg) {
             setTimeout(setupRoomClickHandlers, 100); // Try again shortly
             return;
@@ -4352,20 +6910,38 @@ try {
           startLocationSelect.innerHTML = '<option value="">Select starting point...</option>';
           endLocationSelect.innerHTML = '<option value="">Select destination...</option>';
           
-          // If user came from QR code, set their current location as default start
+          // If user came from QR code, set scanned office/entrance as default start
           let defaultStartLocation = null;
           let defaultStartText = null;
           
-          if (window.currentSelectedOffice && window.currentSelectedOffice.location && window.highlightOfficeIdFromPHP) {
-            defaultStartLocation = window.currentSelectedOffice.location;
-            defaultStartText = window.currentSelectedOffice.name + ' (YOU ARE HERE)';
+          // Check for scanned entrance first (has priority)
+          if (window.scannedStartEntrance && window.scannedStartEntrance.roomId) {
+            defaultStartLocation = window.scannedStartEntrance.roomId;
+            defaultStartText = window.scannedStartEntrance.fullData.label + ' 🚪 (YOU ARE HERE)';
             
-            // Add default start option only if user came from QR code
+            // Add default start option for scanned entrance
+            const defaultStart = document.createElement('option');
+            defaultStart.value = defaultStartLocation;
+            defaultStart.textContent = defaultStartText;
+            defaultStart.selected = true;
+            defaultStart.dataset.isEntrance = 'true';
+            startLocationSelect.appendChild(defaultStart);
+            
+            console.log('📍 Pre-filled start location from scanned entrance QR:', defaultStartText);
+          }
+          // Otherwise check for scanned office
+          else if (window.scannedStartOffice && window.scannedStartOffice.location) {
+            defaultStartLocation = window.scannedStartOffice.location;
+            defaultStartText = window.scannedStartOffice.name + ' (YOU ARE HERE)';
+            
+            // Add default start option for scanned office
             const defaultStart = document.createElement('option');
             defaultStart.value = defaultStartLocation;
             defaultStart.textContent = defaultStartText;
             defaultStart.selected = true;
             startLocationSelect.appendChild(defaultStart);
+            
+            console.log('📍 Pre-filled start location from scanned office QR:', defaultStartText);
           }
           
           // Add all available offices on current floor to both dropdowns
@@ -4373,6 +6949,28 @@ try {
           console.log('Available floorGraph rooms:', window.floorGraph ? Object.keys(window.floorGraph.rooms || {}) : 'No floor graph loaded');
           
           let addedOptions = 0;
+          
+          // Collect all available entrances from floor graphs (NOT database)
+          const allEntrances = window.collectEntrancesFromFloorGraphs ? window.collectEntrancesFromFloorGraphs() : [];
+          const entranceOptions = allEntrances
+            .map(entrance => {
+              // Skip the scanned entrance (already added at top)
+              if (window.scannedStartEntrance && entrance.entrance_id === window.scannedStartEntrance.roomId) {
+                return null;
+              }
+              
+              // Use entrance ID directly (e.g., entrance_west_1)
+              const entranceRoomId = entrance.entrance_id;
+              return {
+                value: entranceRoomId,
+                label: `${entrance.label} 🚪 (Floor ${entrance.floor})`,
+                floor: parseInt(entrance.floor),
+                isEntrance: true
+              };
+            })
+            .filter(option => option !== null); // Remove null entries (scanned entrance)
+          
+          console.log('🚪 Found', entranceOptions.length, 'entrance options for dropdown (from floor graphs)');
 
           const officeOptions = (officesData || [])
             .filter(office => office.location)
@@ -4390,24 +6988,45 @@ try {
               if (a.floor !== b.floor) return (a.floor || 0) - (b.floor || 0);
               return a.label.localeCompare(b.label);
             });
+          
+          // Combine entrance options with office options
+          const allLocationOptions = [...entranceOptions, ...officeOptions];
+          
+          console.log('📍 Total location options:', allLocationOptions.length, '(', entranceOptions.length, 'entrances +', officeOptions.length, 'offices)');
+          console.log('✅ Entrances can now be used as BOTH start AND destination points');
 
-          officeOptions.forEach(option => {
+          allLocationOptions.forEach(option => {
+            // Add to start location dropdown (skip scanned start location as it's already added)
             if (option.value !== defaultStartLocation) {
               const startOption = document.createElement('option');
               startOption.value = option.value;
               startOption.textContent = option.label;
               startOption.dataset.floorNumber = option.floor || '';
+              if (option.isEntrance) {
+                startOption.dataset.isEntrance = 'true';
+              }
               startLocationSelect.appendChild(startOption);
             }
 
+            // Add to destination dropdown (NOW INCLUDING ENTRANCES - user requested this)
+            // Previously entrances were excluded, now they're included for exit navigation
             const endOption = document.createElement('option');
             endOption.value = option.value;
             endOption.textContent = option.label;
             endOption.dataset.floorNumber = option.floor || '';
-            if (window.currentSelectedOffice && option.value === window.currentSelectedOffice.location && !window.highlightOfficeIdFromPHP) {
+            if (option.isEntrance) {
+              endOption.dataset.isEntrance = 'true';
+            }
+            
+            // Pre-select current office if it's not the scanned start location
+            if (window.currentSelectedOffice && 
+                option.value === window.currentSelectedOffice.location && 
+                option.value !== defaultStartLocation) {
               endOption.selected = true;
             }
+            
             endLocationSelect.appendChild(endOption);
+            
             addedOptions++;
           });
 
@@ -4471,16 +7090,134 @@ try {
           }
 
           try {
+            console.log('🗺️ MOBILE: Starting pathfinding calculation...');
+            console.log('🗺️ MOBILE: Start location:', startLocation);
+            console.log('🗺️ MOBILE: End location:', endLocation);
+            console.log('🗺️ MOBILE: window.scannedStartDoorPoint exists?', !!window.scannedStartDoorPoint);
+            if (window.scannedStartDoorPoint) {
+              console.log('🗺️ MOBILE: scannedStartDoorPoint data:', JSON.stringify(window.scannedStartDoorPoint));
+            }
+            
             const startFloorNumber = getFloorFromLocation(startLocation);
-            if (startFloorNumber && startFloorNumber !== currentFloor) {
-              await loadFloorMap(startFloorNumber);
+            const isEntranceStart = startLocation && startLocation.startsWith('entrance_');
+            
+            console.log('🗺️ MOBILE: Start floor detected:', startFloorNumber, isEntranceStart ? '(entrance)' : '(room)');
+
+            // CRITICAL: Remove ALL "YOU ARE HERE" markers before pathfinding starts
+            // This prevents overlap between "YOU ARE HERE" and the start point marker
+            // Applies to BOTH entrance scans and office scans
+            console.log('🧹 Removing ALL YOU ARE HERE markers before pathfinding starts...');
+            document.querySelectorAll('.you-are-here, .you-are-here-label, .you-are-here-entrance-marker').forEach(el => {
+              el.remove();
+              console.log('  Removed:', el.className);
+            });
+            
+            // Also clear the entrance suppression flag so labels can reappear normally
+            if (window.entranceWithYouAreHere) {
+              console.log('🔓 Clearing entrance label suppression for:', window.entranceWithYouAreHere);
+              window.entranceWithYouAreHere = null;
             }
 
             if (typeof window.resetActiveRoute === 'function') {
               window.resetActiveRoute();
             }
 
+            // CRITICAL FIX: Clean all SVG transforms BEFORE calculating path
+            // This prevents corrupt transforms from interfering with path rendering
+            console.log('🔧 PRE-MODAL: Cleaning SVG transforms before pathfinding...');
+            try {
+              const svg = document.querySelector('#capitol-map-svg');
+              if (svg) {
+                const mainGroup = svg.querySelector('.svg-pan-zoom_viewport') || svg.querySelector('g');
+                if (mainGroup) {
+                  // Clean path group
+                  const pathGroup = mainGroup.querySelector('#path-highlight-group');
+                  if (pathGroup) {
+                    console.log('🔧 PRE-MODAL: Removing transform from path group');
+                    pathGroup.removeAttribute('transform');
+                    
+                    // Clean all paths inside
+                    pathGroup.querySelectorAll('path').forEach(path => {
+                      if (path.hasAttribute('transform')) {
+                        console.log('🔧 PRE-MODAL: Removing transform from path element');
+                        path.removeAttribute('transform');
+                      }
+                    });
+                  }
+                  
+                  // Scan ALL groups for corrupt transforms
+                  const allGroups = mainGroup.querySelectorAll('g');
+                  let cleaned = 0;
+                  allGroups.forEach(group => {
+                    const transform = group.getAttribute('transform');
+                    if (transform && (transform.includes('NaN') || transform.includes('undefined') || 
+                        (transform.includes('matrix') && !transform.includes('.')))) {
+                      console.log('🔧 PRE-MODAL: Removing corrupt transform from group:', group.id || 'unnamed');
+                      group.removeAttribute('transform');
+                      cleaned++;
+                    }
+                  });
+                  
+                  if (cleaned > 0) {
+                    console.log(`✅ PRE-MODAL: Cleaned ${cleaned} corrupt transform(s)`);
+                  } else {
+                    console.log('✅ PRE-MODAL: No corrupt transforms found (already clean)');
+                  }
+                }
+              }
+            } catch (cleanupError) {
+              console.warn('⚠️ PRE-MODAL: Cleanup error (non-fatal):', cleanupError);
+            }
+
+            console.log('🗺️ MOBILE: Calling activateRouteBetweenRooms...');
             const route = await window.activateRouteBetweenRooms(startLocation, endLocation);
+            
+            // CRITICAL FIX: Switch to starting floor AFTER route calculation completes
+            // This ensures activeRoute is set before floor switch triggers renderActiveRouteForFloor()
+            // Works for both same-floor and cross-floor routing, including entrance starts
+            if (route && startFloorNumber) {
+              console.log(`🏢 MOBILE: Route calculated successfully. Now switching to starting floor ${startFloorNumber}...`);
+              
+              // If starting from entrance, store it globally so it persists across floor switches
+              if (isEntranceStart) {
+                const entranceData = window.entrancesData?.find(e => e.entrance_id === startLocation);
+                if (entranceData) {
+                  console.log('🚪 MOBILE: Starting from entrance, will highlight after floor switch:', entranceData.label);
+                  // Store entrance data globally for re-highlighting after floor switches
+                  window.activePathfindingEntrance = {
+                    entrance_id: entranceData.entrance_id,
+                    label: entranceData.label,
+                    floor: parseInt(entranceData.floor),
+                    // Don't store x/y here - will be loaded from floor_graph.json after floor loads
+                  };
+                }
+              } else {
+                // Clear entrance highlighting state if not starting from entrance
+                window.activePathfindingEntrance = null;
+              }
+              
+              // Use switchToFloor() to trigger proper floor change sequence
+              // This will:
+              // 1. Update floor selector UI
+              // 2. Load the correct floor SVG
+              // 3. Initialize pan-zoom
+              // 4. Call renderActiveRouteForFloor() which renders the path immediately
+              await new Promise(resolve => {
+                switchToFloor(startFloorNumber);
+                // Wait for floor to load and render to complete
+                setTimeout(() => {
+                  // DO NOT re-highlight "YOU ARE HERE" during pathfinding
+                  // The start point marker from pathfinding.js will show the starting location
+                  // "YOU ARE HERE" was already removed before pathfinding started to prevent overlap
+                  
+                  if (isEntranceStart) {
+                    console.log('🚪 MOBILE: Pathfinding from entrance:', startLocation, '- start marker will be shown by pathfinding.js');
+                  }
+                  
+                  resolve();
+                }, 500);
+              });
+            }
 
             if (!route) {
               alert('No available route between the selected locations.');
@@ -4489,11 +7226,7 @@ try {
 
             window.selectedRooms = [startLocation, endLocation];
 
-            const firstFloor = route.floors ? route.floors[0] : startFloorNumber;
-            if (firstFloor && firstFloor !== currentFloor) {
-              await loadFloorMap(firstFloor);
-            }
-
+            // Show success message - user is already on starting floor from previous floor switch
             if (route.type === 'multi-floor') {
               alert('Multi-floor route ready! Follow the green path and switch floors as instructed in the panel.');
             } else {
@@ -4524,6 +7257,44 @@ try {
           if (typeof window.resetActiveRoute === 'function') {
             window.resetActiveRoute();
           }
+          
+          // Clear active pathfinding entrance state
+          window.activePathfindingEntrance = null;
+          console.log('🗑️ Cleared active pathfinding entrance state');
+          
+          // Clear entrance "YOU ARE HERE" suppression flag so label can reappear
+          window.entranceWithYouAreHere = null;
+          console.log('🔓 Unlocked entrance label suppression - entrance labels can now reappear');
+          
+          // Remove entrance "YOU ARE HERE" markers
+          document.querySelectorAll('.you-are-here-entrance-marker, .you-are-here-label').forEach(el => {
+            el.remove();
+          });
+          
+          // RESTORE "YOU ARE HERE" markers after clearing path
+          // Check if there's a scanned entrance or office to restore
+          if (window.scannedStartEntrance && window.floorGraph?.entrances) {
+            const currentFloor = window.currentFloorNumber || window.currentFloor || 1;
+            if (window.scannedStartEntrance.floor === currentFloor) {
+              const jsonEntrance = window.floorGraph.entrances.find(e => e.id === window.scannedStartEntrance.entrance_id);
+              if (jsonEntrance && typeof window.showYouAreHereEntrance === 'function') {
+                console.log('♻️ Restoring YOU ARE HERE for scanned entrance after path clear:', jsonEntrance.label);
+                setTimeout(() => {
+                  window.showYouAreHereEntrance(jsonEntrance);
+                }, 100);
+              }
+            }
+          } else if (window.scannedStartOffice && window.scannedStartOffice.location) {
+            // Restore "YOU ARE HERE" for scanned office
+            console.log('♻️ Restoring YOU ARE HERE for scanned office after path clear:', window.scannedStartOffice.name);
+            const doorPoint = window.scannedStartDoorPoint || null;
+            setTimeout(() => {
+              if (typeof window.showYouAreHere === 'function') {
+                window.showYouAreHere(window.scannedStartOffice.location, doorPoint);
+              }
+            }, 100);
+          }
+          
           window.selectedRooms = [];
           document.getElementById('pathfinding-modal-overlay').style.display = 'none';
         };
@@ -4933,6 +7704,12 @@ try {
       function positionTourElements(step) {
         const spotlight = document.getElementById('tour-spotlight');
         const tooltip = document.getElementById('tour-tooltip');
+        
+        // Safety check - if tour elements don't exist, skip positioning
+        if (!spotlight || !tooltip) {
+          console.warn('Tour elements not found, skipping tour positioning');
+          return;
+        }
         
         if (step.target) {
           const targetEl = document.querySelector(step.target);

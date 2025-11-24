@@ -37,6 +37,20 @@ class GeofenceManager {
 
     console.log("Initializing geofencing system...");
 
+    // First, check if geofencing is enabled by admin
+    try {
+      const statusResp = await fetch("../check_geofence_status.php");
+      const statusData = await statusResp.json();
+      
+      if (statusData.success && !statusData.enabled) {
+        console.log("Geofencing is disabled by admin - skipping enforcement");
+        return; // Exit without enforcing geofencing
+      }
+    } catch (err) {
+      console.warn("Could not check geofence status, proceeding with enforcement as safety measure", err);
+      // Continue with geofencing if check fails (fail-safe)
+    }
+
     // Check if geolocation is supported
     if (!navigator.geolocation) {
       this.onAccessDenied("Geolocation is not supported by your browser.");
@@ -240,68 +254,45 @@ class GeofenceManager {
     overlay.id = "geofence-denied-message";
     overlay.style.cssText = `
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 0, 0, 0.9);
-      color: white;
-      z-index: 10000;
+      inset: 0;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
+      flex-direction: column;
+      z-index: 99999;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
       padding: 20px;
-      text-align: center;
-      font-family: Arial, sans-serif;
     `;
 
     overlay.innerHTML = `
-      <div style="max-width: 400px;">
-        <h2 style="color: white; margin-bottom: 20px;">🚫 Access Denied</h2>
-        <p style="margin-bottom: 20px; line-height: 1.5;">${message}</p>
-        <p style="margin-bottom: 30px; font-size: 14px; opacity: 0.9;">
-          You must be within the allowed area to use this application.
-        </p>
-        <div>
+      <div style="max-width: 420px; text-align: center;">
+        <div style="font-size: 28px; margin-bottom: 8px;">🚫 Access Denied</div>
+        <div style="margin-bottom: 12px; opacity: 0.95;">${message}</div>
+        <div style="margin-bottom: 12px; opacity: 0.95;">You will not be able to use this app outside the allowed area.</div>
+        <div style="margin-top: 8px;">
           <button id="geofence-retry-btn" style="
-            padding: 12px 24px;
-            margin-right: 10px;
-            border: none;
+            padding: 10px 16px;
             border-radius: 8px;
-            background: white;
-            color: #333;
-            font-weight: bold;
-            cursor: pointer;
-          ">🔄 Retry</button>
-          <button id="geofence-contact-btn" style="
-            padding: 12px 24px;
+            background: #fff;
+            color: #111;
             border: none;
-            border-radius: 8px;
-            background: #0066cc;
-            color: white;
-            font-weight: bold;
             cursor: pointer;
-          ">📞 Contact Admin</button>
+            font-weight: bold;
+          ">Retry</button>
         </div>
       </div>
     `;
 
     document.body.appendChild(overlay);
 
-    // Add event listeners
+    // Add event listener
     document
       .getElementById("geofence-retry-btn")
       .addEventListener("click", () => {
         overlay.remove();
         this.retryCount = 0;
         this.performLocationCheck();
-      });
-
-    document
-      .getElementById("geofence-contact-btn")
-      .addEventListener("click", () => {
-        window.location.href = "../geofence_admin_dashboard.php";
       });
   }
 

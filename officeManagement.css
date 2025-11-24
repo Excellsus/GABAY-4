@@ -604,6 +604,8 @@ body {
 .office-list-content {
   max-height: 30rem;
   overflow-y: auto;
+  overflow-x: visible; /* Allow tooltips to overflow horizontally */
+  padding-top: 10px; /* Extra space at top for tooltips */
 }
 
 .office-item {

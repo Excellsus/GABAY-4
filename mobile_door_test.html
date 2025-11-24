@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Mobile Door Status Quick Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 30px;
+        }
+        h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .test-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .test-button:active {
+            transform: translateY(0);
+        }
+        .status-box {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .status-header {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .status-item {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        .door-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .door-card {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+        .door-card:hover {
+            transform: scale(1.05);
+        }
+        .door-active {
+            background: #fff3cd;
+            border: 2px solid #F97316;
+            color: #856404;
+        }
+        .door-inactive {
+            background: #e2e8f0;
+            border: 2px solid #9ca3af;
+            color: #4a5568;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success { background: #28a745; color: white; }
+        .badge-warning { background: #ffc107; color: #000; }
+        .link-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .link-button:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Mobile Door Status Test</h1>
+        <p class="subtitle">Verify inactive doors appear grey on mobile</p>
+        
+        <button class="test-button" onclick="runTest()">
+            🔄 Test Door Status API
+        </button>
+        
+        <div id="results" style="display: none;">
+            <div class="status-box">
+                <div class="status-header">API Connection</div>
+                <div id="api-status"></div>
+            </div>
+            
+            <div class="status-box">
+                <div class="status-header">Door Status Summary</div>
+                <div id="door-summary"></div>
+            </div>
+            
+            <div class="status-box">
+                <div class="status-header">Door Preview (How they'll appear)</div>
+                <div id="door-preview" class="door-preview"></div>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading door statuses...</p>
+        </div>
+        
+        <a href="mobileScreen/explore.php" class="link-button" style="margin-top: 20px;">
+            🗺️ Open Full Map View
+        </a>
+    </div>
+
+    <script>
+        async function runTest() {
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+            const apiStatusDiv = document.getElementById('api-status');
+            const summaryDiv = document.getElementById('door-summary');
+            const previewDiv = document.getElementById('door-preview');
+            
+            // Show loading
+            resultsDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('public_door_status_api.php?action=get_all');
+                const data = await response.json();
+                
+                // Hide loading, show results
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+                if (data.success) {
+                    // Show API success
+                    apiStatusDiv.innerHTML = `
+                        <div class="status-item status-success">
+                            <span>✅ Public API Working</span>
+                            <span class="badge badge-success">ONLINE</span>
+                        </div>
+                        <div class="status-item status-info">
+                            <span>📊 Total Offices</span>
+                            <strong>${data.total_offices}</strong>
+                        </div>
+                        <div class="status-item status-info">
+                            <span>🚪 Total Doors</span>
+                            <strong>${data.total_doors}</strong>
+                        </div>
+                    `;
+                    
+                    // Count active/inactive
+                    let activeCount = 0;
+                    let inactiveCount = 0;
+                    let doorPreviews = '';
+                    
+                    for (const officeId in data.doors) {
+                        const officeDoors = data.doors[officeId];
+                        for (const doorId in officeDoors) {
+                            const isActive = officeDoors[doorId];
+                            
+                            if (isActive) {
+                                activeCount++;
+                                doorPreviews += `
+                                    <div class="door-card door-active">
+                                        <div style="font-size: 24px; margin-bottom: 5px;">🟠</div>
+                                        <div style="font-weight: bold;">Active</div>
+                                        <div style="opacity: 0.7;">${doorId}</div>
+                                    </div>
+                                `;
+                            } else {
+                                inactiveCount++;
+                                doorPreviews += `
+                                    <div class="door-card door-inactive">
+                                        <div style="font-size: 24px; margin-bottom: 5px;">⚪</div>
+                                        <div style="font-weight: bold;">Inactive</div>
+                                        <div style="opacity: 0.7;">${doorId}</div>
+                                    </div>
+                                `;
+                            }
+                        }
+                    }
+                    
+                    // Show summary
+                    summaryDiv.innerHTML = `
+                        <div class="status-item status-success">
+                            <span>🟢 Active Doors (Orange)</span>
+                            <span class="badge badge-warning">${activeCount}</span>
+                        </div>
+                        <div class="status-item status-info">
+                            <span>⚪ Inactive Doors (Grey)</span>
+                            <span class="badge" style="background: #9ca3af; color: white;">${inactiveCount}</span>
+                        </div>
+                    `;
+                    
+                    // Show door previews
+                    if (doorPreviews) {
+                        previewDiv.innerHTML = doorPreviews;
+                    } else {
+                        previewDiv.innerHTML = '<p style="text-align: center; color: #666;">No doors configured yet</p>';
+                    }
+                    
+                } else {
+                    apiStatusDiv.innerHTML = `
+                        <div class="status-item status-error">
+                            <span>❌ API Error</span>
+                            <strong>${data.error}</strong>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+                apiStatusDiv.innerHTML = `
+                    <div class="status-item status-error">
+                        <span>❌ Connection Failed</span>
+                        <strong>${error.message}</strong>
+                    </div>
+                `;
+                
+                console.error('Test failed:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,4 +1,7 @@
 <?php
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 require 'phpqrcode/qrlib.php'; // Path to the QR library
 require 'connect_db.php'; // Uses $connect
 
@@ -17,7 +20,15 @@ if (!empty($_SERVER['HTTP_HOST'])) {
     $baseUrl = preg_replace('#([^:])/+#', '$1/', $baseUrl);
 } else {
     // Fallback: common local dev path — adjust if your environment differs
-    $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+    // Dynamic URL detection for production
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+        $baseUrl = $protocol . '://' . $_SERVER['HTTP_HOST'] . $scriptDir . '/mobileScreen/';
+        $baseUrl = preg_replace('#([^:])/+#', '$1/', $baseUrl);
+    } else {
+        $baseUrl = "https://localhost/gabay/mobileScreen/";
+    }
 }
 
 // Function to create a safe filename from a string (like an office name)

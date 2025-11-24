@@ -3,6 +3,9 @@
  * Update all existing panorama QR URLs to use IP addresses instead of localhost
  */
 
+// Require authentication - this will automatically redirect to login if not authenticated
+require_once 'auth_guard.php';
+
 include 'connect_db.php';
 
 // Function to get the current base URL with IP detection
@@ -30,7 +33,7 @@ function getCurrentBaseUrl() {
         $baseUrl = "http://" . $serverIp . "/FinalDev/mobileScreen/";
     } else {
         // Fallback to localhost if IP detection fails
-        $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+        $baseUrl = "https://localhost/gabay/mobileScreen/";
     }
     
     return $baseUrl;

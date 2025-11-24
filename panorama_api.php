@@ -4,13 +4,20 @@
  * Handles panorama image uploads, updates, and deletions for the admin interface
  */
 
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+// Enable error reporting but log to file instead of displaying (prevents JSON corruption)
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+// Start output buffering to catch any unexpected output
+ob_start();
 
 include 'connect_db.php';
 include 'panorama_functions.php';
+
+// Clear any buffered output before sending JSON
+ob_end_clean();
 
 /**
  * Get base URL for panorama QR codes - matches the office QR approach
@@ -20,15 +27,15 @@ function getPanoramaBaseUrl() {
     $baseUrl = '';
     if (!empty($_SERVER['HTTP_HOST'])) {
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        // dirname($_SERVER['SCRIPT_NAME']) gives the directory of this script (e.g., /FinalDev)
+        // dirname($_SERVER['SCRIPT_NAME']) gives the directory of this script (e.g., /gabay)
         $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
         // Ensure we end up with a trailing slash and point to the mobileScreen folder
         $baseUrl = $protocol . '://' . $_SERVER['HTTP_HOST'] . $scriptDir . '/mobileScreen/';
         // Normalize double slashes (except after http(s):)
         $baseUrl = preg_replace('#([^:])/+#', '$1/', $baseUrl);
     } else {
-        // Fallback: common local dev path — adjust if your environment differs
-        $baseUrl = "http://localhost/FinalDev/mobileScreen/";
+        // Fallback for production environment
+        $baseUrl = "https://localhost/gabay/mobileScreen/";
     }
     
     return $baseUrl;
@@ -56,7 +63,13 @@ header('Content-Type: application/json');
 // Handle different actions
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
+// Wrap everything in try-catch to ensure we always return JSON
 try {
+    // Validate action is provided
+    if (empty($action)) {
+        throw new Exception('No action specified');
+    }
+    
     switch ($action) {
         case 'upload':
             handlePanoramaUpload();
@@ -102,6 +115,10 @@ try {
             handleGetAllActivePanoramas();
             break;
             
+        case 'get_all_offices':
+            handleGetAllOffices();
+            break;
+            
         case 'validate_hotspot_link':
             handleValidateHotspotLink();
             break;
@@ -115,14 +132,32 @@ try {
             break;
             
         default:
-            throw new Exception('Invalid action specified');
+            throw new Exception('Invalid action specified: ' . $action);
     }
 } catch (Exception $e) {
+    // Log the error
+    error_log("Panorama API Error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
     http_response_code(400);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'action' => $action
     ]);
+    exit;
+} catch (Throwable $e) {
+    // Catch any fatal errors
+    error_log("Panorama API Fatal Error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Internal server error: ' . $e->getMessage(),
+        'action' => $action
+    ]);
+    exit;
 }
 
 /**
@@ -507,6 +542,66 @@ function handleSaveHotspots() {
             $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN animated_icon_name VARCHAR(255) NULL");
         }
         
+        // Check for linked_panorama_id column (CRITICAL for navigation)
+        $checkLinkedPanorama = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'linked_panorama_id'");
+        if ($checkLinkedPanorama->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN linked_panorama_id INT NULL");
+        }
+        
+        // Check for target_pitch column
+        $checkTargetPitch = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'target_pitch'");
+        if ($checkTargetPitch->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN target_pitch DECIMAL(10,6) DEFAULT 0.0");
+        }
+        
+        // Check for asset_type column
+        $checkAssetType = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'asset_type'");
+        if ($checkAssetType->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN asset_type VARCHAR(50) NULL");
+        }
+        
+        // Check for asset_path column
+        $checkAssetPath = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'asset_path'");
+        if ($checkAssetPath->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN asset_path VARCHAR(500) NULL");
+        }
+        
+        // Check for icon_path column
+        $checkIconPath = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'icon_path'");
+        if ($checkIconPath->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN icon_path VARCHAR(500) NULL");
+        }
+        
+        // Check for always_visible column
+        $checkAlwaysVisible = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'always_visible'");
+        if ($checkAlwaysVisible->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN always_visible TINYINT(1) DEFAULT 0");
+        }
+        
+        // Check for target_path_id column
+        $checkTargetPathId = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'target_path_id'");
+        if ($checkTargetPathId->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN target_path_id VARCHAR(50) NULL");
+        }
+        
+        // Check for target_point_index column
+        $checkTargetPointIndex = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'target_point_index'");
+        if ($checkTargetPointIndex->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN target_point_index INT NULL");
+        }
+        
+        // Check for target_floor column
+        $checkTargetFloor = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'target_floor'");
+        if ($checkTargetFloor->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN target_floor INT NULL");
+        }
+        
+        // Check for target_office_id column
+        $checkTargetOfficeId = $connect->query("SHOW COLUMNS FROM panorama_hotspots LIKE 'target_office_id'");
+        if ($checkTargetOfficeId->rowCount() == 0) {
+            $connect->exec("ALTER TABLE panorama_hotspots ADD COLUMN target_office_id INT NULL");
+        }
+        
     } catch (Exception $e) {
         error_log("Column creation error: " . $e->getMessage());
         // Continue anyway, might be permission issue
@@ -517,12 +612,15 @@ function handleSaveHotspots() {
         INSERT INTO panorama_hotspots 
         (path_id, point_index, floor_number, hotspot_id, position_x, position_y, position_z, 
          title, description, hotspot_type, target_url, icon_class, animated_icon_id,
-         link_type, link_path_id, link_point_index, link_floor_number, 
-         navigation_angle, is_navigation, 
+         link_type, link_path_id, link_point_index, link_floor_number, linked_panorama_id,
+         navigation_angle, target_pitch, is_navigation, 
          rotation_x, rotation_y, rotation_z, scale_x, scale_y, scale_z,
          video_hotspot_id, video_hotspot_path, video_hotspot_name,
-         animated_icon_path, animated_icon_name, created_at) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+         animated_icon_path, animated_icon_name, 
+         asset_type, asset_path, icon_path, always_visible,
+         target_path_id, target_point_index, target_floor, target_office_id, 
+         created_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
     
     $savedCount = 0;
@@ -551,9 +649,10 @@ function handleSaveHotspots() {
             $linkPointIndex = $hotspot['linkPointIndex'] ?? $hotspot['link_point_index'] ?? null;
             $linkFloorNumber = $hotspot['linkFloorNumber'] ?? $hotspot['link_floor_number'] ?? $floorNumber;
             
-            // Only auto-fix if BOTH path_id AND point_index are missing/empty
-            // This prevents overwriting valid user selections
-            if (empty($linkPathId) && empty($linkPointIndex)) {
+            // Only auto-fix if BOTH path_id AND point_index are missing/null
+            // IMPORTANT: Use === null check because point_index can be 0 (which is valid but falsy)
+            // This prevents overwriting valid user selections including point_index=0
+            if (($linkPathId === null || $linkPathId === '') && ($linkPointIndex === null || $linkPointIndex === '')) {
                 // Smart target assignment based on current location (emergency fallback only)
                 if ($pathId == 'path1' && $pointIndex == 5) {
                     $linkPathId = 'path1';
@@ -591,21 +690,25 @@ function handleSaveHotspots() {
             $pointIndex,
             $floorNumber,
             $hotspot['id'],
-            $hotspot['position']['x'] ?? 0,
-            $hotspot['position']['y'] ?? 0,
-            $hotspot['position']['z'] ?? 0,
+            $hotspot['position']['x'] ?? $hotspot['position_x'] ?? 0,
+            $hotspot['position']['y'] ?? $hotspot['position_y'] ?? 0,
+            $hotspot['position']['z'] ?? $hotspot['position_z'] ?? 0,
             $hotspot['title'] ?? '',
             $hotspot['description'] ?? '',
             $hotspot['type'] ?? 'info',
-            $hotspot['target'] ?? '',
+            $hotspot['target'] ?? $hotspot['target_url'] ?? '',
             $hotspot['icon'] ?? 'fas fa-info-circle',
             $hotspot['animated_icon_id'] ?? null,
+            // Navigation fields - preserve ALL navigation data
             $hotspot['linkType'] ?? $hotspot['link_type'] ?? 'none',
             $hotspot['linkPathId'] ?? $hotspot['link_path_id'] ?? null,
             $hotspot['linkPointIndex'] ?? $hotspot['link_point_index'] ?? null,
             $hotspot['linkFloorNumber'] ?? $hotspot['link_floor_number'] ?? null,
+            $hotspot['linked_panorama_id'] ?? null,  // CRITICAL: linked_panorama_id field
             $hotspot['navigationAngle'] ?? $hotspot['navigation_angle'] ?? 0,
+            $hotspot['target_pitch'] ?? 0,
             isset($hotspot['isNavigation']) ? (bool)$hotspot['isNavigation'] : (isset($hotspot['is_navigation']) ? (bool)$hotspot['is_navigation'] : false),
+            // Transform fields
             $rotationX,
             $rotationY,
             $rotationZ,
@@ -618,7 +721,17 @@ function handleSaveHotspots() {
             $hotspot['video_hotspot_name'] ?? null,
             // Animated icon fields  
             $hotspot['animated_icon_path'] ?? null,
-            $hotspot['animated_icon_name'] ?? null
+            $hotspot['animated_icon_name'] ?? null,
+            // Asset fields
+            $hotspot['asset_type'] ?? null,
+            $hotspot['asset_path'] ?? null,
+            $hotspot['icon_path'] ?? null,
+            $hotspot['always_visible'] ?? 0,
+            // Additional target fields
+            $hotspot['target_path_id'] ?? null,
+            $hotspot['target_point_index'] ?? null,
+            $hotspot['target_floor'] ?? null,
+            $hotspot['target_office_id'] ?? null
         ]);
         
         if ($result) {
@@ -942,6 +1055,69 @@ function handleGetAllActivePanoramas() {
         throw new Exception('Database error: ' . $e->getMessage());
     } catch (Exception $e) {
         throw new Exception('Error fetching active panoramas: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Get all offices from database for office selection in hotspots
+ */
+function handleGetAllOffices() {
+    global $connect;
+    
+    try {
+        $query = "
+            SELECT 
+                o.id,
+                o.name,
+                o.details,
+                o.contact,
+                o.location,
+                o.services,
+                o.status,
+                (SELECT image_path FROM office_image WHERE office_id = o.id ORDER BY uploaded_at DESC, id DESC LIMIT 1) AS image
+            FROM offices o
+            WHERE o.status = 'active'
+            ORDER BY o.name ASC
+        ";
+        
+        $stmt = $connect->prepare($query);
+        $stmt->execute();
+        $offices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Format offices data
+        $formattedOffices = [];
+        foreach ($offices as $office) {
+            // Extract floor number from location (e.g., "room-12-1" -> floor 1)
+            $floor = 'Unknown';
+            if (!empty($office['location']) && preg_match('/room-\d+-(\d+)/', $office['location'], $matches)) {
+                $floor = $matches[1];
+            }
+            
+            $formattedOffices[] = [
+                'id' => (int)$office['id'],
+                'name' => $office['name'] ?? 'Unnamed Office',
+                'details' => $office['details'] ?? '',
+                'contact' => $office['contact'] ?? '',
+                'floor' => $floor,
+                'location' => $office['location'] ?? '',
+                'services' => $office['services'] ?? '',
+                'image' => $office['image'] ?? null
+            ];
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'offices' => $formattedOffices,
+            'count' => count($formattedOffices),
+            'message' => count($formattedOffices) > 0 
+                ? 'Offices loaded successfully' 
+                : 'No offices found'
+        ]);
+        
+    } catch (PDOException $e) {
+        throw new Exception('Database error: ' . $e->getMessage());
+    } catch (Exception $e) {
+        throw new Exception('Error fetching offices: ' . $e->getMessage());
     }
 }
 

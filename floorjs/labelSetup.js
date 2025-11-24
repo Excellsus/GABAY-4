@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
     tooltip: document.getElementById("floorplan-tooltip"),
     // Cache SVG elements for better performance
     svg: null,
-    svgViewport: null
+    svgViewport: null,
   };
 
   let currentSelectedOffice = null;
@@ -20,10 +20,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function labelBelongsToRoom(tspanEl, roomNumber) {
     if (!tspanEl) return false;
-    const parentText = tspanEl.closest('text');
+    const parentText = tspanEl.closest("text");
     if (!parentText || !parentText.id) return false;
     const parentId = parentText.id.trim();
-    if (!parentId.startsWith('text-')) return false;
+    if (!parentId.startsWith("text-")) return false;
     if (parentId === `text-${roomNumber}`) return true;
     return parentId.startsWith(`text-${roomNumber}-`);
   }
@@ -34,9 +34,11 @@ document.addEventListener("DOMContentLoaded", function () {
       return directMatch;
     }
 
-    const textMatches = document.querySelectorAll(`text[id^="text-${roomNumber}"]`);
+    const textMatches = document.querySelectorAll(
+      `text[id^="text-${roomNumber}"]`
+    );
     for (const textNode of textMatches) {
-      const tspanCandidate = textNode.querySelector('tspan');
+      const tspanCandidate = textNode.querySelector("tspan");
       if (tspanCandidate) {
         return tspanCandidate;
       }
@@ -53,12 +55,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Log elements found for debugging
-  console.log("Office details modal found:", !!officeDetailsModal);
-  console.log("Panel office name found:", !!panelOfficeName);
-  console.log("Office active toggle found:", !!officeActiveToggle);
-  console.log("Office status text found:", !!officeStatusText);
-  console.log("Close panel button found:", !!closePanelBtn);
-  console.log("Tooltip found:", !!tooltip);
+  console.log("Office details modal found:", !!domCache.officeDetailsModal);
+  console.log("Panel office name found:", !!domCache.panelOfficeName);
+  console.log("Office active toggle found:", !!domCache.officeActiveToggle);
+  console.log("Office status text found:", !!domCache.officeStatusText);
+  console.log("Close panel button found:", !!domCache.closePanelBtn);
+  console.log("Tooltip found:", !!domCache.tooltip);
 
   function updateRoomLabel(group, officeName) {
     if (!group) return;
@@ -79,31 +81,35 @@ document.addEventListener("DOMContentLoaded", function () {
     let tspanEl = findLabelTspanForRoom(roomNumber);
 
     if (!tspanEl && textEl) {
-      const existingTspan = textEl.querySelector('tspan');
+      const existingTspan = textEl.querySelector("tspan");
       if (existingTspan) {
         tspanEl = existingTspan;
       }
     }
 
     if (!tspanEl) {
-      const groupTspan = group.querySelector('text tspan');
+      const groupTspan = group.querySelector("text tspan");
       if (groupTspan) {
         tspanEl = groupTspan;
       }
     }
 
-    if (tspanEl && tspanEl.tagName === 'tspan') {
+    if (tspanEl && tspanEl.tagName === "tspan") {
       labelId = tspanEl.id || labelId;
-      const parentText = tspanEl.closest('text');
+      const parentText = tspanEl.closest("text");
       if (parentText) {
         textEl = parentText;
-        const referenceTspan = parentText.querySelector('tspan') || tspanEl;
-        originalX = parseFloat(referenceTspan.getAttribute('x')) || parseFloat(parentText.getAttribute('x'));
-        originalY = parseFloat(referenceTspan.getAttribute('y')) || parseFloat(parentText.getAttribute('y'));
+        const referenceTspan = parentText.querySelector("tspan") || tspanEl;
+        originalX =
+          parseFloat(referenceTspan.getAttribute("x")) ||
+          parseFloat(parentText.getAttribute("x"));
+        originalY =
+          parseFloat(referenceTspan.getAttribute("y")) ||
+          parseFloat(parentText.getAttribute("y"));
       } else {
         textEl = tspanEl.parentElement;
-        originalX = parseFloat(tspanEl.getAttribute('x'));
-        originalY = parseFloat(tspanEl.getAttribute('y'));
+        originalX = parseFloat(tspanEl.getAttribute("x"));
+        originalY = parseFloat(tspanEl.getAttribute("y"));
       }
     } else if (textEl) {
       originalX = parseFloat(textEl.getAttribute("x"));
@@ -127,7 +133,8 @@ document.addEventListener("DOMContentLoaded", function () {
     textEl.setAttribute("text-anchor", "middle");
     textEl.setAttribute("dominant-baseline", "central");
 
-    textEl.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+    textEl.style.fontFamily =
+      "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
     textEl.style.fontWeight = "600";
     textEl.style.fontSize = "14px";
     textEl.style.fill = "#1a1a1a";
@@ -152,7 +159,8 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       newTspan.textContent = word;
       newTspan.setAttribute("x", originalX);
-      newTspan.style.fontFamily = "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
+      newTspan.style.fontFamily =
+        "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif";
       newTspan.style.fontWeight = "600";
       newTspan.style.fontSize = "14px";
 
@@ -172,7 +180,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Optimized room finding with caching
   function findRoomElements(office) {
     const cacheKey = `${office.id}-${office.location}`;
-    
+
     // Return cached result if available
     if (roomElementCache.has(cacheKey)) {
       return roomElementCache.get(cacheKey);
@@ -190,17 +198,18 @@ document.addEventListener("DOMContentLoaded", function () {
         const roomMatch = locationStr.match(/room-(\d+)(?:-(\d+))?/);
         if (!roomMatch) return null;
         const roomNum = roomMatch[1];
-        const floorNum = roomMatch[2] || '1'; // Default to floor 1 if not specified
+        const floorNum = roomMatch[2] || "1"; // Default to floor 1 if not specified
         return document.getElementById(`room-${roomNum}-${floorNum}`);
       },
       () => document.getElementById(`room-${office.id}-1`), // Office ID pattern (legacy)
-      () => document.getElementById(`g${office.id}`) // Legacy pattern
+      () => document.getElementById(`g${office.id}`), // Legacy pattern
     ];
 
     for (const searchFn of searchPatterns) {
       roomElement = searchFn();
       if (roomElement) {
-        roomGroup = roomElement.closest("g") || roomElement.parentElement || roomElement;
+        roomGroup =
+          roomElement.closest("g") || roomElement.parentElement || roomElement;
         break;
       }
     }
@@ -212,19 +221,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updateRoomAppearanceById(officeId, isActive) {
     // Look up the office in officesData to get its location
-    const office = officesData.find(o => o.id.toString() === officeId.toString());
+    const office = officesData.find(
+      (o) => o.id.toString() === officeId.toString()
+    );
     if (!office) {
       console.warn(`Office with ID ${officeId} not found in officesData`);
       return;
     }
 
-    console.log(`Updating room appearance for office ${officeId} (${office.name}), active: ${isActive}`);
+    console.log(
+      `Updating room appearance for office ${officeId} (${office.name}), active: ${isActive}`
+    );
 
     // Use optimized room finder
     const { roomGroup, roomElement } = findRoomElements(office);
 
     if (!roomGroup) {
-      console.warn(`Room group not found for office ${officeId} with location ${office.location}`);
+      console.warn(
+        `Room group not found for office ${officeId} with location ${office.location}`
+      );
       return;
     }
 
@@ -282,10 +297,25 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Use cached DOM elements
-  const { officeDetailsModal, panelOfficeName, officeActiveToggle, officeStatusText, closePanelBtn, tooltip } = domCache;
+  const {
+    officeDetailsModal,
+    panelOfficeName,
+    officeActiveToggle,
+    officeStatusText,
+    closePanelBtn,
+    tooltip,
+  } = domCache;
 
-  if (!officeDetailsModal || !panelOfficeName || !officeActiveToggle || !officeStatusText || !closePanelBtn) {
-    console.error("Missing one or more essential panel elements.");
+  if (
+    !officeDetailsModal ||
+    !panelOfficeName ||
+    !officeActiveToggle ||
+    !officeStatusText ||
+    !closePanelBtn
+  ) {
+    console.warn(
+      "Panel elements not found - office interaction features disabled."
+    );
     return;
   }
 
@@ -316,11 +346,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Cache SVG elements for better performance
-    domCache.svg = document.querySelector('svg');
-    domCache.svgViewport = domCache.svg?.querySelector('.svg-pan-zoom_viewport');
+    domCache.svg = document.querySelector("svg");
+    domCache.svgViewport = domCache.svg?.querySelector(
+      ".svg-pan-zoom_viewport"
+    );
 
     // Create office lookup map for faster access
-    const officeMap = new Map(officesData.map(office => [office.id.toString(), office]));
+    const officeMap = new Map(
+      officesData.map((office) => [office.id.toString(), office])
+    );
 
     // Map office data to room groups
     officesData.forEach((office) => {
@@ -332,11 +366,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const { roomGroup, roomElement } = findRoomElements(office);
 
       if (!roomGroup) {
-        console.warn(`Room not found for office ${officeName} (ID: ${id}, Location: ${office.location})`);
+        console.warn(
+          `Room not found for office ${officeName} (ID: ${id}, Location: ${office.location})`
+        );
         return;
       }
 
-      console.log(`Processing room for office ${officeName}, using element: ${roomGroup.id}`);
+      console.log(
+        `Processing room for office ${officeName}, using element: ${roomGroup.id}`
+      );
 
       // Update room label with optimized function
       updateRoomLabel(roomGroup, officeName);
@@ -353,28 +391,34 @@ document.addEventListener("DOMContentLoaded", function () {
       // Define click handler for this office
       const handleRoomClick = function (e) {
         if (document.body.classList.contains("edit-mode-active")) return;
-        
+
         e.stopPropagation();
         currentSelectedOffice = office;
-        
+
         // Mobile: Use drawer if available
         if (typeof window.populateAndShowDrawerWithData === "function") {
           window.populateAndShowDrawerWithData(office);
           return;
         }
-        
-        // Desktop: Use panel if available
-        if (panelOfficeName) panelOfficeName.textContent = office.name || "N/A";
-        if (officeActiveToggle) {
-          const isActive = officeActiveStates[idStr];
-          officeActiveToggle.checked = isActive;
+
+        // Desktop: Use the proper openOfficePanel function which loads door controls
+        if (typeof window.openOfficePanel === "function") {
+          window.openOfficePanel(office.id, office.name, office.status);
+        } else {
+          // Fallback to old method if openOfficePanel not available
+          if (panelOfficeName)
+            panelOfficeName.textContent = office.name || "N/A";
+          if (officeActiveToggle) {
+            const isActive = officeActiveStates[idStr];
+            officeActiveToggle.checked = isActive;
+          }
+          if (officeStatusText) {
+            const isActive = officeActiveStates[idStr];
+            officeStatusText.textContent = isActive ? "Active" : "Inactive";
+            officeStatusText.style.color = isActive ? "#4CAF50" : "#f44336";
+          }
+          if (officeDetailsModal) openModal();
         }
-        if (officeStatusText) {
-          const isActive = officeActiveStates[idStr];
-          officeStatusText.textContent = isActive ? "Active" : "Inactive";
-          officeStatusText.style.color = isActive ? "#4CAF50" : "#f44336";
-        }
-        if (officeDetailsModal) openModal();
       };
 
       // Add click handler to both the group and the element
@@ -387,7 +431,10 @@ document.addEventListener("DOMContentLoaded", function () {
       let textEl = roomGroup.querySelector("text");
       if (textEl) {
         // Apply active/inactive class
-        textEl.classList.toggle("text-label-inactive", !officeActiveStates[idStr]);
+        textEl.classList.toggle(
+          "text-label-inactive",
+          !officeActiveStates[idStr]
+        );
         textEl.style.cursor = "pointer";
         textEl.style.pointerEvents = "auto";
 
@@ -440,6 +487,94 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   } else {
     console.error("Offices data (officesData) is missing.");
+  }
+
+  // Function to attach tooltip handlers to rooms
+  // This is exposed globally so it can be called after floor switching
+  window.attachRoomTooltipHandlers = function () {
+    const tooltipElement = document.getElementById("floorplan-tooltip");
+    if (!tooltipElement) {
+      console.warn("Tooltip element not found when attaching handlers");
+      return;
+    }
+
+    console.log("Attaching tooltip handlers to rooms...");
+
+    // Attach to room elements (paths)
+    document
+      .querySelectorAll('path[id^="room-"]')
+      .forEach(function (roomElement) {
+        const roomMatch = roomElement.id.match(/^room-(\d+)(?:-(\d+))?$/);
+        if (!roomMatch) return;
+
+        // Find the office for this room
+        const office = officesData.find((o) => o.location === roomElement.id);
+
+        // Show office name if occupied, "Unoccupied" if not
+        const displayText = office ? office.name : "Unoccupied";
+
+        // Remove any existing listeners by cloning
+        const newRoomElement = roomElement.cloneNode(true);
+        roomElement.parentNode.replaceChild(newRoomElement, roomElement);
+
+        // Add tooltip handlers
+        newRoomElement.addEventListener("mousemove", function (e) {
+          if (document.body.classList.contains("edit-mode-active")) return;
+          tooltipElement.innerHTML = displayText;
+          tooltipElement.style.display = "block";
+          tooltipElement.style.left = e.pageX + 15 + "px";
+          tooltipElement.style.top = e.pageY + 15 + "px";
+        });
+
+        newRoomElement.addEventListener("mouseout", function () {
+          tooltipElement.style.display = "none";
+        });
+      });
+
+    // Attach to text labels
+    document
+      .querySelectorAll('text[id^="roomlabel-"], tspan[id^="roomlabel-"]')
+      .forEach(function (textEl) {
+        const labelMatch = textEl.id.match(/^roomlabel-(\d+)$/);
+        if (!labelMatch) return;
+
+        const roomNumber = labelMatch[1];
+        // Find office by matching room number in location
+        const office = officesData.find((o) => {
+          if (!o.location) return false;
+          const match = o.location.match(/^room-(\d+)(?:-(\d+))?$/);
+          return match && match[1] === roomNumber;
+        });
+
+        // Show office name if occupied, "Unoccupied" if not
+        const displayText = office ? office.name : "Unoccupied";
+
+        // Remove any existing listeners by cloning
+        const newTextEl = textEl.cloneNode(true);
+        textEl.parentNode.replaceChild(newTextEl, textEl);
+
+        // Add tooltip handlers
+        newTextEl.addEventListener("mousemove", function (e) {
+          if (document.body.classList.contains("edit-mode-active")) return;
+          tooltipElement.innerHTML = displayText;
+          tooltipElement.style.display = "block";
+          tooltipElement.style.left = e.pageX + 15 + "px";
+          tooltipElement.style.top = e.pageY + 15 + "px";
+        });
+
+        newTextEl.addEventListener("mouseout", function () {
+          tooltipElement.style.display = "none";
+        });
+      });
+
+    console.log("Tooltip handlers attached successfully");
+  };
+
+  // Call it initially on page load
+  if (typeof officesData !== "undefined" && officesData) {
+    setTimeout(() => {
+      window.attachRoomTooltipHandlers();
+    }, 500);
   }
 
   // Function to open modal
